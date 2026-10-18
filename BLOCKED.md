@@ -154,8 +154,10 @@ against the real target:
 | `python scripts/check_version.py` | `VERSION CONTRACT: PASS` |
 | `python scripts/check_orphans.py` | `ORPHAN CHECK: PASS` (49 modules) |
 | `python scripts/check_clean_tree.py` | `CLEAN TREE: PASS` |
-| `python -m pytest tests/ -q` | `244 passed, 5 skipped` with a real Postgres |
+| `python -m pytest tests/ -q` | `250 passed, 5 skipped` with a real Postgres |
 | `python -m pip wheel . --no-deps -w dist` + `scripts/verify_wheel.py` in a fresh venv, run from outside the checkout | `WHEEL VERIFY: PASS` — the installed wheel ships the harness and finds the interprocedural taint |
+| `python scripts/build_release.py` | builds `redfall-0.1.0-py3-none-any.whl` + `redfall-0.1.0.tar.gz`, writes `SHA256SUMS`, and proves the harness, every prompt and the Dockerfile are inside both archives |
+| `powershell -File scripts/install.ps1 -NoPath` with a throwaway `REDFALL_HOME` | `Redfall 0.1.0 installed.` and the host's real doctor report — executed end to end on Windows; `bash -n scripts/install.sh` parses clean with a real POSIX shell here, and CI executes both installers on Ubuntu, Windows and macOS |
 | `node tests/harness/verify_harness.mjs --poc <poc>` | `ALL HARNESS CHECKS PASSED` |
 | `node tests/harness/verify_python_target.mjs` | `ALL PYTHON TARGET CHECKS PASSED` |
 | `node tests/harness/verify_chain_steps.mjs` | `ALL CHAIN HARNESS CHECKS PASSED` |
@@ -507,7 +509,7 @@ both prerequisites; that is the only implemented behaviour.
 
 ### Measured state after this work
 
-`python -m pytest tests/ -q` → **244 passed, 5 skipped** (the 5 gVisor skips),
+`python -m pytest tests/ -q` → **250 passed, 5 skipped** (the 5 gVisor skips),
 with `REDFALL_TEST_DATABASE_URL` pointed at a real Postgres. The four contract
 checkers all pass; see the table at the top of this document.
 
