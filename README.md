@@ -131,7 +131,7 @@ redfall/
 ├── web/                        Next.js 15 dashboard (scan + gate + chains)
 ├── scripts/                    the four contract checkers + verify_wheel.py
 ├── .github/workflows/ci.yml    the same checks on every push, plus the packaging matrix
-├── tests/                      236 tests, all against real artefacts
+├── tests/                      244 tests, all against real artefacts
 └── BLOCKED.md                  what cannot run here, and why
 ```
 
@@ -161,7 +161,7 @@ Ubuntu, Windows and macOS.
 make install          # redfall + range-runner, editable, with dev deps
 make check            # every contract checker plus the test suite
 make check-no-mock    # NO-MOCK CONTRACT: PASS
-make test             # 236 passed (5 skips: gVisor tests, no container runtime here)
+make test             # 244 passed (5 skips: gVisor tests, no container runtime here)
 make doctor           # what this host can and cannot do
 ```
 
@@ -254,10 +254,15 @@ SARIF levels mechanically and the CVSS floor is exported as
    only when the argument is already tainted by a real source and the matching
    parameter reaches a sink — resolved through import bindings (relative ESM
    specs, aliases, namespaces, CommonJS `require`, Python relative imports),
-   never guessed, with the caller named in the taint's `via` chain. Every
-   resolvable call also becomes an edge in the **call graph** (`call_edges`),
-   which route attribution follows: a taint in a helper counts as reachable from
-   the route whose handler can call it, transitively and across files.
+   never guessed, with the caller named in the taint's `via` chain. The other
+   direction — **return flow** — is proved the same way: a callee whose return
+   path reads a source (or a local derived from one) makes every call result
+   tainted at the caller's sink, and pass-throughs of parameters are never
+   claimed by the summary because the caller's own real taint already covers
+   them. Every resolvable call also becomes an edge in the **call graph**
+   (`call_edges`), which route attribution follows: a taint in a helper counts
+   as reachable from the route whose handler can call it, transitively and
+   across files.
 3. **Detect new surface.** The seven adaptive detectors run over the same source.
    Anything they find spawns a branch mid-scan rather than being deferred.
 4. **Plan.** The model splits the route inventory into branches; references to

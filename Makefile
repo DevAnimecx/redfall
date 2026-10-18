@@ -18,7 +18,7 @@ help:
 	@echo "  make check-version    scripts/check_version.py (rule 21)"
 	@echo "  make check-orphans    scripts/check_orphans.py (rule 24)"
 	@echo "  make check-clean-tree scripts/check_clean_tree.py (rule 22)"
-	@echo "  make test             pytest suite (236 tests)"
+	@echo "  make test             pytest suite (244 tests)"
 	@echo "  make doctor           prerequisite report"
 	@echo
 	@echo "  make range-up         start $(TARGET)"
