@@ -98,6 +98,25 @@ def _contains_source(parsed: ParsedFile, node: Node) -> str | None:
     return None
 
 
+def _first_label(parsed: ParsedFile, node: Node, extra_source=None) -> str | None:
+    """First label from the source model, or from `extra_source(node)`.
+
+    `extra_source` is the return-flow hook: the interprocedural pass answers
+    "this call returns data that came from a source" for calls it resolved, and
+    propagation treats that answer exactly like a source read.
+    """
+    stack = [node]
+    while stack:
+        cur = stack.pop()
+        label = _source_label(parsed, cur)
+        if label is None and extra_source is not None:
+            label = extra_source(cur)
+        if label:
+            return label
+        stack.extend(cur.children)
+    return None
+
+
 def _identifiers(node: Node) -> list[str]:
     out: list[str] = []
     stack = [node]
@@ -138,18 +157,23 @@ def _sanitisers_in(parsed: ParsedFile, node: Node, aliases: dict[str, str]) -> l
 
 # Public names for the interprocedural pass: both passes must share one source
 # model and one identifier reader, so `inter.py` imports these instead of
-# reimplementing them.
+# reimplementing them. `first_label` is the return-flow hook the pass supplies.
 contains_source = _contains_source
 identifiers_in = _identifiers
+first_label = _first_label
 
 
 def collect_tainted(
-    parsed: ParsedFile, symbols, seeds: dict[str, dict[str, str]] | None = None
+    parsed: ParsedFile,
+    symbols,
+    seeds: dict[str, dict[str, str]] | None = None,
+    extra_source=None,
 ) -> ScopeTaint:
     """Propagate taint through assignment / for / with / augmented assignment.
 
     `seeds` pre-taints named variables per scope before the pass runs; the
     interprocedural pass uses it to ask "what can this parameter reach?".
+    `extra_source` marks expressions as source-equivalent (return flow).
     Labels travel with the value, so every attribution stays auditable.
     """
     result = ScopeTaint(
@@ -169,7 +193,7 @@ def collect_tainted(
     def propagate(scope: str, source_node: Node | None, targets: list[str], line: int) -> None:
         if source_node is None or not targets:
             return
-        label = _contains_source(parsed, source_node)
+        label = _first_label(parsed, source_node, extra_source)
         if not label:
             for ident in _identifiers(source_node):
                 if ident in result.tainted.get(scope, {}):
@@ -194,8 +218,8 @@ def collect_tainted(
             if left is not None and left.type == "identifier":
                 scope = result.scope_for(line)
                 name = _text(parsed, left)
-                label = result.tainted.get(scope, {}).get(name) or _contains_source(
-                    parsed, node.child_by_field_name("right")
+                label = result.tainted.get(scope, {}).get(name) or _first_label(
+                    parsed, node.child_by_field_name("right"), extra_source
                 )
                 if label:
                     mark(scope, name, label, line)
@@ -215,12 +239,16 @@ def collect_tainted(
     return result
 
 
-def analyse_taint(parsed: ParsedFile, symbols) -> list[Taint]:
-    """Find every source→sink flow inside each enclosing function."""
+def find_sinks(parsed: ParsedFile, symbols, collected: ScopeTaint, extra_source=None) -> list[Taint]:
+    """Every sink reachable from an already-collected taint state.
+
+    `collect_tainted` decides what is tainted; this function only decides which
+    sinks consume it. Both the intraprocedural pass and the return-flow half of
+    the interprocedural pass call it with the state they built.
+    """
     findings: list[Taint] = []
     seen: set[str] = set()
     aliases = import_aliases(symbols.imports)
-    collected = collect_tainted(parsed, symbols)
     tainted = collected.tainted
     source_lines = collected.lines
 
@@ -243,7 +271,7 @@ def analyse_taint(parsed: ParsedFile, symbols) -> list[Taint]:
 
         scope_taint = tainted.get(scope, {})
         hits = [ident for ident in _identifiers(args) if ident in scope_taint]
-        direct = _contains_source(parsed, args)
+        direct = _first_label(parsed, args, extra_source)
         if not hits and not direct:
             continue
 
@@ -278,3 +306,8 @@ def analyse_taint(parsed: ParsedFile, symbols) -> list[Taint]:
 
     findings.sort(key=lambda t: t.line)
     return findings
+
+
+def analyse_taint(parsed: ParsedFile, symbols) -> list[Taint]:
+    """Find every source→sink flow inside each enclosing function."""
+    return find_sinks(parsed, symbols, collect_tainted(parsed, symbols))
