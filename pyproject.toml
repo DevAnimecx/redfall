@@ -28,7 +28,7 @@ dependencies = [
 [project.optional-dependencies]
 # flask/requests boot range/pythonbank, the Python ground-truth target the
 # Python-engine tests replay PoCs against.
-dev = ["pytest>=8.0", "flask>=3.0", "requests>=2.31"]
+dev = ["pytest>=8.0", "flask>=3.0", "requests>=2.31", "setuptools>=68"]
 
 [project.scripts]
 redfall = "redfall.cli:main"

@@ -43,6 +43,13 @@ jobs:
           pip install -e ".[dev]"
           pip install -e range
 
+      - name: install the range target's node dependencies
+        # The dependency test resolves express's *installed* version from
+        # range/vulnbank/node_modules — a real artefact, so CI installs it.
+        run: |
+          cd range/vulnbank
+          npm ci --no-audit --no-fund
+
       - name: no-mock contract (SS1/SS2)
         run: python scripts/check_no_mock.py
 
