@@ -1,6 +1,13 @@
-# Redfall 0.1.0
+# Redfall
 
-Autonomous vulnerability discovery and verified repair.
+**Autonomous vulnerability discovery and verified repair.**
+
+[![ci](https://github.com/DevAnimecx/redfall/actions/workflows/ci.yml/badge.svg)](https://github.com/DevAnimecx/redfall/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/DevAnimecx/redfall)](https://github.com/DevAnimecx/redfall/releases)
+[![platforms](https://img.shields.io/badge/platforms-windows%20%7C%20linux%20%7C%20macos-blue)](#install)
+[![python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)](#install)
+[![findings](https://img.shields.io/badge/findings-executed%20proofs%20only-brightgreen)](#how-a-finding-becomes-real)
+[![no-mock](https://img.shields.io/badge/no--mock%20contract-enforced%20in%20CI-brightgreen)](scripts/check_no_mock.py)
 
 Redfall reads a target's real source, plans work as a tree of branches that can
 grow mid-scan, executes every candidate exploit against a running target, and
@@ -26,6 +33,8 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | No-mock enforcement | **Passing** (`NO-MOCK CONTRACT: PASS`, 51 files) |
 | Data layer (Postgres 17 + Redis) | **Built and verified** |
 | Packaging (any platform Python 3.12 runs on) | **Built and verified** — the wheel ships the harness, prompts and Dockerfile; installed into a fresh venv and driven from outside the checkout (`WHEEL VERIFY: PASS`); CI matrix on Ubuntu/Windows/macOS |
+| Installers (`scripts/install.sh`, `scripts/install.ps1`) | **Built and verified** — the PowerShell installer was executed end to end on this host into a throwaway home; the POSIX script is syntax-checked against a real shell here and both are executed by the CI package matrix on Ubuntu/Windows/macOS |
+| Release supply chain (Sigstore attestations, SHA256SUMS, weekly dependency audit) | **Built** — releases are constructed and attested by CI from the tagged source; `pip-audit` runs weekly |
 | SARIF 2.1.0 export (`redfall report --format sarif`) | **Built and verified** — every result carries `properties.redfall.verified`; unproven candidates stay visible |
 | Sandbox (Docker + gVisor) | **Built, refuses on this host** — no container runtime |
 | LLM (LiteLLM BYOK) | **Built, refuses without a key** — live calls only |
@@ -129,9 +138,12 @@ redfall/
 │   ├── pythonbank/             17 seeded vulns, 18 tests, 17/17 PoCs over real HTTP
 │   └── range_runner/           deterministic scorer, 5 metrics + 3 chain metrics
 ├── web/                        Next.js 15 dashboard (scan + gate + chains)
-├── scripts/                    the four contract checkers + verify_wheel.py
-├── .github/workflows/ci.yml    the same checks on every push, plus the packaging matrix
-├── tests/                      244 tests, all against real artefacts
+├── scripts/                    the four contract checkers, verify_wheel.py, install.sh / install.ps1, build_release.py
+├── .github/workflows/          ci (checks + 3-OS packaging and installers), release (attested artifacts), security (weekly pip-audit)
+├── tests/                      250 tests, all against real artefacts
+├── CONTRIBUTING.md             the no-mock rule, where each stage lives, PR contract
+├── SECURITY.md                 vulnerability reporting, supply-chain checks, range-target warning
+├── CHANGELOG.md                0.1.0 - what shipped, with the measured numbers
 └── BLOCKED.md                  what cannot run here, and why
 ```
 
@@ -139,12 +151,42 @@ redfall/
 
 ## Install
 
-Python 3.12+, on Linux, macOS or Windows:
+Linux, macOS or Windows, Python 3.12+ (3.13 supported). The package is a
+pure-Python wheel (`py3-none-any`): no compiled extensions, no post-install
+hooks, nothing running that you cannot read.
+
+**Windows** (PowerShell):
+
+```powershell
+git clone https://github.com/DevAnimecx/redfall.git; cd redfall
+.\scripts\install.ps1
+```
+
+**Linux / macOS**:
 
 ```bash
-pip install .             # from a checkout; the wheel is py3-none-any
-redfall --version
-redfall doctor            # exactly what this host can and cannot run
+git clone https://github.com/DevAnimecx/redfall.git && cd redfall
+./scripts/install.sh
+```
+
+Both installers use `pipx` when it is present (isolated, recommended) and a
+private virtualenv otherwise — never system-wide, never elevated — and finish
+with `redfall doctor`, the host's real capability report. With any package
+manager you already use:
+
+```bash
+pipx install git+https://github.com/DevAnimecx/redfall   # isolated
+uv pip install git+https://github.com/DevAnimecx/redfall # or in a uv venv
+pip install redfall-0.1.0-py3-none-any.whl               # a verified release wheel
+redfall doctor                                           # exactly what this host can and cannot run
+```
+
+Release artifacts are built by CI from the tagged source, published with
+`SHA256SUMS` and attested with Sigstore, so a download is verifiable instead of
+trusted:
+
+```bash
+gh attestation verify redfall-0.1.0-py3-none-any.whl --repo DevAnimecx/redfall
 ```
 
 The wheel carries everything the runtime reads — the sandbox harness
@@ -152,8 +194,7 @@ The wheel carries everything the runtime reads — the sandbox harness
 `scripts/verify_wheel.py` proves it: install into a fresh virtualenv, run it
 from a directory outside the checkout, and it must still parse, taint and find
 the interprocedural flow. `pip install -e ".[dev]"` plus `pip install -e range`
-is `make install`, the development setup. CI builds and installs the wheel on
-Ubuntu, Windows and macOS.
+is `make install`, the development setup.
 
 ## Quick start
 
@@ -161,7 +202,7 @@ Ubuntu, Windows and macOS.
 make install          # redfall + range-runner, editable, with dev deps
 make check            # every contract checker plus the test suite
 make check-no-mock    # NO-MOCK CONTRACT: PASS
-make test             # 244 passed (5 skips: gVisor tests, no container runtime here)
+make test             # 250 passed (5 skips: gVisor tests, no container runtime here)
 make doctor           # what this host can and cannot do
 ```
 
@@ -326,3 +367,32 @@ chain_narrative_rate == 1.00
 Matching is exact — `category` (or a declared alias), same `file`, and
 `|line − manifest line| <= 5` **or** the same `symbol`. There is no fuzzy
 fallback; a near-miss is recorded as a miss.
+
+---
+
+## Contributing
+
+Small scoped commits, evidence over adjectives. Start with
+[`CONTRIBUTING.md`](CONTRIBUTING.md): the no-mock rule, where each stage lives,
+and what a reviewable change looks like. The short version — run `make check`,
+bring a proof for every claim, and if something cannot run on your host, put it
+in [`BLOCKED.md`](BLOCKED.md) instead of faking it. Bug reports use the issue
+template and include the output of `redfall doctor`.
+
+## Security
+
+- The `range/` directories are **deliberately vulnerable applications** built as
+  ground truth. Never deploy them; never point Redfall at systems you do not own
+  or have written permission to test. Details in [`SECURITY.md`](SECURITY.md).
+- Report vulnerabilities in Redfall itself through GitHub private vulnerability
+  reporting — not in a public issue.
+- Supply chain: the package is pure Python with no install-time hooks; releases
+  are built by CI from the tagged source, attested with Sigstore and published
+  with `SHA256SUMS`; dependencies are audited weekly by `pip-audit`. See
+  [`SECURITY.md`](SECURITY.md) for the verification commands.
+
+## Changelog
+
+[`CHANGELOG.md`](CHANGELOG.md) — 0.1.0 is the first release. Every number in it
+was measured on a real host; [`BLOCKED.md`](BLOCKED.md) lists what could not run
+there and the smallest real unblock for each.
