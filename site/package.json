@@ -1,0 +1,22 @@
+{
+  "name": "redfall-site",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "One-page RedFall landing site: prerendered React + Tailwind, deployed to GitHub Pages.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && vite build --ssr src/entry-server.jsx --outDir dist-server && node scripts/prerender.mjs",
+    "preview": "vite preview --port 4173 --strictPort"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@vitejs/plugin-react": "^6.1.2",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.4"
+  }
+}

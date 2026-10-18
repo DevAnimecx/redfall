@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://devanimecx.github.io/redfall/sitemap.xml

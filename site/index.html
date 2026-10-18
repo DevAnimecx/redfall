@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RedFall — The vulnerability scanner that proves every finding by executing it</title>
+    <meta
+      name="description"
+      content="RedFall is an autonomous vulnerability scanner that proves every finding by executing it: sandbox-verified exploits for TypeScript, JavaScript and Python, verified fixes, SARIF 2.1.0."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://devanimecx.github.io/redfall/" />
+    <meta name="theme-color" content="#0b0e14" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="RedFall" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://devanimecx.github.io/redfall/" />
+    <meta property="og:title" content="RedFall — Prove the vulnerability, then prove the fix" />
+    <meta
+      property="og:description"
+      content="Autonomous vulnerability scanner: real taint analysis, exploits executed in a gVisor sandbox against the live target, only reproduced findings reported. 254 tests passing."
+    />
+    <meta property="og:image" content="https://devanimecx.github.io/redfall/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="RedFall shield mark with the tagline: autonomous vulnerability discovery and verified repair" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="RedFall — The vulnerability scanner that proves every finding by executing it" />
+    <meta
+      name="twitter:description"
+      content="Taint analysis for TypeScript, JavaScript and Python; exploits executed in a gVisor sandbox; fixes verified against the target's own tests. SARIF 2.1.0 export."
+    />
+    <meta name="twitter:image" content="https://devanimecx.github.io/redfall/og.png" />
+
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="%BASE_URL%android-chrome-192.png" />
+    <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "SoftwareApplication",
+            "name": "RedFall",
+            "description": "Autonomous vulnerability scanner that proves every finding by executing it. tree-sitter ingestion for TypeScript, JavaScript and Python, source-to-sink taint analysis with a depth-one interprocedural pass, exploit verification inside a Docker + gVisor sandbox, a verified fix loop, and SARIF 2.1.0 export. Static analysis only produces candidates; only executed proofs become findings.",
+            "url": "https://devanimecx.github.io/redfall/",
+            "codeRepository": "https://github.com/DevAnimecx/redfall",
+            "applicationCategory": "SecurityApplication",
+            "operatingSystem": "Windows, Linux, macOS",
+            "softwareVersion": "0.1.0",
+            "programmingLanguage": "Python",
+            "releaseNotes": "https://github.com/DevAnimecx/redfall/blob/main/CHANGELOG.md",
+            "author": { "@type": "Organization", "name": "RedFall contributors", "url": "https://github.com/DevAnimecx" }
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "What is RedFall?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "RedFall is an autonomous vulnerability scanner that proves findings by execution. It ingests a target's real source with tree-sitter (TypeScript, JavaScript, Python), tracks attacker-controlled data from request surface to sink — across function boundaries, with return flow — generates a candidate exploit for each lead, runs it inside a gVisor sandbox against the running application, and reports only what reproduced. It then attempts a repair and verifies it against the target's own test suite."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How does RedFall verify a finding instead of guessing?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Static analysis never produces findings, only candidates. A candidate becomes a finding only when its exploit ran inside the sandbox against the real application and its observable predicate matched. Every SARIF result carries properties.redfall.verified — true or false — and nothing is ever upgraded or dropped behind your back."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Which languages and frameworks are covered?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "TypeScript/TSX, JavaScript/JSX and Python. Route extraction covers Express, Fastify, koa-router and NestJS decorators, plus Flask and FastAPI with blueprint/router prefix resolution. Taint analysis has a depth-one interprocedural pass in both language pairs, including unseeded return-flow summaries, and an inter-file call graph."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What does a full scan require?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Docker with a gVisor runtime and one LLM provider key (bring-your-own-key via LiteLLM). There is no dry-run mode: redfall doctor prints exactly what the current host can and cannot run, and refuses to guess. Anything unrunnable is listed in BLOCKED.md with its smallest real unblock."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How are fixes verified?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The fix loop patches on a branch, runs the target's own tests, and re-runs the original PoC; a fix is verified only when the suite still passes and the PoC stops reproducing. Failure text is fed back into up to three attempts, then the transcripts go to a human. Nothing is committed or pushed for you."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Why are some tests skipped?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The five skips are gVisor-dependent tests on the development host used for 0.1.0; they run in CI where the container runtime exists. The no-mock contract forbids simulating them locally, so they are reported as skips, not passes."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Where is the source and are releases verifiable?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "The full source, tests and ground-truth range targets are public in the GitHub repository. Releases are built by CI from the tagged commit, published with SHA256SUMS and attested with Sigstore, so gh attestation verify proves the wheel came from this repository's release workflow."
+                }
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "name": "RedFall",
+            "url": "https://devanimecx.github.io/redfall/"
+          }
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"><!--app-html--></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
