@@ -19,11 +19,14 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | Component | State |
 | --- | --- |
 | Ingestion (tree-sitter TS/TSX/JS + Python, symbols, taint incl. cross-function hops, deps) | **Built and verified against real targets** |
+| Route frameworks (Express, Fastify, koa-router, NestJS decorators, Flask/FastAPI) | **Built and verified** — each recognised by its real registration shape |
 | Adaptive branching (recursive tree, 7 spawn triggers) | **Built and verified** — all 7 triggers fire on real source |
 | Cross-branch chaining (attack graph, compound CVSS, narrative) | **Built and verified** — 6/6 chains reproduce on `chainbank`; the LLM-proposed chain stage is wired end to end and structurally reviewed |
 | Range-runner gate (matcher, 5 metrics + 3 chain metrics) | **Built and verified** |
-| No-mock enforcement | **Passing** (`NO-MOCK CONTRACT: PASS`, 48 files) |
+| No-mock enforcement | **Passing** (`NO-MOCK CONTRACT: PASS`, 51 files) |
 | Data layer (Postgres 17 + Redis) | **Built and verified** |
+| Packaging (any platform Python 3.12 runs on) | **Built and verified** — the wheel ships the harness, prompts and Dockerfile; installed into a fresh venv and driven from outside the checkout (`WHEEL VERIFY: PASS`); CI matrix on Ubuntu/Windows/macOS |
+| SARIF 2.1.0 export (`redfall report --format sarif`) | **Built and verified** — every result carries `properties.redfall.verified`; unproven candidates stay visible |
 | Sandbox (Docker + gVisor) | **Built, refuses on this host** — no container runtime |
 | LLM (LiteLLM BYOK) | **Built, refuses without a key** — live calls only |
 | Scale-out (Firecracker microVMs, Rust orchestrator, NATS) | **Not started** — see [`BLOCKED.md`](BLOCKED.md) |
