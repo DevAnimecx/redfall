@@ -1,0 +1,38 @@
+diff --git a/./src/routes/auth.ts b/src/routes/auth.ts
+index 67fa5d2..430d207 100644
+--- a/./src/routes/auth.ts
++++ b/src/routes/auth.ts
+@@ -47,11 +47,11 @@ export function loginHandler(req: Request, res: Response): void {
+         // "wrong password" path, which lets anyone enumerate accounts (CWE-204).
+         // VULN-004: the unknown-user path also skips password verification
+         // entirely, so its response time differs from a real-user lookup (CWE-208).
+-        res.status(401).json({ error: 'no such user', field: 'username' });
++        res.status(401).json({ error: 'invalid_credentials' });
+         return;
+       }
+       if (!verifyPassword(password, row.password)) {
+-        res.status(401).json({ error: 'wrong password', field: 'password' });
++        res.status(401).json({ error: 'invalid_credentials' });
+         return;
+       }
+       const token = signToken({ sub: row.id, username: row.username, role: row.role });
+diff --git a/./tests/auth.test.ts b/tests/auth.test.ts
+index e2356fc..349903c 100644
+--- a/./tests/auth.test.ts
++++ b/tests/auth.test.ts
+@@ -20,13 +20,13 @@ describe('auth', () => {
+     it('rejects a wrong password for an existing user', async () => {
+       const res = await request(app).post('/api/auth/login').send({ username: 'alice', password: 'nope' });
+       expect(res.status).toBe(401);
+-      expect(res.body.error).toBe('wrong password');
++      expect(res.body.error).toBe('invalid_credentials');
+     });
+ 
+     it('rejects an unknown username', async () => {
+       const res = await request(app).post('/api/auth/login').send({ username: 'ghost', password: 'nope' });
+       expect(res.status).toBe(401);
+-      expect(res.body.error).toBe('no such user');
++      expect(res.body.error).toBe('invalid_credentials');
+     });
+ 
+     it('rejects an empty body', async () => {

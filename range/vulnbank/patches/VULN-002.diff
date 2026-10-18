@@ -1,0 +1,52 @@
+diff --git a/./src/routes/auth.ts b/src/routes/auth.ts
+index 67fa5d2..dc94835 100644
+--- a/./src/routes/auth.ts
++++ b/src/routes/auth.ts
+@@ -5,6 +5,38 @@ import { hashPassword, verifyPassword } from '../auth/hash';
+ 
+ const router = Router();
+ 
++// VULN-002 fix: a fixed-window limiter on the credential endpoint. Counts attempts
++// per source address and answers 429 once the window budget is spent.
++const LOGIN_WINDOW_MS = 15 * 60 * 1000;
++const LOGIN_MAX_ATTEMPTS = 8;
++const loginAttempts = new Map<string, { count: number; resetAt: number }>();
++
++function loginRateLimit(req: Request, res: Response, next: () => void): void {
++  const key = req.ip || req.socket.remoteAddress || 'unknown';
++  const now = Date.now();
++  const entry = loginAttempts.get(key);
++  if (entry && entry.resetAt > now && entry.count >= LOGIN_MAX_ATTEMPTS) {
++    res.status(429).json({ error: 'too_many_attempts', retry_after_ms: entry.resetAt - now });
++    return;
++  }
++
++  // Only failed attempts are charged, so a user who knows their password is never
++  // locked out by their own successful logins.
++  const chargeFailure = (): void => {
++    const current = loginAttempts.get(key);
++    if (!current || current.resetAt <= Date.now()) {
++      loginAttempts.set(key, { count: 1, resetAt: Date.now() + LOGIN_WINDOW_MS });
++      return;
++    }
++    current.count += 1;
++  };
++
++  res.on('finish', () => {
++    if (res.statusCode === 401) chargeFailure();
++  });
++  next();
++}
++
+ interface LoginBody {
+   username?: unknown;
+   password?: unknown;
+@@ -65,7 +97,7 @@ export function loginHandler(req: Request, res: Response): void {
+     });
+ }
+ 
+-router.post('/login', loginHandler);
++router.post('/login', loginRateLimit, loginHandler);
+ 
+ router.post('/register', (req: Request, res: Response) => {
+   const body = (req.body || {}) as RegisterBody;

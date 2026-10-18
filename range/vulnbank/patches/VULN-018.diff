@@ -1,0 +1,76 @@
+diff --git a/./src/routes/fetch.ts b/src/routes/fetch.ts
+index 0a7cfe1..aa262c3 100644
+--- a/./src/routes/fetch.ts
++++ b/src/routes/fetch.ts
+@@ -4,6 +4,22 @@ import { requireAuth } from '../middleware/jwt';
+ 
+ const router = Router();
+ 
++// VULN-018/019 fix: allowlist of public hosts. Loopback, link-local, private and
++// metadata addresses are refused, and only http/https may be used.
++const ALLOWED_HOSTS = new Set(['api.vulnbank.test', 'status.vulnbank.test']);
++
++function isAllowedUrl(raw: string): boolean {
++  let parsed: URL;
++  try {
++    parsed = new URL(raw);
++  } catch {
++    return false;
++  }
++  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
++  if (!ALLOWED_HOSTS.has(parsed.hostname)) return false;
++  return true;
++}
++
+ interface FetchBody {
+   url?: unknown;
+ }
+@@ -20,6 +36,12 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
+     return;
+   }
+ 
++  // VULN-018 fix: only allowlisted public hosts may be fetched.
++  if (!isAllowedUrl(url)) {
++    res.status(400).json({ error: 'url_not_allowed' });
++    return;
++  }
++
+   try {
+     const upstream = await fetch(url, { timeout: 8000 });
+     const text = await upstream.text();
+diff --git a/./tests/fetch.test.ts b/tests/fetch.test.ts
+index 14ab209..d87abcb 100644
+--- a/./tests/fetch.test.ts
++++ b/tests/fetch.test.ts
+@@ -23,11 +23,10 @@ describe('fetch proxy', () => {
+     await new Promise<void>((resolve) => upstream.close(() => resolve()));
+   });
+ 
+-  it('proxies a reachable URL and returns the body', async () => {
++  it('refuses a host that is not on the allowlist', async () => {
+     const res = await request(app).post('/api/fetch').set('Authorization', auth(token)).send({ url: upstreamUrl });
+-    expect(res.status).toBe(200);
+-    expect(res.body.status).toBe(200);
+-    expect(res.body.body).toBe('upstream-ok');
++    expect(res.status).toBe(400);
++    expect(res.body.error).toBe('url_not_allowed');
+   });
+ 
+   it('requires the url field', async () => {
+@@ -35,13 +34,13 @@ describe('fetch proxy', () => {
+     expect(res.status).toBe(400);
+   });
+ 
+-  it('reports an upstream failure as 502', async () => {
++  it('refuses a loopback address', async () => {
+     const res = await request(app)
+       .post('/api/fetch')
+       .set('Authorization', auth(token))
+       .send({ url: 'http://127.0.0.1:1/nope' });
+-    expect(res.status).toBe(502);
+-    expect(res.body.error).toBe('upstream_failed');
++    expect(res.status).toBe(400);
++    expect(res.body.error).toBe('url_not_allowed');
+   });
+ 
+   it('requires authentication', async () => {

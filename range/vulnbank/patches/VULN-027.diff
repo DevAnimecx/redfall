@@ -1,0 +1,43 @@
+diff --git a/./src/middleware/jwt.ts b/src/middleware/jwt.ts
+index ce9ea1f..daab91d 100644
+--- a/./src/middleware/jwt.ts
++++ b/src/middleware/jwt.ts
+@@ -1,8 +1,12 @@
+ import jwt from 'jsonwebtoken';
+ import { Request, Response, NextFunction } from 'express';
+ 
+-// VULN-027: hardcoded JWT signing secret committed to source (CWE-798).
+-const JWT_SECRET = 'vulnbank-dev-secret-do-not-ship'; // line 3 — hardcoded_jwt_secret
++// VULN-027 fix: the signing secret comes from the environment and the process
++// refuses to start without it, so no secret lives in source control.
++const JWT_SECRET = process.env.JWT_SECRET;
++if (!JWT_SECRET) {
++  throw new Error('JWT_SECRET must be set in the environment');
++}
+ 
+ export interface AuthedRequest extends Request {
+   user?: { id: number; username: string; role: string };
+diff --git a/./tests/globalSetup.ts b/tests/globalSetup.ts
+index 9c2b4ee..6d0e55f 100644
+--- a/./tests/globalSetup.ts
++++ b/tests/globalSetup.ts
+@@ -17,6 +17,7 @@ module.exports = async (): Promise<void> => {
+   process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'Sup3rS3cretBankPwd!';
+   process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-jwt-secret-value';
+   process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_test_only_value';
++  process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-jwt-secret-value';
+   process.env.DATABASE_URL =
+     process.env.DATABASE_URL || `postgresql://${user}:Sup3rS3cretBankPwd!@${host}:${port}/${name}`;
+ 
+diff --git a/./tests/jest.setup.ts b/tests/jest.setup.ts
+index a38ea28..2f92d6a 100644
+--- a/./tests/jest.setup.ts
++++ b/tests/jest.setup.ts
+@@ -7,6 +7,7 @@ process.env.DB_USER = process.env.DB_USER || 'vulnbank';
+ process.env.DB_PASSWORD = process.env.DB_PASSWORD || 'Sup3rS3cretBankPwd!';
+ process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-jwt-secret-value';
+ process.env.STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || 'whsec_test_only_value';
++process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-only-jwt-secret-value';
+ process.env.DATABASE_URL =
+   process.env.DATABASE_URL ||
+   `postgresql://${process.env.DB_USER}:Sup3rS3cretBankPwd!@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;

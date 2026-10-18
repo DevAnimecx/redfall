@@ -1,0 +1,49 @@
+{
+  "name": "chainbank",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deliberately vulnerable banking API whose flaws are designed to chain. Redfall 0.1.0 range target. Not for production use.",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts",
+    "seed": "ts-node src/db/seed.ts",
+    "test": "jest --runInBand --forceExit",
+    "write-manifest": "python3 scripts/write_manifest.py",
+    "replay-poc": "ts-node scripts/replay_poc.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^2.7.0",
+    "pg": "^8.12.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.12",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^20.14.0",
+    "@types/node-fetch": "^2.6.11",
+    "@types/pg": "^8.11.6",
+    "@types/supertest": "^6.0.2",
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0",
+    "ts-jest": "^29.1.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testTimeout": 60000,
+    "globalSetup": "<rootDir>/tests/globalSetup.ts",
+    "testMatch": ["<rootDir>/tests/**/*.test.ts"]
+  }
+}

@@ -1,0 +1,32 @@
+diff --git a/./src/routes/upload.ts b/src/routes/upload.ts
+index bd84000..9ab0407 100644
+--- a/./src/routes/upload.ts
++++ b/src/routes/upload.ts
+@@ -15,9 +15,27 @@ if (!fs.existsSync(UPLOAD_DIR)) {
+ 
+ // VULN-017: multer is configured with no file filter, so any extension and any
+ // MIME type is accepted, including .jsp/.php/.exe payloads (CWE-434).
++// VULN-017 fix: only document and image types are accepted.
++const ALLOWED_EXTENSIONS = new Set(['.txt', '.pdf', '.csv', '.png', '.jpg', '.jpeg']);
++const ALLOWED_MIME = new Set([
++  'text/plain',
++  'application/pdf',
++  'text/csv',
++  'image/png',
++  'image/jpeg',
++]);
++
+ const upload = multer({
+   storage: multer.memoryStorage(),
+   limits: { fileSize: 5 * 1024 * 1024 },
++  fileFilter: (_req, file, cb) => {
++    const ext = path.extname(path.basename(file.originalname)).toLowerCase();
++    if (!ALLOWED_EXTENSIONS.has(ext) || !ALLOWED_MIME.has(file.mimetype)) {
++      cb(new Error('file_type_not_allowed'));
++      return;
++    }
++    cb(null, true);
++  },
+ });
+ 
+ // VULN-016: the client-supplied filename is joined straight onto the upload

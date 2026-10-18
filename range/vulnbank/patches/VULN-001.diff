@@ -1,0 +1,16 @@
+diff --git a/./src/routes/auth.ts b/src/routes/auth.ts
+index 67fa5d2..b686e30 100644
+--- a/./src/routes/auth.ts
++++ b/src/routes/auth.ts
+@@ -37,9 +37,9 @@ export function loginHandler(req: Request, res: Response): void {
+   // and brute force run unthrottled (CWE-307).
+   const lookup = `SELECT id, username, password, email, role, balance
+                   FROM users
+-                  WHERE username = '${username}'`;
++                  WHERE username = $1`;
+   pool
+-    .query(lookup)
++    .query(lookup, [username])
+     .then((result) => {
+       const row = result.rows[0];
+       if (!row) {

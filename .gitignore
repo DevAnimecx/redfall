@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+*.egg-info/
+.coverage
+coverage/
+htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+.turbo/
+.parcel-cache/
+npm-debug.log
+yarn-error.log
+
+# Rust
+target/
+
+# Generic build output
+build/
+dist/
+
+# Editors and OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.cache/
+.DS_Store
+Thumbs.db
+
+# Stray patch/editor residue — these should never exist, and check_clean_tree
+# fails the build if they do.
+*.bak
+*.orig
+*.rej
+*.tmp
+*.log
+
+# Secrets and local config. Never commit a real key; .env.example is the template.
+.env
+.env.*
+!.env.example
+
+# Range target runtime state. The apps build into dist/ and write uploads and
+# plugin payloads at run time; none of it is source.
+range/*/dist/
+range/*/uploads/
+range/*/plugins/*.js
+range/chainbank/chain_replay_result.json
+
+# Release artifacts are rebuilt from source by scripts/build_release.sh.
+/release/
+/sbom.json
+/scan.json
+/range/report.json
+/range/report_p3.json

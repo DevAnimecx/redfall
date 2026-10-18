@@ -1,0 +1,64 @@
+diff --git a/./src/routes/tx.ts b/src/routes/tx.ts
+index e17c6c9..dd6b81a 100644
+--- a/./src/routes/tx.ts
++++ b/src/routes/tx.ts
+@@ -76,18 +76,20 @@ router.post('/', requireAuth, async (req: AuthedRequest, res: Response) => {
+ });
+ 
+ // VULN-015: transaction lookup by id with no ownership check (CWE-639).
+-router.get('/:id', requireAuth, async (req: Request, res: Response) => {
++router.get('/:id', requireAuth, async (req: AuthedRequest, res: Response) => {
+   const id = Number(req.params.id);
+   if (!Number.isInteger(id) || id <= 0) {
+     res.status(400).json({ error: 'invalid_id' });
+     return;
+   }
++  // VULN-015 fix: scope the lookup to the caller's own transactions.
++  const ownerClause = req.user!.role === 'admin' ? '' : 'AND t.owner_id = $2';
+   try {
+     const result = await pool.query(
+       `SELECT t.id, t.owner_id, u.username AS owner, t.kind, t.counterparty, t.amount, t.note, t.created_at
+        FROM transactions t JOIN users u ON u.id = t.owner_id
+-       WHERE t.id = $1`,
+-      [id],
++       WHERE t.id = $1 ${ownerClause}`,
++      req.user!.role === 'admin' ? [id] : [id, req.user!.id],
+     );
+     if (result.rowCount === 0) {
+       res.status(404).json({ error: 'transaction_not_found' });
+diff --git a/./tests/transactions.test.ts b/tests/transactions.test.ts
+index aa9b4f9..135e4e9 100644
+--- a/./tests/transactions.test.ts
++++ b/tests/transactions.test.ts
+@@ -84,8 +84,11 @@ describe('transactions', () => {
+   });
+ 
+   describe('GET /api/transactions/:id', () => {
+-    it('returns a transaction by id', async () => {
+-      const listed = await pool.query(`SELECT id FROM transactions ORDER BY id LIMIT 1`);
++    it('returns the caller\'s own transaction by id', async () => {
++      const listed = await pool.query(
++        `SELECT t.id FROM transactions t JOIN users u ON u.id = t.owner_id
++         WHERE u.username = 'bob' ORDER BY t.id LIMIT 1`,
++      );
+       const res = await request(app)
+         .get(`/api/transactions/${listed.rows[0].id}`)
+         .set('Authorization', auth(bob));
+@@ -93,6 +96,17 @@ describe('transactions', () => {
+       expect(res.body.transaction.id).toBe(listed.rows[0].id);
+     });
+ 
++    it("forbids reading another user's transaction", async () => {
++      const listed = await pool.query(
++        `SELECT t.id FROM transactions t JOIN users u ON u.id = t.owner_id
++         WHERE u.username = 'alice' ORDER BY t.id LIMIT 1`,
++      );
++      const res = await request(app)
++        .get(`/api/transactions/${listed.rows[0].id}`)
++        .set('Authorization', auth(bob));
++      expect(res.status).toBe(404);
++    });
++
+     it('404s on an unknown id', async () => {
+       const res = await request(app).get('/api/transactions/999999').set('Authorization', auth(bob));
+       expect(res.status).toBe(404);

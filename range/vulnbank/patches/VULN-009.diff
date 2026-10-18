@@ -1,0 +1,38 @@
+diff --git a/./src/routes/users.ts b/src/routes/users.ts
+index 52527f6..1ece93b 100644
+--- a/./src/routes/users.ts
++++ b/src/routes/users.ts
+@@ -11,11 +11,14 @@ const router = Router();
+ // the whole table in one response (CWE-770).
+ router.get('/', requireAuth, async (req: Request, res: Response) => {
+   const limitRaw = req.query.limit;
+-  const limit = limitRaw === undefined ? 25 : Number(limitRaw);
+-  if (!Number.isFinite(limit) || limit < 0) {
++  const requested = limitRaw === undefined ? 25 : Number(limitRaw);
++  if (!Number.isFinite(requested) || requested < 0) {
+     res.status(400).json({ error: 'invalid_limit' });
+     return;
+   }
++  // VULN-009 fix: the page size is capped so one request cannot dump the table.
++  const MAX_PAGE_SIZE = 100;
++  const limit = Math.min(requested, MAX_PAGE_SIZE);
+   try {
+     const result = await pool.query(
+       `SELECT id, username, email, role, balance FROM users ORDER BY id LIMIT $1`,
+diff --git a/./tests/users.test.ts b/tests/users.test.ts
+index 345be40..377e0b4 100644
+--- a/./tests/users.test.ts
++++ b/tests/users.test.ts
+@@ -42,6 +42,12 @@ describe('users', () => {
+       expect(res.body.count).toBe(2);
+     });
+ 
++    it('caps an oversized limit', async () => {
++      const res = await request(app).get('/api/users?limit=1000000').set('Authorization', auth(token));
++      expect(res.status).toBe(200);
++      expect(res.body.limit).toBeLessThanOrEqual(100);
++    });
++
+     it('rejects a negative limit', async () => {
+       const res = await request(app).get('/api/users?limit=-5').set('Authorization', auth(token));
+       expect(res.status).toBe(400);

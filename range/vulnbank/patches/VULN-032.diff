@@ -1,0 +1,37 @@
+diff --git a/./src/app.ts b/src/app.ts
+index 95f52ab..744dafd 100644
+--- a/./src/app.ts
++++ b/src/app.ts
+@@ -22,8 +22,18 @@ export function createApp(): Express {
+   // site can issue credentialed cross-origin reads (CWE-942). helmet is not
+   // installed, which is also why no CSP is sent on any response (VULN-022).
+   app.use((req: Request, res: Response, next: NextFunction) => {
+-    res.setHeader('Access-Control-Allow-Origin', '*');
+-    res.setHeader('Access-Control-Allow-Credentials', 'true');
++    // VULN-032 fix: the origin is echoed only for allowlisted callers, and
++    // credentials are never combined with a wildcard.
++    const ALLOWED_ORIGINS = new Set([
++      'https://vulnbank.test',
++      'https://app.vulnbank.test',
++    ]);
++    const origin = req.headers.origin;
++    if (typeof origin === 'string' && ALLOWED_ORIGINS.has(origin)) {
++      res.setHeader('Access-Control-Allow-Origin', origin);
++      res.setHeader('Access-Control-Allow-Credentials', 'true');
++      res.setHeader('Vary', 'Origin');
++    }
+     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,PATCH,OPTIONS');
+     res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,Stripe-Signature');
+     if (req.method === 'OPTIONS') {
+diff --git a/./tests/app.test.ts b/tests/app.test.ts
+index fa7d89f..650de9a 100644
+--- a/./tests/app.test.ts
++++ b/tests/app.test.ts
+@@ -26,6 +26,7 @@ describe('app surface', () => {
+     const res = await request(app).options('/api/auth/login');
+     expect(res.status).toBe(204);
+     expect(res.headers['access-control-allow-methods']).toContain('POST');
++    expect(res.headers['access-control-allow-origin']).toBeUndefined();
+   });
+ 
+   it('exposes the service config endpoint', async () => {

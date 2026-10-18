@@ -1,0 +1,116 @@
+diff --git a/./src/routes/webhook.ts b/src/routes/webhook.ts
+index 53b6d13..d98cc4b 100644
+--- a/./src/routes/webhook.ts
++++ b/src/routes/webhook.ts
+@@ -1,6 +1,26 @@
+ import { Router, Request, Response } from 'express';
++import crypto from 'crypto';
+ import pool from '../db';
+ 
++const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
++
++// Stripe sends `t=<timestamp>,v1=<hex hmac>`; recompute and compare in constant time.
++function verifyStripeSignature(header: string, payload: string): boolean {
++  if (!STRIPE_WEBHOOK_SECRET) return false;
++  const parts = Object.fromEntries(
++    header.split(',').map((p) => p.split('=') as [string, string]),
++  );
++  const timestamp = parts.t;
++  const expected = parts.v1;
++  if (!timestamp || !expected) return false;
++  const computed = crypto
++    .createHmac('sha256', STRIPE_WEBHOOK_SECRET)
++    .update(`${timestamp}.${payload}`)
++    .digest('hex');
++  if (computed.length !== expected.length) return false;
++  return crypto.timingSafeEqual(Buffer.from(computed), Buffer.from(expected));
++}
++
+ const router = Router();
+ 
+ interface StripeEvent {
+@@ -12,6 +32,15 @@ interface StripeEvent {
+ // `Stripe-Signature` header is never read and never HMAC-verified, so anyone can
+ // forge a charge.succeeded event and credit an account (CWE-347).
+ router.post('/stripe', async (req: Request, res: Response) => {
++  // VULN-025 fix: the payload is HMAC-verified against the Stripe signing secret
++  // before any of it is trusted.
++  const signatureHeader = req.headers['stripe-signature'];
++  const rawBody = JSON.stringify(req.body || {});
++  if (typeof signatureHeader !== 'string' || !verifyStripeSignature(signatureHeader, rawBody)) {
++    res.status(400).json({ error: 'invalid_signature' });
++    return;
++  }
++
+   const event = (req.body || {}) as StripeEvent;
+   const type = typeof event.type === 'string' ? event.type : '';
+ 
+diff --git a/./tests/webhook.test.ts b/tests/webhook.test.ts
+index ba6be2f..a28c477 100644
+--- a/./tests/webhook.test.ts
++++ b/tests/webhook.test.ts
+@@ -1,6 +1,19 @@
+ import request from 'supertest';
++import crypto from 'crypto';
+ import { app, resetDatabase, balanceOf } from './helpers';
+ 
++const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || '';
++
++function signedHeaders(body: unknown): Record<string, string> {
++  const timestamp = String(Math.floor(Date.now() / 1000));
++  const payload = JSON.stringify(body);
++  const signature = crypto
++    .createHmac('sha256', WEBHOOK_SECRET)
++    .update(`${timestamp}.${payload}`)
++    .digest('hex');
++  return { 'Stripe-Signature': `t=${timestamp},v1=${signature}` };
++}
++
+ describe('stripe webhook', () => {
+   beforeAll(async () => {
+     await resetDatabase();
+@@ -8,9 +21,8 @@ describe('stripe webhook', () => {
+ 
+   it('credits the customer named in a charge.succeeded event', async () => {
+     const before = await balanceOf('bob');
+-    const res = await request(app)
+-      .post('/api/webhook/stripe')
+-      .send({ type: 'charge.succeeded', data: { object: { customer: 'bob', amount: 12345 } } });
++    const event = { type: 'charge.succeeded', data: { object: { customer: 'bob', amount: 12345 } } };
++    const res = await request(app).post('/api/webhook/stripe').set(signedHeaders(event)).send(event);
+ 
+     expect(res.status).toBe(200);
+     expect(res.body.received).toBe(true);
+@@ -18,20 +30,27 @@ describe('stripe webhook', () => {
+   });
+ 
+   it('accepts an unrecognised event type and audits it', async () => {
+-    const res = await request(app).post('/api/webhook/stripe').send({ type: 'invoice.paid' });
++    const event = { type: 'invoice.paid' };
++    const res = await request(app).post('/api/webhook/stripe').set(signedHeaders(event)).send(event);
+     expect(res.status).toBe(200);
+     expect(res.body.received).toBe(true);
+   });
+ 
+   it('requires an event type', async () => {
+-    const res = await request(app).post('/api/webhook/stripe').send({});
++    const event = {};
++    const res = await request(app).post('/api/webhook/stripe').set(signedHeaders(event)).send(event);
++    expect(res.status).toBe(400);
++  });
++
++  it('rejects an event with no valid signature', async () => {
++    const res = await request(app).post('/api/webhook/stripe').send({ type: 'invoice.paid' });
+     expect(res.status).toBe(400);
++    expect(res.body.error).toBe('invalid_signature');
+   });
+ 
+   it('404s when the customer does not exist', async () => {
+-    const res = await request(app)
+-      .post('/api/webhook/stripe')
+-      .send({ type: 'charge.succeeded', data: { object: { customer: 'ghost', amount: 100 } } });
++    const event = { type: 'charge.succeeded', data: { object: { customer: 'ghost', amount: 100 } } };
++    const res = await request(app).post('/api/webhook/stripe').set(signedHeaders(event)).send(event);
+     expect(res.status).toBe(404);
+   });
+ });

@@ -1,0 +1,22 @@
+diff --git a/./src/routes/profile.ts b/src/routes/profile.ts
+index 688c350..0944103 100644
+--- a/./src/routes/profile.ts
++++ b/src/routes/profile.ts
+@@ -53,14 +53,9 @@ router.get('/:id/profile', requireAuth, async (req: Request, res: Response) => {
+           `<a href="${p.website}">${p.display_name}</a></body></html>`,
+       );
+   } catch (err) {
+-    const e = err as { message: string; stack?: string; code?: string; query?: string };
+-    res.status(500).json({
+-      error: 'profile_lookup_failed',
+-      message: e.message,
+-      code: e.code,
+-      stack: e.stack,
+-      query: e.query,
+-    });
++    // VULN-012 fix: log internally, return an opaque error to the caller.
++    console.error('[profile] lookup failed', err);
++    res.status(500).json({ error: 'profile_lookup_failed' });
+   }
+ });
+ 

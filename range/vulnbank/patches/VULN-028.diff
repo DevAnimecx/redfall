@@ -1,0 +1,13 @@
+diff --git a/./src/db.ts b/src/db.ts
+index d913a97..318e2dc 100644
+--- a/./src/db.ts
++++ b/src/db.ts
+@@ -6,7 +6,7 @@ const pool = new Pool({
+   port: Number(process.env.DB_PORT || 5432),
+   database: process.env.DB_NAME || 'vulnbank',
+   user: process.env.DB_USER || 'vulnbank',
+-  password: 'Sup3rS3cretBankPwd!', // line 7 — hardcoded_db_password
++  password: process.env.DB_PASSWORD || '', // VULN-028 fix: credential comes from the environment
+   max: 10,
+ });
+ 

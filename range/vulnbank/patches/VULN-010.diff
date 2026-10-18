@@ -1,0 +1,36 @@
+diff --git a/./src/routes/users.ts b/src/routes/users.ts
+index 52527f6..00c72de 100644
+--- a/./src/routes/users.ts
++++ b/src/routes/users.ts
+@@ -4,6 +4,16 @@ import { requireAuth, AuthedRequest } from '../middleware/jwt';
+ 
+ const router = Router();
+ 
++// VULN-010 fix: HTML-encode every value interpolated into a response body.
++function escapeHtml(value: string): string {
++  return value
++    .replace(/&/g, '&amp;')
++    .replace(/</g, '&lt;')
++    .replace(/>/g, '&gt;')
++    .replace(/"/g, '&quot;')
++    .replace(/'/g, '&#39;');
++}
++
+ // NOTE on ordering: `/` and `/search` are declared before `/:id` so that Express
+ // does not treat "search" as an :id parameter.
+ 
+@@ -40,12 +50,12 @@ router.get('/search', requireAuth, async (req: Request, res: Response) => {
+       `SELECT id, username FROM users WHERE username ILIKE $1 ORDER BY id LIMIT 20`,
+       [`%${q}%`],
+     );
+-    const rows = result.rows.map((r) => `<li>${r.id} — ${r.username}</li>`).join('');
++    const rows = result.rows.map((r) => `<li>${escapeHtml(String(r.id))} — ${escapeHtml(r.username)}</li>`).join('');
+     res
+       .status(200)
+       .type('html')
+       .send(
+-        `<html><body><h1>Search results for: ${q}</h1><ul>${rows}</ul>` +
++        `<html><body><h1>Search results for: ${escapeHtml(q)}</h1><ul>${rows}</ul>` +
+           `<p>${result.rowCount} match(es)</p></body></html>`,
+       );
+   } catch (err) {

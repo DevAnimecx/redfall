@@ -1,0 +1,56 @@
+diff --git a/./src/routes/users.ts b/src/routes/users.ts
+index 52527f6..67976b8 100644
+--- a/./src/routes/users.ts
++++ b/src/routes/users.ts
+@@ -61,6 +61,9 @@ router.get('/:id', requireAuth, (req: AuthedRequest, res: Response) => {
+     res.status(400).json({ error: 'invalid_id' });
+     return;
+   }
++  // VULN-008 fix: a public profile stays readable, but the sensitive account
++  // fields are only returned to the owner or an admin.
++  const isSelfOrAdmin = id === req.user!.id || req.user!.role === 'admin';
+   pool
+     .query(
+       `SELECT u.id, u.username, u.email, u.role, u.balance, u.kyc_complete, u.created_at,
+@@ -74,7 +77,14 @@ router.get('/:id', requireAuth, (req: AuthedRequest, res: Response) => {
+         res.status(404).json({ error: 'user_not_found' });
+         return;
+       }
+-      res.status(200).json({ user: result.rows[0] });
++      const user = { ...result.rows[0] } as Record<string, unknown>;
++      if (!isSelfOrAdmin) {
++        delete user.email;
++        delete user.balance;
++        delete user.kyc_complete;
++        delete user.role;
++      }
++      res.status(200).json({ user });
+     })
+     .catch((err) => res.status(500).json({ error: 'lookup_failed', detail: (err as Error).message }));
+ });
+diff --git a/./tests/users.test.ts b/tests/users.test.ts
+index 345be40..ad9e9ac 100644
+--- a/./tests/users.test.ts
++++ b/tests/users.test.ts
+@@ -14,7 +14,20 @@ describe('users', () => {
+       const res = await request(app).get('/api/users/1').set('Authorization', auth(token));
+       expect(res.status).toBe(200);
+       expect(res.body.user.username).toBe('admin');
+-      expect(res.body.user.email).toBe('admin@vulnbank.test');
++    });
++
++    it('hides another account balance and email from a non-owner', async () => {
++      const res = await request(app).get('/api/users/1').set('Authorization', auth(token));
++      expect(res.status).toBe(200);
++      expect(res.body.user.balance).toBeUndefined();
++      expect(res.body.user.email).toBeUndefined();
++    });
++
++    it('shows the full record to the owner', async () => {
++      const res = await request(app).get('/api/users/2').set('Authorization', auth(token));
++      expect(res.status).toBe(200);
++      expect(res.body.user.email).toBe('alice@vulnbank.test');
++      expect(res.body.user.balance).toBeDefined();
+     });
+ 
+     it('404s on an unknown id', async () => {

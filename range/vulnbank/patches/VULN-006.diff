@@ -1,0 +1,13 @@
+diff --git a/./src/middleware/jwt.ts b/src/middleware/jwt.ts
+index ce9ea1f..a7d0e09 100644
+--- a/./src/middleware/jwt.ts
++++ b/src/middleware/jwt.ts
+@@ -10,7 +10,7 @@ export interface AuthedRequest extends Request {
+ 
+ export function signToken(payload: Record<string, unknown>): string {
+   // VULN-006: no `expiresIn` — issued tokens never expire (CWE-613).
+-  return jwt.sign(payload, JWT_SECRET);
++  return jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
+ }
+ 
+ export function verifyToken(token: string): Record<string, unknown> | null {

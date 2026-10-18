@@ -1,0 +1,29 @@
+diff --git a/./src/routes/auth.ts b/src/routes/auth.ts
+index 67fa5d2..02960d3 100644
+--- a/./src/routes/auth.ts
++++ b/src/routes/auth.ts
+@@ -80,19 +80,14 @@ router.post('/register', (req: Request, res: Response) => {
+ 
+   // VULN-007: the request body is spread directly into the INSERT column list,
+   // so a caller can add role, balance or kyc_complete to self-escalate (CWE-915).
+-  const fields: Record<string, unknown> = { ...body };
+-  delete fields.password;
+-  // Hashed with the same MD5 helper login verifies against (VULN-029).
+-  const columns = ['username', 'email', ...Object.keys(fields).filter((k) => k !== 'username' && k !== 'email')];
+-  const placeholders = columns.map((_c, i) => `$${i + 1}`);
+-  const values = columns.map((c) => (c === 'username' ? username : c === 'email' ? email : fields[c]));
+-
++  // VULN-007 fix: only caller-controlled columns are written; privileged fields
++  // are set by the server, never taken from the request body.
+   pool
+     .query(
+-      `INSERT INTO users (${columns.join(', ')}, password)
+-       VALUES (${placeholders.join(', ')}, $${columns.length + 1})
++      `INSERT INTO users (username, email, password, role, balance, kyc_complete)
++       VALUES ($1, $2, $3, 'customer', 0, false)
+        RETURNING id, username, email, role, balance, kyc_complete`,
+-      [...values, hashPassword(password)],
++      [username, email, hashPassword(password)],
+     )
+     .then((result) => {
+       const row = result.rows[0];

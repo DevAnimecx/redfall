@@ -1,0 +1,48 @@
+diff --git a/./src/routes/redirect.ts b/src/routes/redirect.ts
+index 8f799e4..ea6d093 100644
+--- a/./src/routes/redirect.ts
++++ b/src/routes/redirect.ts
+@@ -10,7 +10,20 @@ router.get('/', (req: Request, res: Response) => {
+     res.status(400).json({ error: 'query parameter "to" is required' });
+     return;
+   }
+-  res.redirect(302, to);
++  // VULN-020 fix: only same-site relative paths and allowlisted hosts may be
++  // redirected to.
++  const ALLOWED_HOSTS = new Set(['vulnbank.test', 'www.vulnbank.test']);
++  let target: URL | null = null;
++  try {
++    target = new URL(to, 'https://vulnbank.test');
++  } catch {
++    target = null;
++  }
++  if (!target || !ALLOWED_HOSTS.has(target.hostname)) {
++    res.status(400).json({ error: 'redirect_not_allowed' });
++    return;
++  }
++  res.redirect(302, target.toString());
+ });
+ 
+ export default router;
+diff --git a/./tests/fetch.test.ts b/tests/fetch.test.ts
+index 14ab209..adc2894 100644
+--- a/./tests/fetch.test.ts
++++ b/tests/fetch.test.ts
+@@ -51,10 +51,15 @@ describe('fetch proxy', () => {
+ });
+ 
+ describe('redirect', () => {
+-  it('issues a 302 to the requested target', async () => {
++  it('issues a 302 to a same-site target', async () => {
+     const res = await request(app).get('/api/redirect?to=/health');
+     expect(res.status).toBe(302);
+-    expect(res.headers.location).toBe('/health');
++    expect(res.headers.location).toBe('https://vulnbank.test/health');
++  });
++
++  it('refuses an external redirect target', async () => {
++    const res = await request(app).get('/api/redirect?to=https://evil.example.test/x');
++    expect(res.status).toBe(400);
+   });
+ 
+   it('requires the to parameter', async () => {

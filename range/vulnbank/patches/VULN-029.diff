@@ -1,0 +1,28 @@
+diff --git a/./src/auth/hash.ts b/src/auth/hash.ts
+index c9c61b6..cc14c1f 100644
+--- a/./src/auth/hash.ts
++++ b/src/auth/hash.ts
+@@ -1,11 +1,18 @@
+-import crypto from 'crypto';
++import bcrypt from 'bcryptjs';
++
++// VULN-029 fix: passwords are hashed with bcrypt, a salted adaptive-cost
++// function, instead of unsalted MD5.
++const BCRYPT_ROUNDS = 10;
+ 
+-// VULN-029: passwords are hashed with MD5 (CWE-327). MD5 is fast and
+-// collision-broken, so offline cracking of a leaked hash table is trivial.
+ export function hashPassword(plain: string): string {
+-  return crypto.createHash('md5').update(plain).digest('hex');
++  return bcrypt.hashSync(plain, BCRYPT_ROUNDS);
+ }
+ 
+ export function verifyPassword(plain: string, stored: string): boolean {
+-  return hashPassword(plain) === stored;
++  if (!stored) return false;
++  try {
++    return bcrypt.compareSync(plain, stored);
++  } catch {
++    return false;
++  }
+ }

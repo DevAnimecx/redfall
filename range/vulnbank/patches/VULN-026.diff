@@ -1,0 +1,26 @@
+diff --git a/./src/routes/config.ts b/src/routes/config.ts
+index ca28fea..df51bf6 100644
+--- a/./src/routes/config.ts
++++ b/src/routes/config.ts
+@@ -5,13 +5,14 @@ const router = Router();
+ // VULN-026: the whole server environment is serialised into the response, so any
+ // unauthenticated caller can read secrets (CWE-200).
+ router.get('/', (_req: Request, res: Response) => {
+-  const env = { ...process.env };
+-  const extra = {
+-    jwt_secret: 'vulnbank-dev-secret-do-not-ship',
+-    stripe_secret_key: 'sk_test_51H8vulnbankFakeKeyDoNotUse',
+-    db_password: 'Sup3rS3cretBankPwd!',
+-  };
+-  res.status(200).json({ config: env, secrets: extra, version: '1.0.0' });
++  // VULN-026 fix: only non-sensitive runtime settings are exposed.
++  res.status(200).json({
++    config: {
++      port: Number(process.env.PORT || 4000),
++      upload_dir: process.env.UPLOAD_DIR || './uploads',
++    },
++    version: '1.0.0',
++  });
+ });
+ 
+ export default router;

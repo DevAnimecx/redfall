@@ -1,0 +1,32 @@
+diff --git a/./src/routes/profile.ts b/src/routes/profile.ts
+index 688c350..4212cb4 100644
+--- a/./src/routes/profile.ts
++++ b/src/routes/profile.ts
+@@ -4,6 +4,16 @@ import { requireAuth, AuthedRequest } from '../middleware/jwt';
+ 
+ const router = Router();
+ 
++// VULN-011 fix: stored content is encoded at render time.
++function escapeHtml(value: string): string {
++  return String(value)
++    .replace(/&/g, '&amp;')
++    .replace(/</g, '&lt;')
++    .replace(/>/g, '&gt;')
++    .replace(/"/g, '&quot;')
++    .replace(/'/g, '&#39;');
++}
++
+ // VULN-011: `bio` is stored verbatim and rendered into HTML without escaping, so
+ // a payload planted via PUT survives for every later viewer (CWE-79).
+ router.put('/:id/profile', requireAuth, async (req: AuthedRequest, res: Response) => {
+@@ -49,8 +59,8 @@ router.get('/:id/profile', requireAuth, async (req: Request, res: Response) => {
+       .status(200)
+       .type('html')
+       .send(
+-        `<html><body><h2>${p.username}</h2><div class="bio">${p.bio}</div>` +
+-          `<a href="${p.website}">${p.display_name}</a></body></html>`,
++        `<html><body><h2>${escapeHtml(p.username)}</h2><div class="bio">${escapeHtml(p.bio)}</div>` +
++          `<a href="${escapeHtml(p.website)}">${escapeHtml(p.display_name)}</a></body></html>`,
+       );
+   } catch (err) {
+     const e = err as { message: string; stack?: string; code?: string; query?: string };

@@ -1,0 +1,54 @@
+diff --git a/./src/routes/fetch.ts b/src/routes/fetch.ts
+index 0a7cfe1..287e9b7 100644
+--- a/./src/routes/fetch.ts
++++ b/src/routes/fetch.ts
+@@ -15,6 +15,13 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
+   const body = (req.body || {}) as FetchBody;
+   const url = typeof body.url === 'string' ? body.url : '';
+ 
++  // VULN-019 fix: metadata and link-local addresses are refused before any
++  // request leaves the process.
++  if (/^https?:\/\/(169\.254\.|127\.|localhost|\[::1\]|metadata\.)/i.test(url)) {
++    res.status(400).json({ error: 'url_not_allowed' });
++    return;
++  }
++
+   if (!url) {
+     res.status(400).json({ error: 'url is required' });
+     return;
+diff --git a/./tests/fetch.test.ts b/tests/fetch.test.ts
+index 14ab209..7c842f4 100644
+--- a/./tests/fetch.test.ts
++++ b/tests/fetch.test.ts
+@@ -23,11 +23,10 @@ describe('fetch proxy', () => {
+     await new Promise<void>((resolve) => upstream.close(() => resolve()));
+   });
+ 
+-  it('proxies a reachable URL and returns the body', async () => {
++  it('refuses a loopback address that is not allowlisted', async () => {
+     const res = await request(app).post('/api/fetch').set('Authorization', auth(token)).send({ url: upstreamUrl });
+-    expect(res.status).toBe(200);
+-    expect(res.body.status).toBe(200);
+-    expect(res.body.body).toBe('upstream-ok');
++    expect(res.status).toBe(400);
++    expect(res.body.error).toBe('url_not_allowed');
+   });
+ 
+   it('requires the url field', async () => {
+@@ -35,13 +34,13 @@ describe('fetch proxy', () => {
+     expect(res.status).toBe(400);
+   });
+ 
+-  it('reports an upstream failure as 502', async () => {
++  it('refuses a loopback address', async () => {
+     const res = await request(app)
+       .post('/api/fetch')
+       .set('Authorization', auth(token))
+       .send({ url: 'http://127.0.0.1:1/nope' });
+-    expect(res.status).toBe(502);
+-    expect(res.body.error).toBe('upstream_failed');
++    expect(res.status).toBe(400);
++    expect(res.body.error).toBe('url_not_allowed');
+   });
+ 
+   it('requires authentication', async () => {

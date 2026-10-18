@@ -1,0 +1,17 @@
+diff --git a/./src/routes/settings.ts b/src/routes/settings.ts
+index a5b889f..85390a0 100644
+--- a/./src/routes/settings.ts
++++ b/src/routes/settings.ts
+@@ -6,8 +6,12 @@ const router = Router();
+ 
+ // VULN-030: a recursive merge that follows `__proto__` keys, so a crafted body
+ // pollutes Object.prototype for the whole process (CWE-1321).
++const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
++
+ function merge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+   for (const key of Object.keys(source)) {
++    // VULN-030 fix: never write through keys that reach the prototype chain.
++    if (UNSAFE_KEYS.has(key)) continue;
+     const value = (source as Record<string, unknown>)[key];
+     if (value && typeof value === 'object' && !Array.isArray(value)) {
+       const existing = (target as Record<string, unknown>)[key];

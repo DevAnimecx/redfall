@@ -1,0 +1,45 @@
+diff --git a/./src/routes/export.ts b/src/routes/export.ts
+index d832c1b..eb4d346 100644
+--- a/./src/routes/export.ts
++++ b/src/routes/export.ts
+@@ -4,6 +4,14 @@ import { requireAuth, AuthedRequest } from '../middleware/jwt';
+ 
+ const router = Router();
+ 
++// VULN-024 fix: quote every cell and neutralise the leading characters that a
++// spreadsheet would interpret as a formula.
++function csvCell(value: unknown): string {
++  const text = String(value ?? '');
++  const safe = /^[=+@]/.test(text) ? `'${text}` : text;
++  return `"${safe.replace(/"/g, '""')}"`;
++}
++
+ // VULN-024: cell values are written to CSV with no leading-character escaping, so
+ // a value beginning with `=`, `+`, `-` or `@` becomes a formula when the file is
+ // opened in a spreadsheet (CWE-1236).
+@@ -16,7 +24,11 @@ router.get('/', requireAuth, async (_req: AuthedRequest, res: Response) => {
+ 
+     const lines = ['id,owner,username,kind,counterparty,amount,note'];
+     for (const r of result.rows) {
+-      lines.push([r.id, r.owner_id, r.username, r.kind, r.counterparty, r.amount, r.note].join(','));
++      lines.push(
++        [r.id, r.owner_id, r.username, r.kind, r.counterparty, r.amount, r.note]
++          .map(csvCell)
++          .join(','),
++      );
+     }
+ 
+     res
+diff --git a/./tests/export.test.ts b/tests/export.test.ts
+index a97355d..83cf71e 100644
+--- a/./tests/export.test.ts
++++ b/tests/export.test.ts
+@@ -18,7 +18,7 @@ describe('export', () => {
+     const lines = res.text.trim().split('\n');
+     expect(lines[0]).toBe('id,owner,username,kind,counterparty,amount,note');
+     expect(lines.length).toBeGreaterThanOrEqual(5);
+-    expect(lines[1].split(',').length).toBe(7);
++    expect(lines[1].startsWith('"1",')).toBe(true);
+   });
+ 
+   it('requires authentication', async () => {

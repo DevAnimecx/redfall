@@ -1,0 +1,26 @@
+diff --git a/./src/routes/import.ts b/src/routes/import.ts
+index 566e1a6..2e3c224 100644
+--- a/./src/routes/import.ts
++++ b/src/routes/import.ts
+@@ -1,5 +1,4 @@
+ import { Router, Request, Response } from 'express';
+-import serialize from 'node-serialize';
+ import { requireAuth, AuthedRequest } from '../middleware/jwt';
+ 
+ const router = Router();
+@@ -20,8 +19,14 @@ router.post('/', requireAuth, (req: AuthedRequest, res: Response) => {
+   }
+ 
+   try {
++    // VULN-031 fix: batches are parsed as plain JSON. node-serialize evaluates the
++    // function wrappers it emits, which is remote code execution.
+     const payload = typeof body.batch === 'string' ? body.batch : JSON.stringify(body.batch);
+-    const restored = serialize.unserialize(payload);
++    if (typeof body.batch === 'string' && payload.includes('_$$ND_FUNC$$_')) {
++      res.status(400).json({ error: 'unsafe_payload' });
++      return;
++    }
++    const restored = JSON.parse(payload);
+     res.status(200).json({ ok: true, imported: restored });
+   } catch (err) {
+     res.status(400).json({ error: 'import_failed', detail: (err as Error).message });

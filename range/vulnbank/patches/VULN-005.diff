@@ -1,0 +1,13 @@
+diff --git a/./src/middleware/jwt.ts b/src/middleware/jwt.ts
+index ce9ea1f..c6ddf7b 100644
+--- a/./src/middleware/jwt.ts
++++ b/src/middleware/jwt.ts
+@@ -16,7 +16,7 @@ export function signToken(payload: Record<string, unknown>): string {
+ export function verifyToken(token: string): Record<string, unknown> | null {
+   // VULN-005: `algorithms` is not pinned, so a token signed with alg=none
+   // (empty signature) verifies successfully (CWE-347).
+-  return jwt.verify(token, JWT_SECRET) as Record<string, unknown>;
++  return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as Record<string, unknown>;
+ }
+ 
+ export function requireAuth(req: AuthedRequest, res: Response, next: NextFunction): void {

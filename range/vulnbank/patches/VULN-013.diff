@@ -1,0 +1,62 @@
+diff --git a/./src/routes/tx.ts b/src/routes/tx.ts
+index e17c6c9..f219092 100644
+--- a/./src/routes/tx.ts
++++ b/src/routes/tx.ts
+@@ -39,39 +39,48 @@ router.post('/', requireAuth, async (req: AuthedRequest, res: Response) => {
+     return;
+   }
+ 
++  // VULN-013 fix: the check and the writes happen inside one transaction and the
++  // sender row is locked, so concurrent transfers serialise instead of racing.
++  const client = await pool.connect();
+   try {
+-    const meRow = await pool.query(`SELECT balance FROM users WHERE id = $1`, [me]);
++    await client.query('BEGIN');
++
++    const meRow = await client.query(`SELECT balance FROM users WHERE id = $1 FOR UPDATE`, [me]);
+     if (meRow.rowCount === 0) {
++      await client.query('ROLLBACK');
+       res.status(404).json({ error: 'sender_not_found' });
+       return;
+     }
+-    const peerRow = await pool.query(`SELECT id FROM users WHERE id = $1`, [to]);
++    const peerRow = await client.query(`SELECT id FROM users WHERE id = $1 FOR UPDATE`, [to]);
+     if (peerRow.rowCount === 0) {
++      await client.query('ROLLBACK');
+       res.status(404).json({ error: 'recipient_not_found' });
+       return;
+     }
+ 
+     const balance = Number(meRow.rows[0].balance);
+-    // Check-then-act with a gap in between: the window the race exploits.
+-    await sleep(120);
+-
+     if (amount > 0 && balance < amount) {
++      await client.query('ROLLBACK');
+       res.status(400).json({ error: 'insufficient_funds', balance });
+       return;
+     }
+ 
+-    await pool.query(`UPDATE users SET balance = balance - $1 WHERE id = $2`, [amount, me]);
+-    await pool.query(`UPDATE users SET balance = balance + $1 WHERE id = $2`, [amount, to]);
+-    const tx = await pool.query(
++    await client.query(`UPDATE users SET balance = balance - $1 WHERE id = $2`, [amount, me]);
++    await client.query(`UPDATE users SET balance = balance + $1 WHERE id = $2`, [amount, to]);
++    const tx = await client.query(
+       `INSERT INTO transactions (owner_id, kind, counterparty, amount, note)
+        VALUES ($1, 'transfer', $2, $3, $4) RETURNING id, owner_id, kind, counterparty, amount, note`,
+       [me, String(to), amount, note],
+     );
+ 
+-    const after = await pool.query(`SELECT balance FROM users WHERE id = $1`, [me]);
++    const after = await client.query(`SELECT balance FROM users WHERE id = $1`, [me]);
++    await client.query('COMMIT');
+     res.status(201).json({ transaction: tx.rows[0], balance_after: Number(after.rows[0].balance) });
+   } catch (err) {
++    await client.query('ROLLBACK');
+     res.status(500).json({ error: 'transfer_failed', detail: (err as Error).message });
++  } finally {
++    client.release();
+   }
+ });
+ 

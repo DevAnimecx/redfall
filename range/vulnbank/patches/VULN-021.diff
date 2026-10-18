@@ -1,0 +1,30 @@
+diff --git a/./src/routes/comments.ts b/src/routes/comments.ts
+index cc831b5..cbed7db 100644
+--- a/./src/routes/comments.ts
++++ b/src/routes/comments.ts
+@@ -3,6 +3,16 @@ import pool from '../db';
+ 
+ const router = Router();
+ 
++// VULN-021 fix: comment content is encoded when it is rendered.
++function escapeHtml(value: string): string {
++  return String(value)
++    .replace(/&/g, '&amp;')
++    .replace(/</g, '&lt;')
++    .replace(/>/g, '&gt;')
++    .replace(/"/g, '&quot;')
++    .replace(/'/g, '&#39;');
++}
++
+ interface CommentBody {
+   body?: unknown;
+   author?: unknown;
+@@ -45,7 +55,7 @@ router.get('/', async (req: Request, res: Response) => {
+       [accountId],
+     );
+     const items = result.rows
+-      .map((c) => `<li><b>${c.author}</b>: ${c.body}</li>`)
++      .map((c) => `<li><b>${escapeHtml(c.author)}</b>: ${escapeHtml(c.body)}</li>`)
+       .join('');
+     res
+       .status(200)

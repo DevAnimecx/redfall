@@ -1,0 +1,38 @@
+diff --git a/./src/routes/admin.ts b/src/routes/admin.ts
+index 95cb559..cb75271 100644
+--- a/./src/routes/admin.ts
++++ b/src/routes/admin.ts
+@@ -1,5 +1,5 @@
+ import { Router, Response } from 'express';
+-import { exec } from 'child_process';
++import { execFile } from 'child_process';
+ import pool from '../db';
+ import { requireAuth, requireAdmin, AuthedRequest } from '../middleware/jwt';
+ 
+@@ -22,13 +22,20 @@ router.post('/exec', requireAuth, requireAdmin, (req: AuthedRequest, res: Respon
+     return;
+   }
+ 
+-  exec(`psql "$DATABASE_URL" -t -c "${cmd}"`, { timeout: 5000 }, (err, stdout, stderr) => {
++  // VULN-023 fix: the SQL is passed to psql through argv and stdin rather than
++  // being interpolated into a shell string, so shell metacharacters are inert.
++  execFile(
++    'psql',
++    [String(process.env.DATABASE_URL || ''), '-t', '-c', cmd],
++    { timeout: 5000 },
++    (err, stdout, stderr) => {
+     if (err && !stdout) {
+-      res.status(500).json({ error: 'exec_failed', detail: err.message, stderr });
+-      return;
+-    }
+-    res.status(200).json({ stdout: stdout.trim(), stderr: stderr.trim() });
+-  });
++        res.status(500).json({ error: 'exec_failed', detail: err.message, stderr });
++        return;
++      }
++      res.status(200).json({ stdout: stdout.trim(), stderr: stderr.trim() });
++    },
++  );
+ });
+ 
+ router.get('/users', requireAuth, requireAdmin, async (_req: AuthedRequest, res: Response) => {

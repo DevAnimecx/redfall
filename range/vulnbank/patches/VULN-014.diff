@@ -1,0 +1,15 @@
+diff --git a/./src/routes/tx.ts b/src/routes/tx.ts
+index e17c6c9..4aae1e3 100644
+--- a/./src/routes/tx.ts
++++ b/src/routes/tx.ts
+@@ -30,7 +30,9 @@ router.post('/', requireAuth, async (req: AuthedRequest, res: Response) => {
+     res.status(400).json({ error: 'invalid_recipient' });
+     return;
+   }
+-  if (!Number.isFinite(amount) || amount === 0) {
++  // VULN-014 fix: only positive amounts are accepted, so a transfer cannot be
++  // reversed to credit the sender.
++  if (!Number.isFinite(amount) || amount <= 0) {
+     res.status(400).json({ error: 'invalid_amount' });
+     return;
+   }

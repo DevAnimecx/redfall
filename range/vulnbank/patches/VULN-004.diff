@@ -1,0 +1,25 @@
+diff --git a/./src/routes/auth.ts b/src/routes/auth.ts
+index 67fa5d2..ea5d8cd 100644
+--- a/./src/routes/auth.ts
++++ b/src/routes/auth.ts
+@@ -5,6 +5,10 @@ import { hashPassword, verifyPassword } from '../auth/hash';
+ 
+ const router = Router();
+ 
++// A precomputed hash of an unusable password, used to equalise response time
++// between the unknown-user and wrong-password paths (VULN-004 fix).
++const DUMMY_HASH = hashPassword('redfall-decoy-password-never-valid');
++
+ interface LoginBody {
+   username?: unknown;
+   password?: unknown;
+@@ -43,6 +47,9 @@ export function loginHandler(req: Request, res: Response): void {
+     .then((result) => {
+       const row = result.rows[0];
+       if (!row) {
++        // VULN-004 fix: run the same verification against a decoy hash so the
++        // unknown-user path costs the same as the real one.
++        verifyPassword(password, DUMMY_HASH);
+         // VULN-003: the "unknown user" path returns a distinct message from the
+         // "wrong password" path, which lets anyone enumerate accounts (CWE-204).
+         // VULN-004: the unknown-user path also skips password verification
