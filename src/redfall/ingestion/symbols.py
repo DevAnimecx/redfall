@@ -23,6 +23,9 @@ from .tree import ParsedFile, end_line_of, line_of
 
 HTTP_METHODS = {"get", "post", "put", "delete", "patch", "head", "options", "use", "all"}
 
+# NestJS route decorators. `All` maps to every verb; the rest map to themselves.
+NEST_METHODS = {"Get", "Post", "Put", "Patch", "Delete", "Head", "Options", "All"}
+
 DB_RECEIVERS = {"pool", "client", "db", "pg", "connection", "knex"}
 FS_RECEIVERS = {"fs", "fsp", "fsPromises", "promises"}
 EXEC_NAMES = {"exec", "execSync", "execFile", "execFileSync", "spawn", "spawnSync", "fork"}
@@ -135,6 +138,12 @@ def _string_value(parsed: ParsedFile, node: Node | None) -> str:
     if node.type in ("string", "template_string") and len(raw) >= 2:
         return raw[1:-1]
     return raw
+
+
+def _nest_path(prefix: str, sub: str) -> str:
+    """`@Controller('cats')` + `@Get(':id')` -> '/cats/:id'."""
+    parts = [p.strip("/") for p in (prefix, sub) if p and p.strip("/")]
+    return "/" + "/".join(parts)
 
 
 def _enclosing_function(parsed: ParsedFile, node: Node, functions: list[FunctionSymbol]) -> str:
@@ -305,8 +314,10 @@ def extract_symbols(parsed: ParsedFile) -> FileSymbols:
             continue
         receiver, prop = _member_parts(parsed, fn_node)
 
-        # Express route registration
-        if prop in HTTP_METHODS and receiver in ("app", "router", "api", "server", "route"):
+        # Express / Fastify / Koa route registration. Fastify and koa-router
+        # both use the HTTP-verb methods with the same (path, handler…)
+        # signature, so the receiver name is the only thing to recognise.
+        if prop in HTTP_METHODS and receiver in ("app", "router", "api", "server", "route", "fastify"):
             args = node.child_by_field_name("arguments")
             arg_list = [c for c in (args.children if args else []) if c.type not in ("(", ")", ",")]
             route_path = _string_value(parsed, arg_list[0]) if arg_list else ""
@@ -344,6 +355,83 @@ def extract_symbols(parsed: ParsedFile) -> FileSymbols:
                             line=line_of(node),
                         )
                     )
+            continue
+
+    # NestJS decorator routes: `@Controller('cats')` sets the class prefix,
+    # `@Get(':id')` on a method registers the route. The receiver is the
+    # decorator set itself; the path recorded is the full one.
+    for node in nodes:
+        if node.type != "class_declaration":
+            continue
+        # A class decorator is a child of the class — or of the export
+        # statement wrapping it (`@Controller()` above `export class`).
+        owners = [node]
+        if node.parent is not None and node.parent.type == "export_statement":
+            owners.append(node.parent)
+        prefix = ""
+        for owner in owners:
+            for child in owner.children:
+                if child.type != "decorator":
+                    continue
+                call = next((c for c in child.children if c.type == "call_expression"), None)
+                if call is None:
+                    continue
+                if _text(parsed, call.child_by_field_name("function")) != "Controller":
+                    continue
+                args = call.child_by_field_name("arguments")
+                arg_list = [c for c in (args.children if args else []) if c.type not in ("(", ")", ",")]
+                if arg_list:
+                    prefix = _string_value(parsed, arg_list[0])
+        class_body = next((c for c in node.children if c.type == "class_body"), None)
+        if class_body is None:
+            continue
+        # Method decorators are siblings that immediately precede the method.
+        body_children = list(class_body.children)
+        for index, method in enumerate(body_children):
+            if method.type != "method_definition":
+                continue
+            decorators: list[Node] = []
+            back = index - 1
+            while back >= 0 and body_children[back].type == "decorator":
+                decorators.insert(0, body_children[back])
+                back -= 1
+            name_node = method.child_by_field_name("name") or next(
+                (c for c in method.children if c.type in ("property_identifier", "identifier")), None
+            )
+            method_name = _text(parsed, name_node)
+            for child in decorators:
+                call = next((c for c in child.children if c.type == "call_expression"), None)
+                sub = ""
+                if call is not None:
+                    prop = _text(parsed, call.child_by_field_name("function"))
+                    args = call.child_by_field_name("arguments")
+                    arg_list = [c for c in (args.children if args else []) if c.type not in ("(", ")", ",")]
+                    if arg_list:
+                        sub = _string_value(parsed, arg_list[0])
+                else:
+                    prop = _text(parsed, next((c for c in child.children if c.type == "identifier"), None))
+                if prop not in NEST_METHODS:
+                    continue
+                result.routes.append(
+                    RouteSymbol(
+                        method=prop.upper(),
+                        path=_nest_path(prefix, sub),
+                        line=line_of(child),
+                        end_line=end_line_of(method),
+                        handler=method_name,
+                        middleware=[],
+                        receiver="nest",
+                    )
+                )
+
+    for node in nodes:
+        if node.type != "call_expression":
+            continue
+
+        fn_node = node.child_by_field_name("function")
+        if fn_node is None:
+            continue
+        receiver, prop = _member_parts(parsed, fn_node)
 
         # Database calls
         if prop == "query" and receiver in DB_RECEIVERS:

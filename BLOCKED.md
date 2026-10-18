@@ -154,7 +154,7 @@ against the real target:
 | `python scripts/check_version.py` | `VERSION CONTRACT: PASS` |
 | `python scripts/check_orphans.py` | `ORPHAN CHECK: PASS` (48 modules) |
 | `python scripts/check_clean_tree.py` | `CLEAN TREE: PASS` |
-| `python -m pytest tests/ -q` | `226 passed, 5 skipped` with a real Postgres |
+| `python -m pytest tests/ -q` | `229 passed, 5 skipped` with a real Postgres |
 | `node tests/harness/verify_harness.mjs --poc <poc>` | `ALL HARNESS CHECKS PASSED` |
 | `node tests/harness/verify_python_target.mjs` | `ALL PYTHON TARGET CHECKS PASSED` |
 | `node tests/harness/verify_chain_steps.mjs` | `ALL CHAIN HARNESS CHECKS PASSED` |
@@ -506,6 +506,6 @@ both prerequisites; that is the only implemented behaviour.
 
 ### Measured state after this work
 
-`python -m pytest tests/ -q` → **226 passed, 5 skipped** (the 5 gVisor skips),
+`python -m pytest tests/ -q` → **229 passed, 5 skipped** (the 5 gVisor skips),
 with `REDFALL_TEST_DATABASE_URL` pointed at a real Postgres. The four contract
 checkers all pass; see the table at the top of this document.

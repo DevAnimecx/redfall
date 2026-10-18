@@ -127,7 +127,7 @@ redfall/
 ├── web/                        Next.js 15 dashboard (scan + gate + chains)
 ├── scripts/                    check_no_mock, check_version, check_orphans, check_clean_tree
 ├── .github/workflows/ci.yml    the same checks on every push
-├── tests/                      226 tests, all against real artefacts
+├── tests/                      229 tests, all against real artefacts
 └── BLOCKED.md                  what cannot run here, and why
 ```
 
@@ -139,7 +139,7 @@ redfall/
 make install          # redfall + range-runner, editable, with dev deps
 make check            # every contract checker plus the test suite
 make check-no-mock    # NO-MOCK CONTRACT: PASS
-make test             # 226 passed (5 skips: gVisor tests, no container runtime here)
+make test             # 229 passed (5 skips: gVisor tests, no container runtime here)
 make doctor           # what this host can and cannot do
 ```
 
@@ -203,9 +203,12 @@ that record, so the fixes file is the one `range_runner --fixes` scores.
 ## How a finding becomes real
 
 1. **Ingest.** Every `.ts`/`.js`/`.py` file is parsed with tree-sitter. Routes,
-   handlers, middleware, DB/exec/fs/fetch calls and imports are extracted, and
-   Express mounts and Flask/FastAPI blueprint prefixes are resolved through the
-   imports so `router.post('/login')` becomes `POST /api/auth/login`.
+   handlers, middleware, DB/exec/fs/fetch calls and imports are extracted.
+   Registration styles are recognised by their real shapes: Express and
+   Fastify/koa-router verb calls, NestJS `@Controller`/`@Get` decorators (lifted
+   to full paths), and Python Flask/FastAPI blueprints. Express mounts and Flask
+   blueprint prefixes are resolved through the imports so `router.post('/login')`
+   becomes `POST /api/auth/login`.
 2. **Taint.** Intraprocedural source→sink flow per enclosing function. Sources
    are `req.body|query|params|headers|cookies` (Python:
    `request.args|form|json|get_json|headers|cookies`); sinks are query, exec, fs,
