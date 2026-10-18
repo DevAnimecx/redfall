@@ -150,11 +150,12 @@ against the real target:
 
 | Command | Result |
 | --- | --- |
-| `python scripts/check_no_mock.py` | `NO-MOCK CONTRACT: PASS` (50 files) |
+| `python scripts/check_no_mock.py` | `NO-MOCK CONTRACT: PASS` (51 files) |
 | `python scripts/check_version.py` | `VERSION CONTRACT: PASS` |
-| `python scripts/check_orphans.py` | `ORPHAN CHECK: PASS` (48 modules) |
+| `python scripts/check_orphans.py` | `ORPHAN CHECK: PASS` (49 modules) |
 | `python scripts/check_clean_tree.py` | `CLEAN TREE: PASS` |
-| `python -m pytest tests/ -q` | `232 passed, 5 skipped` with a real Postgres |
+| `python -m pytest tests/ -q` | `236 passed, 5 skipped` with a real Postgres |
+| `python -m pip wheel . --no-deps -w dist` + `scripts/verify_wheel.py` in a fresh venv, run from outside the checkout | `WHEEL VERIFY: PASS` — the installed wheel ships the harness and finds the interprocedural taint |
 | `node tests/harness/verify_harness.mjs --poc <poc>` | `ALL HARNESS CHECKS PASSED` |
 | `node tests/harness/verify_python_target.mjs` | `ALL PYTHON TARGET CHECKS PASSED` |
 | `node tests/harness/verify_chain_steps.mjs` | `ALL CHAIN HARNESS CHECKS PASSED` |
@@ -506,6 +507,14 @@ both prerequisites; that is the only implemented behaviour.
 
 ### Measured state after this work
 
-`python -m pytest tests/ -q` → **232 passed, 5 skipped** (the 5 gVisor skips),
+`python -m pytest tests/ -q` → **236 passed, 5 skipped** (the 5 gVisor skips),
 with `REDFALL_TEST_DATABASE_URL` pointed at a real Postgres. The four contract
 checkers all pass; see the table at the top of this document.
+
+The package is installable on any platform Python 3.12 runs on: the wheel is
+`py3-none-any`, carries the sandbox harness, the prompts and the Dockerfile as
+package data, and is verified from outside the checkout by
+`scripts/verify_wheel.py` in a fresh virtualenv (`WHEEL VERIFY: PASS`). CI runs
+a `package` matrix (Ubuntu, Windows, macOS × Python 3.12, 3.13) that builds the
+wheel, installs it, and drives the console script from a directory outside the
+repository.

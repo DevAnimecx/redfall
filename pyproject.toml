@@ -2,7 +2,14 @@
 name = "redfall"
 version = "0.1.0"
 description = "Autonomous vulnerability discovery and verified repair for TypeScript and Python services"
+readme = "README.md"
 requires-python = ">=3.12"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
 dependencies = [
     "click>=8.1",
     "gitpython>=3.1",
@@ -36,6 +43,10 @@ where = ["src"]
 [tool.setuptools.package-data]
 "redfall.agent" = ["prompts/*.md"]
 "redfall.sandbox" = ["images/redfall-sandbox/*"]
+# The exploit harness runs inside the sandbox image, but its files are also how
+# the package proves itself on a host without gVisor; they must travel in the
+# wheel, not just in the source tree.
+"redfall.validation" = ["*.mjs"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

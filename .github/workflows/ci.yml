@@ -57,3 +57,40 @@ jobs:
 
       - name: tests
         run: python -m pytest tests/ -q
+
+  package:
+    # Universal installability: the built wheel is installed on every platform
+    # and driven from a directory outside the checkout. Only the tests that
+    # need no database run here; the full suite runs in `check`.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.12", "3.13"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: build the wheel
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip wheel . --no-deps -w dist
+
+      - name: install the wheel plus the test runner
+        shell: bash
+        run: python -m pip install dist/*.whl pytest
+
+      - name: the installed package works outside the checkout
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP"
+          redfall --help
+          python -c "import importlib.resources as r, redfall; assert (r.files('redfall.validation') / 'harness.mjs').is_file(); print('installed redfall', redfall.__version__)"
+
+      - name: installer contract tests (no database)
+        run: python -m pytest tests/test_packaging.py -q

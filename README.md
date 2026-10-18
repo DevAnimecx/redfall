@@ -126,13 +126,31 @@ redfall/
 │   ├── pythonbank/             17 seeded vulns, 18 tests, 17/17 PoCs over real HTTP
 │   └── range_runner/           deterministic scorer, 5 metrics + 3 chain metrics
 ├── web/                        Next.js 15 dashboard (scan + gate + chains)
-├── scripts/                    check_no_mock, check_version, check_orphans, check_clean_tree
-├── .github/workflows/ci.yml    the same checks on every push
-├── tests/                      232 tests, all against real artefacts
+├── scripts/                    the four contract checkers + verify_wheel.py
+├── .github/workflows/ci.yml    the same checks on every push, plus the packaging matrix
+├── tests/                      236 tests, all against real artefacts
 └── BLOCKED.md                  what cannot run here, and why
 ```
 
 ---
+
+## Install
+
+Python 3.12+, on Linux, macOS or Windows:
+
+```bash
+pip install .             # from a checkout; the wheel is py3-none-any
+redfall --version
+redfall doctor            # exactly what this host can and cannot run
+```
+
+The wheel carries everything the runtime reads — the sandbox harness
+(`redfall.validation`), the agent prompts, the sandbox Dockerfile — and
+`scripts/verify_wheel.py` proves it: install into a fresh virtualenv, run it
+from a directory outside the checkout, and it must still parse, taint and find
+the interprocedural flow. `pip install -e ".[dev]"` plus `pip install -e range`
+is `make install`, the development setup. CI builds and installs the wheel on
+Ubuntu, Windows and macOS.
 
 ## Quick start
 
@@ -140,7 +158,7 @@ redfall/
 make install          # redfall + range-runner, editable, with dev deps
 make check            # every contract checker plus the test suite
 make check-no-mock    # NO-MOCK CONTRACT: PASS
-make test             # 232 passed (5 skips: gVisor tests, no container runtime here)
+make test             # 236 passed (5 skips: gVisor tests, no container runtime here)
 make doctor           # what this host can and cannot do
 ```
 
