@@ -172,6 +172,11 @@ against the real target:
 | `npm test` (chainbank) | `8 passed` |
 | `npx ts-node scripts/replay_chain_poc.ts` (chainbank) | `6/6 chain(s) reproduced end to end` |
 | `redfall scan range/vulnbank` | refuses with both blockers named |
+| `cd site && npm ci && npm run build` | prerenders the landing page into `dist/index.html` (full rendered markup plus JSON-LD); the `pages` CI run re-asserts the content before upload and deploys it |
+| `https://devanimecx.github.io/redfall/` (live) | `200` with hero, 7-question FAQ, canonical and `og:image`; `robots.txt`, `sitemap.xml`, `og.png` and the touch icons all `200`; the JSON-LD parses as SoftwareApplication + FAQPage + WebSite |
+| Lighthouse, local preview, mobile and desktop presets | performance / accessibility / best-practices / SEO = **100 / 100 / 100 / 100** on both presets (mobile LCP 1.4 s, TBT 10 ms, CLS 0 under simulated Slow-4G) |
+| Lighthouse, live GitHub Pages URL, mobile preset | **100** on a second run; the first run scored 99 performance (LCP 1.6 s through the CDN under simulated Slow-4G) — accessibility, best-practices and SEO were 100 in both |
+| `python -m pytest tests/test_brand_assets.py -q` | `4 passed` — the SVG shield geometry is pinned to the raster generator's point list; the committed social card is 1200×630 and every icon matches the size its link advertises |
 
 The ingestion engine, run against the real `vulnbank` tree:
 

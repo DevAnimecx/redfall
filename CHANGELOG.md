@@ -4,6 +4,34 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Landing page** (`site/`) — one-page React + Tailwind site, statically
+  prerendered at build time so crawlers and answer engines read the full page
+  without JavaScript. Deployed to <https://devanimecx.github.io/redfall/> by
+  `.github/workflows/pages.yml`. SEO/AEO: canonical, Open Graph and Twitter
+  cards, JSON-LD (SoftwareApplication + FAQPage + WebSite), `robots.txt`,
+  `sitemap.xml`, generated social card. Lighthouse: performance /
+  accessibility / best-practices / SEO all 100 on both local presets; 99–100
+  performance on the live CDN under simulated throttling.
+- **Brand assets** — `assets/` carries the vector lockups (dark, light, mark);
+  `scripts/generate_brand_assets.py` renders the 1200×630 social card and the
+  touch icons from the same geometry. `tests/test_brand_assets.py` pins the SVG
+  path to the generator so the two cannot drift.
+- **`llms.txt`** — machine-readable project summary for answer engines; the
+  README gains a hero logo, a definition-first opening and a seven-question
+  FAQ that matches the landing page's structured data.
+
+### Changed
+
+- Test suite: **254 passed, 5 skipped** (the four new brand-asset guard tests;
+  `pillow` added to the dev extras so CI runs them).
+- CI: the `check` job now builds the landing site from a clean lockfile and
+  asserts the prerendered output; site builds use Node 22 (vite 8 requires
+  `^20.19 || >=22.12`).
+
 ## [0.1.0] — 2026-10-19
 
 The first release. Everything below was verified on the development host with a

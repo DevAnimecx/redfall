@@ -43,6 +43,7 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | Installers (`scripts/install.sh`, `scripts/install.ps1`) | **Built and verified** — the PowerShell installer was executed end to end on this host into a throwaway home; the POSIX script is syntax-checked against a real shell here and both are executed by the CI package matrix on Ubuntu/Windows/macOS |
 | Release supply chain (Sigstore attestations, SHA256SUMS, weekly dependency audit) | **Built** — releases are constructed and attested by CI from the tagged source; `pip-audit` runs weekly |
 | SARIF 2.1.0 export (`redfall report --format sarif`) | **Built and verified** — every result carries `properties.redfall.verified`; unproven candidates stay visible |
+| Landing page (`site/`, React + Tailwind, prerendered static) | **Live and measured** — <https://devanimecx.github.io/redfall/>, deployed by the `pages` workflow; Lighthouse 100/100/100/100 on both local presets, 99–100 performance on the live CDN under throttling |
 | Sandbox (Docker + gVisor) | **Built, refuses on this host** — no container runtime |
 | LLM (LiteLLM BYOK) | **Built, refuses without a key** — live calls only |
 | Scale-out (Firecracker microVMs, Rust orchestrator, NATS) | **Not started** — see [`BLOCKED.md`](BLOCKED.md) |
