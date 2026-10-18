@@ -19,6 +19,14 @@ How a hop is proved: identical to the Python pass — a callee's parameters are
 pre-tainted with `param:<name>` labels and the labels that reach a sink *are*
 the summary; a call site becomes a hop only when the caller's argument is
 already tainted by a real source and the matching parameter reaches the sink.
+
+Return flow is the other direction: a callee whose return path reads a source
+(or a local derived from one) makes every call result tainted at the caller's
+sink, via an `extra_source` hook into the shared collector. The summary is
+unseeded — returning a parameter is never claimed here, because that is only
+tainted when the caller passes taint in, which the caller-side propagation
+already proves with the caller's real data.
+
 Depth one, no cycles, no caller-context leakage into summaries.
 """
 
@@ -29,7 +37,7 @@ from dataclasses import dataclass, field
 
 from .inter import CallEdge, InterFile
 from .symbols import ImportSymbol, arrow_or_function_name
-from .taint import Taint, collect_tainted, contains_source, identifiers_in, sink_label
+from .taint import Taint, collect_tainted, contains_source, find_sinks, first_label, identifiers_in, sink_label
 from .tree import ParsedFile, line_of
 
 TS_SUFFIXES = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
@@ -159,30 +167,77 @@ def _parameter_name(parsed: ParsedFile, node) -> str:
     return ""  # rest/object/array patterns cannot bind one positional argument
 
 
-def _parameter_names(parsed: ParsedFile, fn_symbol) -> list[str]:
-    """Parameter names in declaration order; '' marks a pattern that cannot be
-    matched positionally."""
+def _fn_node(parsed: ParsedFile, fn_symbol):
+    """The declaration node carrying this function's parameters and body:
+    a function/arrow node, or the arrow's value node for `const f = …`."""
     for node in parsed.walk():
         if line_of(node) != fn_symbol.line or arrow_or_function_name(parsed, node) != fn_symbol.name:
             continue
-        fn_node = node
         if node.type in ("lexical_declaration", "variable_declaration"):
-            fn_node = None
             for decl in node.children:
                 if decl.type != "variable_declarator":
                     continue
                 name = decl.child_by_field_name("name")
                 value = decl.child_by_field_name("value")
                 if name is not None and value is not None and parsed.text_of(name).strip() == fn_symbol.name:
-                    fn_node = value
-                    break
-            if fn_node is None:
-                return []
-        params = fn_node.child_by_field_name("parameters")
-        if params is None:
-            return []
-        return [_parameter_name(parsed, child) for child in params.named_children]
-    return []
+                    return value
+            return None
+        return node
+    return None
+
+
+def _parameter_names(parsed: ParsedFile, fn_symbol) -> list[str]:
+    """Parameter names in declaration order; '' marks a pattern that cannot be
+    matched positionally."""
+    fn_node = _fn_node(parsed, fn_symbol)
+    if fn_node is None:
+        return []
+    params = fn_node.child_by_field_name("parameters")
+    if params is None:
+        return []
+    return [_parameter_name(parsed, child) for child in params.named_children]
+
+
+def _returns_source(parsed: ParsedFile, symbols, fn) -> str | None:
+    """The source label this function returns, if a return path reads
+    attacker-controlled input — directly, through a local, or as a concise
+    arrow body.
+
+    Parameters are deliberately NOT seeded here: returning a parameter is only
+    tainted when the caller passed taint in, which the caller-side propagation
+    already proves. Seeding them would claim every pass-through helper returns
+    tainted data even when every call site passes a constant.
+    """
+    collected = collect_tainted(parsed, symbols)
+    scope = collected.tainted.get(fn.name, {})
+    fn_node = _fn_node(parsed, fn)
+    if fn_node is not None and fn_node.type == "arrow_function":
+        body = fn_node.child_by_field_name("body")
+        if body is not None and body.type != "statement_block":
+            label = first_label(parsed, body)
+            if label:
+                return label
+            for ident, _ln in identifiers_in(body):
+                known = scope.get(ident)
+                if known:
+                    return known
+    for node in parsed.walk():
+        if node.type != "return_statement":
+            continue
+        line = line_of(node)
+        if not (fn.line <= line <= fn.end_line) or symbols.containing(line) != fn.name:
+            continue  # returns of nested functions are that function's business
+        expr = next((c for c in node.named_children), None)
+        if expr is None:
+            continue
+        label = first_label(parsed, expr)
+        if label:
+            return label
+        for ident, _ln in identifiers_in(expr):
+            known = scope.get(ident)
+            if known:
+                return known
+    return None
 
 
 def _param_hops(parsed: ParsedFile, symbols, fn, params: list[str]) -> list[_ParamHop]:
@@ -261,6 +316,7 @@ def analyse_inter_ts(files: list[InterFile]) -> tuple[dict[str, list[Taint]], li
     edges: list[CallEdge] = []
     params_cache: dict[tuple[str, str], list[str]] = {}
     hops_cache: dict[tuple[str, str], list[_ParamHop]] = {}
+    returns_cache: dict[tuple[str, str], str | None] = {}
 
     for f in files:
         if not f.rel.endswith(TS_SUFFIXES):
@@ -339,5 +395,47 @@ def analyse_inter_ts(files: list[InterFile]) -> tuple[dict[str, list[Taint]], li
                     tainted_params=sorted(set(tainted_params)),
                 )
             )
+
+        # --- return flow -----------------------------------------------------
+        # A helper that reads a source and returns it: the caller's variable
+        # that receives the call result is tainted by the return, not by any
+        # argument. The summary is unseeded (source reads only), so a
+        # pass-through of a parameter is never claimed here — the caller-side
+        # propagation above already proves those, with the caller's real data.
+        def extra_source(node, _f=f, _bindings=bindings):
+            if node.type != "call_expression":
+                return None
+            fn_node = node.child_by_field_name("function")
+            if fn_node is None or not _callee_is_plain(fn_node):
+                return None
+            line = line_of(node)
+            caller = _f.symbols.containing(line)
+            if not caller:
+                return None  # module-level calls are not this pass's business
+            target = resolve_callee(_f.rel, _callee_text(_f.parsed, fn_node), _bindings, index, by_rel)
+            if target is None:
+                return None
+            target_rel, target_fn = target
+            if target_rel == _f.rel and target_fn == caller:
+                return None  # direct recursion proves nothing at depth one
+            key = (target_rel, target_fn)
+            if key not in returns_cache:
+                target_file = by_rel[target_rel]
+                fn_symbol = next(fn for fn in target_file.symbols.functions if fn.name == target_fn)
+                returns_cache[key] = _returns_source(target_file.parsed, target_file.symbols, fn_symbol)
+            label = returns_cache[key]
+            return f"{target_fn}() returns {label}" if label else None
+
+        augmented = collect_tainted(f.parsed, f.symbols, extra_source=extra_source)
+        new_names = any(
+            name not in collected.tainted.get(scope, {})
+            for scope, marks in augmented.tainted.items()
+            for name in marks
+        )
+        if new_names:
+            base_keys = {t.dedupe_key for t in find_sinks(f.parsed, collected)}
+            for taint in find_sinks(f.parsed, augmented, extra_source=extra_source):
+                if taint.dedupe_key not in base_keys:
+                    extra.setdefault(f.rel, []).append(taint)
 
     return extra, edges
