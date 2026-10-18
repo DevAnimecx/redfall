@@ -1,0 +1,7 @@
+{
+  "runtime": "python",
+  "start": ["-m", "pythonbank.app"],
+  "cwd": "src",
+  "health": "/health",
+  "env": { "PYTHONBANK_PORT": "$PORT" }
+}

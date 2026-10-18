@@ -11,12 +11,12 @@
 // Everything here talks to a live process over a real socket. Nothing in this
 // file decides whether a vulnerability exists by reading source code.
 
-import { readFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, existsSync, mkdirSync, readdirSync } from 'node:fs';
 import { execFileSync, spawn } from 'node:child_process';
 import { createConnection } from 'node:net';
 import { join, resolve } from 'node:path';
 
-import { bindings, csvFields, evaluate, median, parseHttpResponse, parseRawRequest, prepareStepRequest, runStepChain } from './harness_internals.mjs';
+import { bindings, csvFields, detectTargetKind, evaluate, median, parseHttpResponse, parseRawRequest, prepareStepRequest, resolvePythonStart, runStepChain } from './harness_internals.mjs';
 
 const WORK = resolve(process.env.REDFALL_WORK || '/work');
 const TARGET = process.env.REDFALL_TARGET_DIR || 'target';
@@ -61,8 +61,25 @@ async function startPostgres() {
 }
 
 // ------------------------------------------------------------------ target
+async function prepareDatabase() {
+  const dbUrl = `postgresql://${PG_USER}:${PG_PASSWORD}@127.0.0.1:5432/${PG_DATABASE}`;
+  for (const rel of ['migrations/001_init.sql', 'migrations/002_seed.sql']) {
+    const file = join(targetDir, rel);
+    if (existsSync(file)) {
+      log(`applying ${rel}`);
+      execFileSync('psql', [dbUrl, '-f', file], { cwd: targetDir, stdio: 'pipe', timeout: 120_000 });
+    }
+  }
+  return dbUrl;
+}
+
 async function startTarget() {
-  if (!existsSync(join(targetDir, 'package.json'))) fail('target-missing', `no package.json at ${targetDir}`);
+  const files = readdirSync(targetDir);
+  const kind = detectTargetKind(files);
+  if (kind === 'python') return startPythonTarget(files);
+  if (kind !== 'node') {
+    fail('target-missing', `no package.json, requirements.txt, pyproject.toml or setup.py at ${targetDir}`);
+  }
 
   if (!existsSync(join(targetDir, 'node_modules'))) {
     log('installing target dependencies');
@@ -73,14 +90,7 @@ async function startTarget() {
     });
   }
 
-  const dbUrl = `postgresql://${PG_USER}:${PG_PASSWORD}@127.0.0.1:5432/${PG_DATABASE}`;
-  for (const rel of ['migrations/001_init.sql', 'migrations/002_seed.sql']) {
-    const file = join(targetDir, rel);
-    if (existsSync(file)) {
-      log(`applying ${rel}`);
-      execFileSync('psql', [dbUrl, '-f', file], { cwd: targetDir, stdio: 'pipe', timeout: 120_000 });
-    }
-  }
+  const dbUrl = await prepareDatabase();
 
   const uploadDir = '/tmp/redfall-uploads';
   mkdirSync(uploadDir, { recursive: true });
@@ -110,11 +120,75 @@ async function startTarget() {
   return child;
 }
 
-async function waitForHealth() {
+/**
+ * Python targets boot through the same contract the range targets use: a
+ * virtualenv with the target's requirements, an explicit start command from
+ * `redfall.target.json` (or a root `app.py`), and a real /health wait.
+ */
+async function startPythonTarget(files) {
+  const configPath = join(targetDir, 'redfall.target.json');
+  const config = existsSync(configPath) ? JSON.parse(readFileSync(configPath, 'utf8')) : null;
+  const resolved = resolvePythonStart(config, { port: APP_PORT, rootHasAppPy: files.includes('app.py') });
+  if (!resolved) {
+    fail('target-missing', 'no redfall.target.json and no app.py: the Python boot contract is unknown');
+  }
+
+  const venv = '/tmp/redfall-pyvenv';
+  const python = join(venv, 'bin', 'python');
+  if (!existsSync(python)) {
+    log('creating Python virtualenv');
+    execFileSync('python3', ['-m', 'venv', venv], { stdio: 'pipe', timeout: 300_000 });
+  }
+  const pip = join(venv, 'bin', 'pip');
+  if (files.includes('requirements.txt')) {
+    log('installing target requirements');
+    execFileSync(pip, ['install', '--disable-pip-version-check', '-q', '-r', 'requirements.txt'], {
+      cwd: targetDir,
+      stdio: 'pipe',
+      timeout: 900_000,
+    });
+  } else if (files.includes('pyproject.toml') || files.includes('setup.py')) {
+    log('installing target package');
+    execFileSync(pip, ['install', '--disable-pip-version-check', '-q', '.'], {
+      cwd: targetDir,
+      stdio: 'pipe',
+      timeout: 900_000,
+    });
+  }
+
+  const dbUrl = await prepareDatabase();
+  const uploadDir = '/tmp/redfall-uploads';
+  mkdirSync(uploadDir, { recursive: true });
+  const env = {
+    ...process.env,
+    PORT: String(APP_PORT),
+    HOST: '0.0.0.0',
+    DATABASE_URL: dbUrl,
+    DB_PASSWORD: PG_PASSWORD,
+    UPLOAD_DIR: uploadDir,
+    ...resolved.env,
+  };
+  const cwd = resolved.cwd ? join(targetDir, resolved.cwd) : targetDir;
+
+  log(`starting Python target: ${resolved.args.join(' ')}`);
+  const child = spawn(python, resolved.args, { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  let bootLog = '';
+  child.stdout.on('data', (d) => (bootLog += d.toString()));
+  child.stderr.on('data', (d) => (bootLog += d.toString()));
+
+  if (!(await waitForHealth(resolved.health))) {
+    child.kill('SIGKILL');
+    fail('target-did-not-start', bootLog.slice(-3000));
+  }
+  log('target is answering');
+  return child;
+}
+
+async function waitForHealth(healthPath = '/health') {
   const deadline = Date.now() + READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
     try {
-      const res = await httpRequest({ method: 'GET', path: '/health', headers: {} }, '');
+      const res = await httpRequest({ method: 'GET', path: healthPath, headers: {} }, '');
       if (res.status > 0) return true;
     } catch {
       /* not listening yet */

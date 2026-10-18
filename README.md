@@ -110,12 +110,12 @@ redfall/
 │   ├── llm.py                  LiteLLM BYOK, tiers, budget, verbatim transcripts
 │   ├── orchestrator.py         ingest → plan → branch → analyse → execute → chain
 │   ├── cli.py                  redfall scan | fix | findings | report | doctor | environment
-│   ├── ingestion/              tree-sitter parsing (TS/JS + Python), symbols, taint (intra + cross-function), deps, git, languages.py registry
+│   ├── ingestion/              tree-sitter parsing (TS/JS + Python), symbols, taint (intra + cross-function in both languages), deps, git, languages.py registry
 │   ├── branching/              tree.py (recursive, adaptive) + adaptive.py (7 detectors)
 │   ├── chain/                  plan.py, executor.py, stage.py, graph.py, cvss_compound.py, narrative.py
 │   ├── agent/                  categories.py + prompts/ (5 stages)
 │   ├── sandbox/                Docker+gVisor executor and its image
-│   ├── validation/             harness.mjs — the exploit runner inside the box
+│   ├── validation/             harness.mjs — the exploit runner inside the box (Node and Python targets)
 │   ├── fix/                    applier + verified-fix loop
 │   └── store/                  SQLAlchemy models, Postgres, Redis state
 ├── range/
@@ -127,7 +127,7 @@ redfall/
 ├── web/                        Next.js 15 dashboard (scan + gate + chains)
 ├── scripts/                    check_no_mock, check_version, check_orphans, check_clean_tree
 ├── .github/workflows/ci.yml    the same checks on every push
-├── tests/                      218 tests, all against real artefacts
+├── tests/                      226 tests, all against real artefacts
 └── BLOCKED.md                  what cannot run here, and why
 ```
 
@@ -139,7 +139,7 @@ redfall/
 make install          # redfall + range-runner, editable, with dev deps
 make check            # every contract checker plus the test suite
 make check-no-mock    # NO-MOCK CONTRACT: PASS
-make test             # 218 passed (5 skips: gVisor tests, no container runtime here)
+make test             # 226 passed (5 skips: gVisor tests, no container runtime here)
 make doctor           # what this host can and cannot do
 ```
 
@@ -210,12 +210,17 @@ that record, so the fixes file is the one `range_runner --fixes` scores.
    are `req.body|query|params|headers|cookies` (Python:
    `request.args|form|json|get_json|headers|cookies`); sinks are query, exec, fs,
    redirect and eval. A sanitiser is **recorded but never clears taint** — Redfall
-   does not claim to know that `escapeHtml` neutralises an SQL sink. Python adds
-   a depth-one **interprocedural pass** (`ingestion/inter.py`): each callee's
-   parameters are pre-tainted to build a per-function summary, and a call site
-   becomes a hop only when the argument is already tainted by a real source and
-   the matching parameter reaches a sink — resolved through import bindings,
-   never guessed, with the caller named in the taint's `via` chain.
+   does not claim to know that `escapeHtml` neutralises an SQL sink. Both
+   languages then get a depth-one **interprocedural pass** (`ingestion/inter.py`
+   for Python, `ingestion/inter_ts.py` for TS/JS): each callee's parameters are
+   pre-tainted to build a per-function summary, and a call site becomes a hop
+   only when the argument is already tainted by a real source and the matching
+   parameter reaches a sink — resolved through import bindings (relative ESM
+   specs, aliases, namespaces, CommonJS `require`, Python relative imports),
+   never guessed, with the caller named in the taint's `via` chain. Every
+   resolvable call also becomes an edge in the **call graph** (`call_edges`),
+   which route attribution follows: a taint in a helper counts as reachable from
+   the route whose handler can call it, transitively and across files.
 3. **Detect new surface.** The seven adaptive detectors run over the same source.
    Anything they find spawns a branch mid-scan rather than being deferred.
 4. **Plan.** The model splits the route inventory into branches; references to
@@ -223,8 +228,10 @@ that record, so the fixes file is the one `range_runner --fixes` scores.
 5. **Analyse.** Each branch gets its real source, its proven taint paths and the
    installed dependency versions, and returns candidate findings.
 6. **Execute.** A PoC is generated and run by `harness.mjs` inside a gVisor
-   container that boots a real PostgreSQL and the real target app. The predicate
-   must assert the observable effect, not merely a 200.
+   container that boots a real PostgreSQL and the real target app — Node targets
+   through `npm start`, Python targets through a virtualenv and their
+   `redfall.target.json` boot contract. The predicate must assert the observable
+   effect, not merely a 200.
 7. **Chain.** Reproduced findings go to the chain stage: the model proposes
    wirings over them and the responses they actually produced, `plan.py` reviews
    each proposal structurally, the chain is replayed as one composite PoC in the

@@ -3,7 +3,7 @@
 FROM node:20-bookworm-slim
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl ca-certificates postgresql-client jq python3 python3-pip git \
+ && apt-get install -y --no-install-recommends curl ca-certificates postgresql-client jq python3 python3-pip python3-venv git \
  && rm -rf /var/lib/apt/lists/*
 
 # The harness that runs inside the container. It is the only thing that talks to

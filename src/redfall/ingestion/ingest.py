@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from .dependencies import Dependency, read_dependencies, security_relevant
 from .git_repo import GitInfo, inspect as inspect_git
 from .inter import CallEdge, InterFile, analyse_inter
+from .inter_ts import analyse_inter_ts
 from .languages import support_for
 from .symbols import FileSymbols
 from .taint import Taint
@@ -104,20 +105,41 @@ class IngestResult:
                 )
         return out
 
-    def routes_for_line(self, rel_path: str, line: int) -> list[dict[str, object]]:
-        """Routes in `rel_path` that can reach `line` — used to attach a taint
-        path to the HTTP surface that can actually exercise it.
+    def _reachable_from(self, start: tuple[str, str]) -> set[tuple[str, str]]:
+        """Every (file, function) callable from `start` through resolved edges."""
+        seen = {start}
+        queue = [start]
+        while queue:
+            cur_file, cur_fn = queue.pop()
+            for edge in self.call_edges:
+                if edge.caller_file != cur_file or edge.caller_function != cur_fn:
+                    continue
+                target = (edge.callee_file, edge.callee_function)
+                if target not in seen:
+                    seen.add(target)
+                    queue.append(target)
+        return seen
 
-        A route's reach extends past its own call expression when the handler is
-        a named function (`router.post('/login', loginHandler)`), so the named
-        function's body counts as part of the route too.
+    def routes_for_line(self, rel_path: str, line: int) -> list[dict[str, object]]:
+        """Routes that can reach `line` — used to attach a taint path to the
+        HTTP surface that can actually exercise it.
+
+        A route's reach extends past its own call expression: a named handler's
+        body counts as part of the route, and so does everything reachable from
+        that handler through the resolved call graph. That is what links an
+        interprocedural taint in `core/reports.py` back to the route in
+        `routes/reports.py` that feeds it.
         """
-        out: list[dict[str, object]] = []
-        prefix = self.mount_prefixes.get(rel_path, "")
+        fn_here = None
         for f in self.files:
-            if f.path != rel_path:
-                continue
+            if f.path == rel_path:
+                fn_here = f.symbols.containing(line)
+                break
+        out: list[dict[str, object]] = []
+        for f in self.files:
+            prefix = self.mount_prefixes.get(f.path, "")
             fn_span = {fn.name: (fn.line, fn.end_line) for fn in f.symbols.functions}
+            reach: dict[str, set[tuple[str, str]]] = {}
             for r in f.symbols.routes:
                 if r.method == "USE":
                     continue
@@ -125,13 +147,19 @@ class IngestResult:
                 named = fn_span.get(r.handler)
                 if named is not None:
                     spans.append(named)
-                if any(start <= line <= end for start, end in spans):
+                direct = f.path == rel_path and any(start <= line <= end for start, end in spans)
+                via_call = False
+                if not direct and fn_here and r.handler:
+                    if r.handler not in reach:
+                        reach[r.handler] = self._reachable_from((f.path, r.handler))
+                    via_call = (rel_path, fn_here) in reach[r.handler]
+                if direct or via_call:
                     out.append(
                         {
                             "method": r.method,
                             "path": _join_url(prefix, r.path),
                             "sub_path": r.path,
-                            "file": rel_path,
+                            "file": f.path,
                             "line": r.line,
                             "handler": r.handler,
                             "middleware": r.middleware,
@@ -220,8 +248,9 @@ def ingest(scan_id: str, target: str | Path, session: Session | None = None) -> 
     result = IngestResult(scan_id=scan_id, target=root, git=inspect_git(root))
     result.dependencies, result.package_json = read_dependencies(root)
 
-    # Python files kept for the interprocedural pass: it needs the parsed tree
-    # and the symbols of every file at once, not one file in isolation.
+    # TypeScript and Python files kept for the interprocedural passes: they
+    # need the parsed tree and the symbols of every file at once, not one file
+    # in isolation.
     inter_files: list[InterFile] = []
 
     for path in _iter_sources(root):
@@ -256,18 +285,23 @@ def ingest(scan_id: str, target: str | Path, session: Session | None = None) -> 
                 content=text,
             )
         )
-        if support.name == "python":
+        if support.name in ("python", "typescript"):
             inter_files.append(InterFile(rel=rel, parsed=parsed, symbols=symbols))
 
     if inter_files:
         try:
-            extra, edges = analyse_inter(inter_files)
+            py_extra, py_edges = analyse_inter(inter_files)
+            ts_extra, ts_edges = analyse_inter_ts(inter_files)
         except Exception as err:  # noqa: BLE001 - the intraprocedural results stand
             result.parse_errors.append(f"interprocedural pass: {type(err).__name__}: {err}")
         else:
-            result.call_edges = edges
+            result.call_edges = py_edges + ts_edges
+            merged: dict[str, list[Taint]] = {}
+            for source in (py_extra, ts_extra):
+                for rel, taints in source.items():
+                    merged.setdefault(rel, []).extend(taints)
             by_path = {f.path: f for f in result.files}
-            for rel, taints in extra.items():
+            for rel, taints in merged.items():
                 target = by_path.get(rel)
                 if target is None:
                     continue

@@ -66,9 +66,19 @@ in `src/redfall/sandbox/` needs to change.
   guaranteed cleanup. `check_runtime()` enumerates the actual reasons it cannot
   run rather than returning a boolean.
 - `src/redfall/validation/harness.mjs` — the in-container exploit runner — is
-  complete: it starts a real PostgreSQL, installs and boots the target, waits for
-  `/health`, replays raw HTTP requests over a real socket, and evaluates the PoC
-  predicate against the real response.
+  complete for both target runtimes: it starts a real PostgreSQL, installs and
+  boots the target (Node through `npm start`; Python through a venv plus the
+  target's `redfall.target.json` — or a root `app.py`), waits for `/health`,
+  replays raw HTTP requests over a real socket, and evaluates the PoC predicate
+  against the real response. An unknown tree is a reported `target-missing`
+  failure, never a guessed entrypoint.
+- The Python boot contract was **verified end to end on this host**: the real
+  `range/pythonbank/redfall.target.json` resolves to
+  `python -m pythonbank.app` (cwd `src`, `PYTHONBANK_PORT=$PORT`), and that
+  command line really boots pythonbank and answers `200` on `/health`
+  (`node tests/harness/verify_python_target.mjs`, also run by the pytest
+  suite). The host Python stands in for the sandbox's virtualenv Python; the
+  argv/cwd/env semantics under test are identical.
 - The harness's request parsing, chunked-transfer decoding, CSV parsing and
   predicate evaluation were **verified against live HTTP traffic on this host**,
   including the real VULN-001 predicate from the manifest. Two genuine bugs were
@@ -140,12 +150,13 @@ against the real target:
 
 | Command | Result |
 | --- | --- |
-| `python scripts/check_no_mock.py` | `NO-MOCK CONTRACT: PASS` (49 files) |
+| `python scripts/check_no_mock.py` | `NO-MOCK CONTRACT: PASS` (50 files) |
 | `python scripts/check_version.py` | `VERSION CONTRACT: PASS` |
-| `python scripts/check_orphans.py` | `ORPHAN CHECK: PASS` (47 modules) |
+| `python scripts/check_orphans.py` | `ORPHAN CHECK: PASS` (48 modules) |
 | `python scripts/check_clean_tree.py` | `CLEAN TREE: PASS` |
-| `python -m pytest tests/ -q` | `218 passed, 5 skipped` with a real Postgres |
+| `python -m pytest tests/ -q` | `226 passed, 5 skipped` with a real Postgres |
 | `node tests/harness/verify_harness.mjs --poc <poc>` | `ALL HARNESS CHECKS PASSED` |
+| `node tests/harness/verify_python_target.mjs` | `ALL PYTHON TARGET CHECKS PASSED` |
 | `node tests/harness/verify_chain_steps.mjs` | `ALL CHAIN HARNESS CHECKS PASSED` |
 | `python scripts/replay_poc.py --all` (pythonbank) | `reproduced: 17 / 17` over real HTTP |
 | `python -m pytest tests/ -q` (pythonbank) | `18 passed` |
@@ -194,6 +205,33 @@ inter taints:
 The manifest anchors VULN-017 at `core/reports.py:13`; the emitted taint lands on
 line 15, inside tolerance, with the symbol fetched through the import bindings
 (`from ..core import reports`) rather than a name match.
+
+The TypeScript side of the same pass, run against the real `vulnbank` tree —
+cross-file calls resolved through ESM import bindings, `require` bindings,
+aliases and namespaces, with tainted arguments recorded on the edge:
+
+```
+$ python -c "... ingest('probe-ts', 'range/vulnbank') ..."
+errors: []
+edges: 11
+selected edges (caller -> callee, tainted params):
+  src/routes/auth.ts   loginHandler -> src/auth/hash.ts       verifyPassword [plain]
+  src/routes/auth.ts   loginHandler -> src/routes/auth.ts     asString       [value]
+  src/middleware/jwt.ts requireAuth -> src/middleware/jwt.ts  verifyToken    [token]
+  src/db/seed.ts       seed         -> src/db/schema.ts       ensureSchema
+  src/server.ts        main         -> src/app.ts             createApp
+inter taints: []
+```
+
+`loginHandler -> verifyPassword [plain]` is the login handler's password
+argument: the argument really is tainted (`req.body`), and the edge records that
+fact — but `verifyPassword`'s body contains no classified sink, so **no taint is
+claimed**. Zero interprocedural taints on vulnbank: the scored pipeline gains a
+real call graph and no new claims, which is exactly the intended direction of
+error. Every interprocedural taint that is emitted must be reachable from a
+route through the graph (`routes_for_line` follows the edges), enforced by
+`tests/test_inter_ts.py::test_vulnbank_call_graph_is_real` and the existing
+reachability test in `tests/test_ingestion.py`.
 
 ---
 
@@ -468,6 +506,6 @@ both prerequisites; that is the only implemented behaviour.
 
 ### Measured state after this work
 
-`python -m pytest tests/ -q` → **218 passed, 5 skipped** (the 5 gVisor skips),
+`python -m pytest tests/ -q` → **226 passed, 5 skipped** (the 5 gVisor skips),
 with `REDFALL_TEST_DATABASE_URL` pointed at a real Postgres. The four contract
 checkers all pass; see the table at the top of this document.

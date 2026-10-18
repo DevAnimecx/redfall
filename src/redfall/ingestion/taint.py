@@ -11,6 +11,11 @@ Design notes that matter for the numbers:
   know that `escapeHtml` neutralises an SQL sink; it does not, and pretending
   otherwise is how false negatives get created. Sanitisers surface in `via` and
   the sandbox stage is what decides whether the path is real.
+
+`collect_tainted` is also the seeding point of the interprocedural pass
+(`inter_ts.py`), exactly as it is for Python: pre-tainted parameters let it
+summarise which parameters can reach a sink, without a second propagation
+engine that could drift away from this one.
 """
 
 from __future__ import annotations
@@ -91,6 +96,24 @@ class Taint:
     @property
     def dedupe_key(self) -> str:
         return f"{self.source}->{self.sink}@{self.line}"
+
+
+@dataclass
+class ScopeTaint:
+    """Scope -> variable -> label, plus the line the variable was tainted at."""
+
+    tainted: dict[str, dict[str, str]] = field(default_factory=dict)
+    lines: dict[str, dict[str, int]] = field(default_factory=dict)
+    scopes: list[tuple[str, int, int]] = field(default_factory=list)
+
+    def scope_for(self, line: int) -> str:
+        best = "<module>"
+        best_span = 10**9
+        for name, start, end in self.scopes:
+            if start <= line <= end and (end - start) < best_span:
+                best = name
+                best_span = end - start
+        return best
 
 
 def _text(parsed: ParsedFile, node: Node | None) -> str:
@@ -226,38 +249,38 @@ def _sink_label(parsed: ParsedFile, node: Node) -> tuple[str, str] | None:
     return label, "fs"
 
 
-def analyse_taint(parsed: ParsedFile, symbols) -> list[Taint]:
-    """Find every source→sink flow inside each enclosing function."""
-    findings: list[Taint] = []
-    seen: set[str] = set()
+# Public names for the interprocedural pass: both passes must share one source
+# model and one identifier reader, so `inter_ts.py` imports these instead of
+# reimplementing them. (`identifiers_in` yields (text, line) pairs here.)
+contains_source = _contains_source
+identifiers_in = _identifiers
+sink_label = _sink_label
 
-    # Group statements by enclosing function so taint cannot cross handlers.
-    scopes: list[tuple[str, int, int]] = [
-        (fn.name, fn.line, fn.end_line) for fn in symbols.functions
-    ]
-    scopes.sort(key=lambda s: (s[1], -(s[2] - s[1])))
 
-    def scope_for(line: int) -> tuple[str, int, int]:
-        best = ("<module>", 0, 10**9)
-        best_span = 10**9
-        for name, start, end in scopes:
-            if start <= line <= end and (end - start) < best_span:
-                best = (name, start, end)
-                best_span = end - start
-        return best
+def collect_tainted(
+    parsed: ParsedFile, symbols, seeds: dict[str, dict[str, str]] | None = None
+) -> ScopeTaint:
+    """Propagate taint through declarations, assignments and for-of bindings.
 
-    nodes = parsed.walk()
-
-    # --- collect sources and the variables they taint, per scope -----------
-    # scope_name -> {var_name: source_label}
-    tainted: dict[str, dict[str, str]] = {}
-    source_lines: dict[str, dict[str, int]] = {}
+    `seeds` pre-taints named variables per scope before the pass runs; the
+    interprocedural pass uses it to ask "what can this parameter reach?".
+    Labels travel with the value, so every attribution stays auditable.
+    """
+    result = ScopeTaint(
+        scopes=sorted(
+            ((fn.name, fn.line, fn.end_line) for fn in symbols.functions),
+            key=lambda s: (s[1], -(s[2] - s[1])),
+        )
+    )
+    for scope_name, marks in (seeds or {}).items():
+        for name, label in marks.items():
+            result.tainted.setdefault(scope_name, {})[name] = label
 
     def mark(scope: str, name: str, label: str, line: int) -> None:
-        tainted.setdefault(scope, {})[name] = label
-        source_lines.setdefault(scope, {})[name] = line
+        result.tainted.setdefault(scope, {})[name] = label
+        result.lines.setdefault(scope, {})[name] = line
 
-    for node in nodes:
+    for node in parsed.walk():
         # direct source use as an argument is handled at the sink; here we only
         # track propagation into named variables
         if node.type == "variable_declarator":
@@ -266,14 +289,14 @@ def analyse_taint(parsed: ParsedFile, symbols) -> list[Taint]:
             if name_node is None or value_node is None:
                 continue
             label = _contains_source(parsed, value_node)
-            scope = scope_for(line_of(node))[0]
+            scope = result.scope_for(line_of(node))
             if label:
                 for nm in _declared_names(name_node):
                     mark(scope, nm, label, line_of(node))
             else:
                 # propagate through previously tainted locals
                 for ident, _ln in _identifiers(value_node):
-                    known = tainted.get(scope, {}).get(ident)
+                    known = result.tainted.get(scope, {}).get(ident)
                     if known:
                         for nm in _declared_names(name_node):
                             mark(scope, nm, known, line_of(node))
@@ -283,11 +306,11 @@ def analyse_taint(parsed: ParsedFile, symbols) -> list[Taint]:
             right = node.child_by_field_name("right")
             if left is None or right is None:
                 continue
-            scope = scope_for(line_of(node))[0]
+            scope = result.scope_for(line_of(node))
             label = _contains_source(parsed, right)
             if not label:
                 for ident, _ln in _identifiers(right):
-                    known = tainted.get(scope, {}).get(ident)
+                    known = result.tainted.get(scope, {}).get(ident)
                     if known:
                         label = known
                         break
@@ -301,25 +324,32 @@ def analyse_taint(parsed: ParsedFile, symbols) -> list[Taint]:
                 continue
             label = _contains_source(parsed, right)
             if label:
-                scope = scope_for(line_of(node))[0]
+                scope = result.scope_for(line_of(node))
                 for nm in _declared_names(left):
                     mark(scope, nm, label, line_of(node))
 
-    # --- sinks -------------------------------------------------------------
-    for node in nodes:
+    return result
+
+
+def analyse_taint(parsed: ParsedFile, symbols) -> list[Taint]:
+    """Find every source→sink flow inside each enclosing function."""
+    findings: list[Taint] = []
+    seen: set[str] = set()
+    collected = collect_tainted(parsed, symbols)
+
+    for node in parsed.walk():
         labelled = _sink_label(parsed, node)
         if labelled is None:
             continue
         label, kind = labelled
         line = line_of(node)
-        scope, _start, _end = scope_for(line)
+        scope = collected.scope_for(line)
         args = node.child_by_field_name("arguments")
         if args is None:
             continue
 
-        scope_taint = tainted.get(scope, {})
+        scope_taint = collected.tainted.get(scope, {})
         hits: list[str] = []
-        direct: str | None = None
         for ident, _ln in _identifiers(args):
             if ident in scope_taint:
                 hits.append(ident)
@@ -333,7 +363,7 @@ def analyse_taint(parsed: ParsedFile, symbols) -> list[Taint]:
             via.append(f"{direct} used directly")
         for h in sorted(set(hits)):
             src = scope_taint.get(h, "?")
-            ln = source_lines.get(scope, {}).get(h)
+            ln = collected.lines.get(scope, {}).get(h)
             via.append(f"{src} -> {h}" + (f" (line {ln})" if ln else ""))
         for san in _sanitisers_in(parsed, args):
             via.append(f"sanitiser present but not modelled: {san}()")

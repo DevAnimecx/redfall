@@ -178,6 +178,12 @@ def _is_exported(node: Node) -> bool:
     return False
 
 
+# Public name for the interprocedural pass: `inter_ts.py` needs to locate the
+# declaration node a FunctionSymbol came from, and must use this exact rule so
+# the two passes cannot disagree about which node a symbol names.
+arrow_or_function_name = _arrow_or_function_name
+
+
 def extract_symbols(parsed: ParsedFile) -> FileSymbols:
     """Walk one parsed file and collect every symbol Redfall cares about."""
     result = FileSymbols(path=parsed.path)
@@ -194,6 +200,17 @@ def extract_symbols(parsed: ParsedFile) -> FileSymbols:
                 for child in clause.children:
                     if child.type == "identifier":
                         default_name = _text(parsed, child)
+                    elif child.type == "namespace_import":
+                        alias = next((c for c in child.children if c.type == "identifier"), None)
+                        if alias is not None:
+                            result.imports.append(
+                                ImportSymbol(
+                                    name=_text(parsed, alias),
+                                    source=module,
+                                    line=line_of(node),
+                                    origin="*",
+                                )
+                            )
                     elif child.type == "named_imports":
                         for spec in child.children:
                             if spec.type == "import_specifier":
@@ -204,6 +221,7 @@ def extract_symbols(parsed: ParsedFile) -> FileSymbols:
                                         name=_text(parsed, alias or nm),
                                         source=module,
                                         line=line_of(node),
+                                        origin=_text(parsed, nm),
                                     )
                                 )
                         continue
@@ -211,6 +229,43 @@ def extract_symbols(parsed: ParsedFile) -> FileSymbols:
                 result.imports.append(
                     ImportSymbol(name=default_name, source=module, line=line_of(node), is_default=True)
                 )
+
+    # --- CommonJS requires: `const x = require('./m')` --------------------
+    # Recorded with the same shapes as the ESM forms so the interprocedural
+    # pass can resolve both without special cases: a bare identifier binds a
+    # namespace ("*"), a destructured pattern binds each name it introduces.
+    for node in nodes:
+        if node.type != "variable_declarator":
+            continue
+        value = node.child_by_field_name("value")
+        if value is None or value.type != "call_expression":
+            continue
+        if _text(parsed, value.child_by_field_name("function")) != "require":
+            continue
+        args = value.child_by_field_name("arguments")
+        arg_list = [c for c in (args.children if args else []) if c.type not in ("(", ")", ",")]
+        module = _string_value(parsed, arg_list[0]) if arg_list else ""
+        name_node = node.child_by_field_name("name")
+        if not module or name_node is None:
+            continue
+        if name_node.type == "identifier":
+            result.imports.append(
+                ImportSymbol(name=_text(parsed, name_node), source=module, line=line_of(node), origin="*")
+            )
+        elif name_node.type == "object_pattern":
+            for child in name_node.named_children:
+                if child.type in ("shorthand_property_identifier_pattern", "shorthand_property_identifier"):
+                    bound = _text(parsed, child)
+                    result.imports.append(
+                        ImportSymbol(name=bound, source=module, line=line_of(node), origin=bound)
+                    )
+                elif child.type == "pair":
+                    key = _text(parsed, child.child_by_field_name("key"))
+                    bound = _text(parsed, child.child_by_field_name("value"))
+                    if key:
+                        result.imports.append(
+                            ImportSymbol(name=bound or key, source=module, line=line_of(node), origin=key)
+                        )
 
     # --- functions -------------------------------------------------------
     for node in nodes:

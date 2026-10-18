@@ -541,3 +541,44 @@ export async function runStepChain(steps, options) {
 export function chainExpectExpr(maxSteps) {
   return `steps.length === ${maxSteps} && steps.every((s) => s.ok === true)`;
 }
+
+// ------------------------------------------------------------------ targets
+// Which runtime a target directory needs, decided from the files a caller
+// actually listed from disk. No file, no runtime: an unknown tree is an error
+// the harness reports, never a default it invents.
+export function detectTargetKind(files) {
+  if (files.includes('package.json')) return 'node';
+  if (files.includes('requirements.txt') || files.includes('pyproject.toml') || files.includes('setup.py')) {
+    return 'python';
+  }
+  return null;
+}
+
+/**
+ * The Python boot contract, resolved to argv + cwd + env.
+ *
+ *   1. `redfall.target.json` is explicit and authoritative: `start` is the argv
+ *      handed to the interpreter, `cwd` (optional) is relative to the target
+ *      root, `health` (optional) defaults to /health, `env` (optional) adds
+ *      variables. `$PORT` inside any string is replaced by the effective port.
+ *   2. Without a config, a bare `app.py` at the target root is the documented
+ *      fallback.
+ *   3. Anything else returns null; the harness turns that into a real
+ *      `target-missing` failure rather than guessing an entrypoint.
+ */
+export function resolvePythonStart(config, options) {
+  const { port, rootHasAppPy } = options;
+  const fill = (value) => String(value).replace(/\$PORT/g, String(port));
+  if (config && Array.isArray(config.start) && config.start.length > 0) {
+    const env = {};
+    for (const [key, value] of Object.entries(config.env || {})) env[key] = fill(value);
+    return {
+      args: config.start.map(fill),
+      cwd: config.cwd ? fill(config.cwd) : '',
+      health: config.health ? fill(config.health) : '/health',
+      env,
+    };
+  }
+  if (rootHasAppPy) return { args: ['-u', 'app.py'], cwd: '', health: '/health', env: {} };
+  return null;
+}

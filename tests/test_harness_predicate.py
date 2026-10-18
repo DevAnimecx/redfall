@@ -20,6 +20,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 HARNESS_TEST = ROOT / "tests" / "harness" / "verify_harness.mjs"
+PYTHON_TARGET_TEST = ROOT / "tests" / "harness" / "verify_python_target.mjs"
 
 requires_node = pytest.mark.skipif(shutil.which("node") is None, reason="node is required")
 
@@ -54,3 +55,18 @@ def test_real_manifest_predicate_holds_over_live_http():
 
     assert proc.returncode == 0, f"harness verification failed:\n{proc.stdout}\n{proc.stderr}"
     assert "ALL HARNESS CHECKS PASSED" in proc.stdout, proc.stdout
+
+
+@requires_node
+def test_python_target_boot_contract_boots_the_real_target():
+    """pythonbank's real redfall.target.json must resolve to a command line that
+    really boots the app on this host (the host Python stands in for the
+    sandbox's virtualenv Python; argv/cwd/env semantics are identical)."""
+    proc = subprocess.run(
+        ["node", str(PYTHON_TARGET_TEST)],
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    assert proc.returncode == 0, f"python target verification failed:\n{proc.stdout}\n{proc.stderr}"
+    assert "ALL PYTHON TARGET CHECKS PASSED" in proc.stdout, proc.stdout

@@ -16,12 +16,10 @@ drift away from this one.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-
 from tree_sitter import Node
 
 from .symbols_py import classify_call, dotted, import_aliases, resolve_dotted
-from .taint import Taint
+from .taint import ScopeTaint, Taint
 from .tree import ParsedFile, line_of
 
 SOURCE_PREFIXES = (
@@ -143,24 +141,6 @@ def _sanitisers_in(parsed: ParsedFile, node: Node, aliases: dict[str, str]) -> l
 # reimplementing them.
 contains_source = _contains_source
 identifiers_in = _identifiers
-
-
-@dataclass
-class ScopeTaint:
-    """Scope -> variable -> label, plus the line the variable was tainted at."""
-
-    tainted: dict[str, dict[str, str]] = field(default_factory=dict)
-    lines: dict[str, dict[str, int]] = field(default_factory=dict)
-    scopes: list[tuple[str, int, int]] = field(default_factory=list)
-
-    def scope_for(self, line: int) -> str:
-        best = "<module>"
-        best_span = 10**9
-        for name, start, end in self.scopes:
-            if start <= line <= end and (end - start) < best_span:
-                best = name
-                best_span = end - start
-        return best
 
 
 def collect_tainted(
