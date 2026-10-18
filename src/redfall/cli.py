@@ -226,7 +226,16 @@ def fix(finding_id: str, target_path: Path, out_path: Path | None) -> None:
 
 @main.command()
 @click.argument("scan_id")
-def report(scan_id: str) -> None:
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["json", "sarif"]),
+    default="json",
+    show_default=True,
+    help="Output format. `sarif` emits SARIF 2.1.0 for code-scanning consumers.",
+)
+@click.option("--out", "out_path", type=click.Path(path_type=Path), default=None, help="Write the report here instead of stdout.")
+def report(scan_id: str, fmt: str, out_path: Path | None) -> None:
     """Print the stored report for a scan."""
     from sqlalchemy import func, select
     from sqlalchemy.orm import sessionmaker
@@ -247,34 +256,46 @@ def report(scan_id: str) -> None:
             .where(LLMCall.scan_id == scan_id)
         ).one()
 
-    console.print_json(
-        data={
-            "scan": scan.to_wire() if hasattr(scan, "to_wire") else {
-                "id": scan.id,
-                "repo": scan.repo,
-                "commit": scan.commit,
-                "status": scan.status,
-                "duration_ms": scan.duration_ms,
-                "findings_total": scan.findings_total,
-                "findings_by_severity": scan.findings_by_severity,
-                "tokens_total": scan.tokens_total,
-                "cost_estimate_usd": scan.cost_estimate_usd,
-            },
-            "branches": [
-                {
-                    "name": b.name,
-                    "status": b.status,
-                    "type": b.type,
-                    "priority": b.priority,
-                    "scope_files": b.scope_files,
-                }
-                for b in branch_rows
-            ],
-            "findings": [f.to_wire() for f in finding_rows],
-            "llm": {"calls": calls[0], "tokens": int(calls[1] or 0), "cost_usd": float(calls[2] or 0.0)},
-            "environment": describe_environment(config),
-        }
-    )
+    data = {
+        "scan": scan.to_wire() if hasattr(scan, "to_wire") else {
+            "id": scan.id,
+            "repo": scan.repo,
+            "commit": scan.commit,
+            "status": scan.status,
+            "duration_ms": scan.duration_ms,
+            "findings_total": scan.findings_total,
+            "findings_by_severity": scan.findings_by_severity,
+            "tokens_total": scan.tokens_total,
+            "cost_estimate_usd": scan.cost_estimate_usd,
+        },
+        "branches": [
+            {
+                "name": b.name,
+                "status": b.status,
+                "type": b.type,
+                "priority": b.priority,
+                "scope_files": b.scope_files,
+            }
+            for b in branch_rows
+        ],
+        "findings": [f.to_wire() for f in finding_rows],
+        "llm": {"calls": calls[0], "tokens": int(calls[1] or 0), "cost_usd": float(calls[2] or 0.0)},
+        "environment": describe_environment(config),
+    }
+
+    if fmt == "sarif":
+        from .sarif import build_sarif
+
+        payload = build_sarif(data["scan"], data["findings"])
+        rendered = json.dumps(payload, indent=2)
+        if out_path:
+            out_path.write_text(rendered + "\n", encoding="utf-8")
+            console.print(f"sarif written to {out_path}")
+        else:
+            print(rendered)
+        return
+
+    console.print_json(data=data)
 
 
 @main.command()

@@ -110,6 +110,7 @@ redfall/
 │   ├── llm.py                  LiteLLM BYOK, tiers, budget, verbatim transcripts
 │   ├── orchestrator.py         ingest → plan → branch → analyse → execute → chain
 │   ├── cli.py                  redfall scan | fix | findings | report | doctor | environment
+│   ├── sarif.py                SARIF 2.1.0 export (verified flag on every result)
 │   ├── ingestion/              tree-sitter parsing (TS/JS + Python), symbols, taint (intra + cross-function in both languages), deps, git, languages.py registry
 │   ├── branching/              tree.py (recursive, adaptive) + adaptive.py (7 detectors)
 │   ├── chain/                  plan.py, executor.py, stage.py, graph.py, cvss_compound.py, narrative.py
@@ -127,7 +128,7 @@ redfall/
 ├── web/                        Next.js 15 dashboard (scan + gate + chains)
 ├── scripts/                    check_no_mock, check_version, check_orphans, check_clean_tree
 ├── .github/workflows/ci.yml    the same checks on every push
-├── tests/                      229 tests, all against real artefacts
+├── tests/                      232 tests, all against real artefacts
 └── BLOCKED.md                  what cannot run here, and why
 ```
 
@@ -139,7 +140,7 @@ redfall/
 make install          # redfall + range-runner, editable, with dev deps
 make check            # every contract checker plus the test suite
 make check-no-mock    # NO-MOCK CONTRACT: PASS
-make test             # 229 passed (5 skips: gVisor tests, no container runtime here)
+make test             # 232 passed (5 skips: gVisor tests, no container runtime here)
 make doctor           # what this host can and cannot do
 ```
 
@@ -197,6 +198,18 @@ cd web && npm run build && npm run start   # dashboard on :3000, reads ../scan.j
 `redfall fix --out` appends one record per finding (`finding_id`, `verified`,
 `status`, the test and PoC outcomes). Re-running it for the same finding replaces
 that record, so the fixes file is the one `range_runner --fixes` scores.
+
+For code-scanning consumers, the stored report exports as SARIF 2.1.0:
+
+```bash
+redfall report <scan-id> --format sarif --out redfall.sarif
+```
+
+Every finding is a `result`; verified ones carry
+`properties.redfall.verified = true` and their evidence, unproven candidates
+carry `false` — the export never drops or upgrades a finding. Severity maps to
+SARIF levels mechanically and the CVSS floor is exported as
+`security-severity`, with the dedupe key as the partial fingerprint.
 
 ---
 
