@@ -24,6 +24,13 @@ Depth one is deliberate: the caller's taint must come from a real source, and
 summaries are computed without call-site context. That keeps the analysis
 honest and the proofs small; deeper chains are a sandbox question, not a
 pattern-match question.
+
+Return flow is the other direction: a callee whose return path reads a source
+(or a local derived from one) makes every call result tainted at the caller's
+sink, via an `extra_source` hook into the shared collector. The summary is
+unseeded — returning a parameter is never claimed here, because that is only
+tainted when the caller passes taint in, which the caller-side propagation
+already proves with the caller's real data.
 """
 
 from __future__ import annotations
@@ -33,7 +40,7 @@ from dataclasses import dataclass, field
 from .symbols import FileSymbols, ImportSymbol
 from .symbols_py import classify_call, dotted, import_aliases, resolve_dotted
 from .taint import Taint
-from .taint_py import collect_tainted, contains_source, identifiers_in
+from .taint_py import collect_tainted, contains_source, find_sinks, first_label, identifiers_in
 from .tree import ParsedFile, line_of
 
 
@@ -328,6 +335,36 @@ def _functions_of(symbols: FileSymbols) -> set[str]:
     return {fn.name for fn in symbols.functions}
 
 
+def _returns_source(parsed: ParsedFile, symbols: FileSymbols, fn) -> str | None:
+    """The source label this function returns, if a return path reads
+    attacker-controlled input — directly or through a local.
+
+    Parameters are deliberately NOT seeded here: returning a parameter is only
+    tainted when the caller passed taint in, which the caller-side propagation
+    already proves. Seeding them would claim every pass-through helper returns
+    tainted data even when every call site passes a constant.
+    """
+    collected = collect_tainted(parsed, symbols)
+    scope = collected.tainted.get(fn.name, {})
+    for node in parsed.walk():
+        if node.type != "return_statement":
+            continue
+        line = line_of(node)
+        if not (fn.line <= line <= fn.end_line) or symbols.containing(line) != fn.name:
+            continue  # returns of nested functions are that function's business
+        expr = next((c for c in node.named_children), None)
+        if expr is None:
+            continue
+        label = first_label(parsed, expr)
+        if label:
+            return label
+        for ident in identifiers_in(expr):
+            known = scope.get(ident)
+            if known:
+                return known
+    return None
+
+
 def _arg_source(idents: list[str], direct: str | None, scope_taint: dict[str, str]) -> str | None:
     if direct:
         return direct
@@ -347,6 +384,7 @@ def analyse_inter(files: list[InterFile]) -> tuple[dict[str, list[Taint]], list[
     edges: list[CallEdge] = []
     params_cache: dict[tuple[str, str], list[str]] = {}
     hops_cache: dict[tuple[str, str], list[_ParamHop]] = {}
+    returns_cache: dict[tuple[str, str], str | None] = {}
 
     for f in files:
         if not f.rel.endswith(".py"):
@@ -426,5 +464,48 @@ def analyse_inter(files: list[InterFile]) -> tuple[dict[str, list[Taint]], list[
                     tainted_params=sorted(set(tainted_params)),
                 )
             )
+
+        # --- return flow -----------------------------------------------------
+        # A helper that reads a source and returns it: the caller's variable
+        # that receives the call result is tainted by the return, not by any
+        # argument. The summary is unseeded (source reads only), so a
+        # pass-through of a parameter is never claimed here — the caller-side
+        # propagation above already proves those, with the caller's real data.
+        def extra_source(node, _f=f, _bindings=bindings):
+            if node.type != "call":
+                return None
+            fn_node = node.child_by_field_name("function")
+            if fn_node is None or not _callee_is_plain(fn_node):
+                return None
+            line = line_of(node)
+            caller = _f.symbols.containing(line)
+            if not caller:
+                return None  # module-level calls are not this pass's business
+            text = _resolve_call_dotted(dotted(_f.parsed, fn_node), _bindings)
+            target = resolve_callee(_f.rel, caller, text, index, local, by_rel)
+            if target is None:
+                return None
+            target_rel, target_fn = target
+            if target_rel == _f.rel and target_fn == caller:
+                return None  # direct recursion proves nothing at depth one
+            key = (target_rel, target_fn)
+            if key not in returns_cache:
+                target_file = by_rel[target_rel]
+                fn_symbol = next(fn for fn in target_file.symbols.functions if fn.name == target_fn)
+                returns_cache[key] = _returns_source(target_file.parsed, target_file.symbols, fn_symbol)
+            label = returns_cache[key]
+            return f"{target_fn}() returns {label}" if label else None
+
+        augmented = collect_tainted(f.parsed, f.symbols, extra_source=extra_source)
+        new_names = any(
+            name not in collected.tainted.get(scope, {})
+            for scope, marks in augmented.tainted.items()
+            for name in marks
+        )
+        if new_names:
+            base_keys = {t.dedupe_key for t in find_sinks(f.parsed, f.symbols, collected)}
+            for taint in find_sinks(f.parsed, f.symbols, augmented, extra_source=extra_source):
+                if taint.dedupe_key not in base_keys:
+                    extra.setdefault(f.rel, []).append(taint)
 
     return extra, edges
