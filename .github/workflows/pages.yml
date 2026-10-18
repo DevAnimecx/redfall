@@ -1,0 +1,65 @@
+name: pages
+
+# Publishes the prerendered landing site (site/dist) to GitHub Pages:
+# https://devanimecx.github.io/redfall/
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "site/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # vite 8 requires node ^20.19 || >=22.12
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: build the prerendered site
+        run: |
+          cd site
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: prove the prerender shipped real content
+        run: |
+          cd site
+          grep -q "What is RedFall?" dist/index.html
+          grep -q 'application/ld+json' dist/index.html
+          test ! -d dist-server
+          echo "dist/index.html carries the rendered page and structured data"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

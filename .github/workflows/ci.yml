@@ -35,7 +35,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          # vite 8 requires node ^20.19 || >=22.12
+          node-version: "22"
 
       - name: install
         run: |
@@ -49,6 +50,14 @@ jobs:
         run: |
           cd range/vulnbank
           npm ci --no-audit --no-fund
+
+      - name: build the landing site (prerender check)
+        # The landing page must build and prerender from a clean lockfile.
+        run: |
+          cd site
+          npm ci --no-audit --no-fund
+          npm run build
+          grep -q "What is RedFall?" dist/index.html
 
       - name: no-mock contract (SS1/SS2)
         run: python scripts/check_no_mock.py
