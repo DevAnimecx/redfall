@@ -56,7 +56,7 @@ range/*/uploads/
 range/*/plugins/*.js
 range/chainbank/chain_replay_result.json
 
-# Release artifacts are rebuilt from source by scripts/build_release.sh.
+# Release artifacts are rebuilt from source by scripts/build_release.py.
 /release/
 /sbom.json
 /scan.json
