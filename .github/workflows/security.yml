@@ -1,0 +1,31 @@
+name: security
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install Redfall's declared dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: audit against the advisory database
+        run: |
+          python -m pip install --quiet pip-audit
+          # Fails the weekly job when a dependency advisory is published —
+          # that red badge is the point, not noise: it means a dep moved.
+          python -m pip_audit --desc on
