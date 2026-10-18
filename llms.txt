@@ -1,0 +1,24 @@
+# RedFall
+
+> RedFall is an autonomous vulnerability scanner that proves every finding by executing it. It ingests a target's real source with tree-sitter (TypeScript, JavaScript, Python), tracks attacker-controlled data from request surface to sink — including a depth-one interprocedural pass with return flow — generates a candidate exploit for each lead, runs it inside a gVisor sandbox against the running application, and reports only what reproduced. It then attempts a repair and calls a fix verified only when the target's own tests still pass and the original proof-of-concept stops working. Static analysis only ever produces candidates; a finding exists only if it executed. This rule (the no-mock contract) is enforced in CI.
+
+RedFall 0.1.0 targets Windows, Linux and macOS, runs on Python 3.12+, exports SARIF 2.1.0 with a per-result `properties.redfall.verified` flag, needs Docker with a gVisor runtime plus one bring-your-own LLM key for a full scan, and reports what a host cannot run in BLOCKED.md instead of estimating it.
+
+## Key pages
+
+- [Landing page](https://devanimecx.github.io/redfall/): one-page overview with install commands and FAQ.
+- [README](https://github.com/DevAnimecx/redfall): full description, status table, evidence for each claim.
+- [Release v0.1.0](https://github.com/DevAnimecx/redfall/releases/tag/v0.1.0): CI-built wheel and sdist, SHA256SUMS, Sigstore attestations.
+- [CHANGELOG](https://github.com/DevAnimecx/redfall/blob/main/CHANGELOG.md): what shipped in 0.1.0, with measured numbers.
+
+## Evidence
+
+- [BLOCKED.md](https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md): what cannot run on the release host, with the smallest real unblock for each item — no estimates in place of results.
+- [CONTRIBUTING.md](https://github.com/DevAnimecx/redfall/blob/main/CONTRIBUTING.md): the no-mock rule, where each pipeline stage lives, the PR contract.
+- [SECURITY.md](https://github.com/DevAnimecx/redfall/blob/main/SECURITY.md): vulnerability reporting, supply-chain verification commands, range-target warning.
+
+## Verification commands
+
+- `gh attestation verify redfall-0.1.0-py3-none-any.whl --repo DevAnimecx/redfall` — proves the release wheel was built by this repository's release workflow from the tagged commit.
+- `redfall doctor` — prints exactly what the current host can and cannot run.
+- `python scripts/check_no_mock.py` — the mechanical part of the no-mock contract.

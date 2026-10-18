@@ -54,7 +54,7 @@ execution, live LLM calls) refuses loudly and is listed in
 
 ### Verified
 
-- `python -m pytest tests/ -q` → **250 passed, 5 skipped** (the five gVisor
+- `python -m pytest tests/ -q` → **254 passed, 5 skipped** (the five gVisor
   skips), against a real Postgres.
 - pythonbank: **17/17** PoCs reproduced over real HTTP; **18** target tests.
 - vulnbank: **32/32** patches verified; 76 tests. vulnbank-adaptive: 91 tests,

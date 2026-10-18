@@ -1,23 +1,30 @@
-# Redfall
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/redfall-logo-dark.svg">
+    <img src="assets/redfall-logo-light.svg" alt="RedFall - autonomous vulnerability discovery and verified repair" width="440">
+  </picture>
+</p>
 
-**Autonomous vulnerability discovery and verified repair.**
+<p align="center">
+  <a href="https://github.com/DevAnimecx/redfall/actions/workflows/ci.yml"><img src="https://github.com/DevAnimecx/redfall/actions/workflows/ci.yml/badge.svg" alt="ci status"></a>
+  <a href="https://github.com/DevAnimecx/redfall/releases"><img src="https://img.shields.io/github/v/release/DevAnimecx/redfall" alt="latest release"></a>
+  <a href="https://devanimecx.github.io/redfall/"><img src="https://img.shields.io/badge/website-devanimecx.github.io%2Fredfall-ff2b2b" alt="website"></a>
+  <img src="https://img.shields.io/badge/platforms-windows%20%7C%20linux%20%7C%20macos-blue" alt="platforms">
+  <img src="https://img.shields.io/badge/python-3.12%20%7C%203.13-blue" alt="python versions">
+  <img src="https://img.shields.io/badge/tests-254%20passed-brightgreen" alt="254 tests passing">
+  <img src="https://img.shields.io/badge/findings-executed%20proofs%20only-brightgreen" alt="findings are executed proofs only">
+  <a href="scripts/check_no_mock.py"><img src="https://img.shields.io/badge/no--mock%20contract-enforced%20in%20CI-brightgreen" alt="no-mock contract enforced in CI"></a>
+</p>
 
-[![ci](https://github.com/DevAnimecx/redfall/actions/workflows/ci.yml/badge.svg)](https://github.com/DevAnimecx/redfall/actions/workflows/ci.yml)
-[![release](https://img.shields.io/github/v/release/DevAnimecx/redfall)](https://github.com/DevAnimecx/redfall/releases)
-[![platforms](https://img.shields.io/badge/platforms-windows%20%7C%20linux%20%7C%20macos-blue)](#install)
-[![python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)](#install)
-[![findings](https://img.shields.io/badge/findings-executed%20proofs%20only-brightgreen)](#how-a-finding-becomes-real)
-[![no-mock](https://img.shields.io/badge/no--mock%20contract-enforced%20in%20CI-brightgreen)](scripts/check_no_mock.py)
+**RedFall is an autonomous vulnerability scanner that proves every finding by executing it.** It reads a target's real source with tree-sitter (TypeScript, JavaScript and Python), tracks attacker-controlled data from request surface to sink — including across function boundaries — generates a candidate exploit for every lead, runs it inside a sandbox (Docker + gVisor) against the real application, and reports only what reproduced. It then attempts a repair and calls a fix verified only when the target's own tests still pass *and* the original PoC stops working.
 
-Redfall reads a target's real source, plans work as a tree of branches that can
-grow mid-scan, executes every candidate exploit against a running target, and
-keeps only what reproduced. It then attempts a repair and calls it verified only
-when the target's own tests still pass *and* the original PoC stops working.
+<https://devanimecx.github.io/redfall/> · [Install](#install) · [How a finding becomes real](#how-a-finding-becomes-real) · [FAQ](#faq) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [BLOCKED.md](BLOCKED.md)
 
 The governing constraint is the no-mock contract (§1, extended by §2): a finding
 exists only if it was executed against a real running target, and every number in
 a report came from a command that actually ran. `scripts/check_no_mock.py`
 enforces the parts of that which are mechanically checkable, and it runs in CI.
+
 
 ---
 
@@ -137,10 +144,13 @@ redfall/
 │   ├── chainbank/              6 two-step chains, 8 tests, 6/6 chains reproduce
 │   ├── pythonbank/             17 seeded vulns, 18 tests, 17/17 PoCs over real HTTP
 │   └── range_runner/           deterministic scorer, 5 metrics + 3 chain metrics
+├── site/                       React + Tailwind landing page (prerendered to static HTML, GitHub Pages)
 ├── web/                        Next.js 15 dashboard (scan + gate + chains)
-├── scripts/                    the four contract checkers, verify_wheel.py, install.sh / install.ps1, build_release.py
-├── .github/workflows/          ci (checks + 3-OS packaging and installers), release (attested artifacts), security (weekly pip-audit)
-├── tests/                      250 tests, all against real artefacts
+├── assets/                     logo lockups and mark (SVG, dark/light)
+├── scripts/                    the four contract checkers, verify_wheel.py, install.sh / install.ps1, build_release.py, generate_brand_assets.py
+├── .github/workflows/          ci (checks + 3-OS packaging and installers), release (attested artifacts), security (weekly pip-audit), pages (landing deploy)
+├── tests/                      254 tests, all against real artefacts
+├── llms.txt                    machine-readable project summary for answer engines
 ├── CONTRIBUTING.md             the no-mock rule, where each stage lives, PR contract
 ├── SECURITY.md                 vulnerability reporting, supply-chain checks, range-target warning
 ├── CHANGELOG.md                0.1.0 - what shipped, with the measured numbers
@@ -196,13 +206,16 @@ from a directory outside the checkout, and it must still parse, taint and find
 the interprocedural flow. `pip install -e ".[dev]"` plus `pip install -e range`
 is `make install`, the development setup.
 
+Prefer one page first? <https://devanimecx.github.io/redfall/> is the same
+project, same claims, same evidence, without scrolling a README.
+
 ## Quick start
 
 ```bash
 make install          # redfall + range-runner, editable, with dev deps
 make check            # every contract checker plus the test suite
 make check-no-mock    # NO-MOCK CONTRACT: PASS
-make test             # 250 passed (5 skips: gVisor tests, no container runtime here)
+make test             # 254 passed (5 skips: gVisor tests, no container runtime here)
 make doctor           # what this host can and cannot do
 ```
 
@@ -367,6 +380,63 @@ chain_narrative_rate == 1.00
 Matching is exact — `category` (or a declared alias), same `file`, and
 `|line − manifest line| <= 5` **or** the same `symbol`. There is no fuzzy
 fallback; a near-miss is recorded as a miss.
+
+---
+
+## FAQ
+
+### What is RedFall?
+
+RedFall is an autonomous vulnerability scanner that proves findings by
+execution. It ingests a target's real source with tree-sitter (TypeScript,
+JavaScript, Python), tracks attacker-controlled data from request surface to
+sink — across function boundaries, with return flow — generates a candidate
+exploit for each lead, runs it inside a gVisor sandbox against the running
+application, and reports only what reproduced. It then attempts a repair and
+verifies it against the target's own test suite.
+
+### How does RedFall verify a finding instead of guessing?
+
+Static analysis never produces findings, only candidates. A candidate becomes a
+finding only when its exploit ran inside the sandbox against the real
+application and its observable predicate matched. Every SARIF result carries
+`properties.redfall.verified` — true or false — and nothing is ever upgraded or
+dropped behind your back.
+
+### Which languages and frameworks are covered?
+
+TypeScript/TSX, JavaScript/JSX and Python. Route extraction covers Express,
+Fastify, koa-router and NestJS decorators, plus Flask and FastAPI with
+blueprint/router prefix resolution. Taint analysis has a depth-one
+interprocedural pass in both language pairs, including unseeded return-flow
+summaries, and an inter-file call graph.
+
+### What does a full scan require?
+
+Docker with a gVisor runtime and one LLM provider key (bring-your-own-key via
+LiteLLM). There is no dry-run mode: `redfall doctor` prints exactly what the
+current host can and cannot run, and refuses to guess. Anything unrunnable is
+listed in [`BLOCKED.md`](BLOCKED.md) with its smallest real unblock.
+
+### How are fixes verified?
+
+The fix loop patches on a branch, runs the target's own tests, and re-runs the
+original PoC; a fix is *verified* only when the suite still passes **and** the
+PoC stops reproducing. Failure text is fed back into up to three attempts, then
+the transcripts go to a human. Nothing is committed or pushed for you.
+
+### Why some skipped tests?
+
+The five skips are gVisor-dependent tests on the development host used for
+0.1.0; they run in CI where the container runtime exists. The no-mock contract
+forbids simulating them locally, so they are reported as skips, not passes.
+
+### Where is the source and are releases verifiable?
+
+The full source, tests and ground-truth range targets are public in this
+repository. Releases are built by CI from the tagged commit, published with
+`SHA256SUMS` and attested with Sigstore, so `gh attestation verify` proves the
+wheel came from this repository's release workflow.
 
 ---
 
