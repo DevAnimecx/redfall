@@ -1,0 +1,38 @@
+name: Feature request
+description: Propose a capability, a sink/source/framework, or a deeper analysis.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What should Redfall be able to prove that it cannot today?
+      placeholder: |
+        Today it misses <class of flow>. Here is a concrete example...
+    validations:
+      required: true
+  - type: textarea
+    id: ground-truth
+    attributes:
+      label: How could it be verified?
+      description: >
+        Redfall's rule is that every capability needs a proof. A range target,
+        a fixture pair (a true flow and a lookalike that must not match), or a
+        replayable PoC all work. "It should detect more" does not.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Ingestion / taint
+        - Frameworks and routes
+        - Adaptive branching / chaining
+        - Sandbox validation / harness
+        - Fix loop
+        - Reporters / SARIF
+        - Range targets / scorer
+        - Packaging / install
+        - Docs
+    validations:
+      required: true
