@@ -92,5 +92,28 @@ jobs:
           redfall --help
           python -c "import importlib.resources as r, redfall; assert (r.files('redfall.validation') / 'harness.mjs').is_file(); print('installed redfall', redfall.__version__)"
 
+      - name: run the POSIX installer (Linux, macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          REDFALL_HOME: ${{ runner.temp }}/redfall-home
+          REDFALL_NO_DOCTOR: "1"
+          REDFALL_NO_PIPX: "1"
+        run: |
+          sh scripts/install.sh
+          "$REDFALL_HOME/venv/bin/redfall" --help
+          "$REDFALL_HOME/venv/bin/python" -c "import importlib.resources as r; assert (r.files('redfall.validation') / 'harness.mjs').is_file(); print('install.sh: installed package works')"
+
+      - name: run the PowerShell installer (Windows)
+        if: runner.os == 'Windows'
+        shell: powershell
+        env:
+          REDFALL_HOME: ${{ runner.temp }}\redfall-home
+          REDFALL_NO_DOCTOR: "1"
+        run: |
+          .\scripts\install.ps1 -NoPath
+          & "$env:REDFALL_HOME\venv\Scripts\redfall.exe" --help
+          & "$env:REDFALL_HOME\venv\Scripts\python.exe" -c "import importlib.resources as r; assert (r.files('redfall.validation') / 'harness.mjs').is_file(); print('install.ps1: installed package works')"
+
       - name: installer contract tests (no database)
-        run: python -m pytest tests/test_packaging.py -q
+        run: python -m pytest tests/test_packaging.py tests/test_install_scripts.py -q
