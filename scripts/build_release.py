@@ -41,8 +41,11 @@ def main() -> int:
 
     out = ROOT / args.out
     out.mkdir(parents=True, exist_ok=True)
-    for old in list(out.glob("redfall-*")) + [out / "SHA256SUMS"]:
+    for old in out.glob("redfall-*"):
         old.unlink()
+    sums_file = out / "SHA256SUMS"
+    if sums_file.exists():
+        sums_file.unlink()
 
     built = subprocess.run(
         [sys.executable, "-m", "build", "--outdir", str(out), "--no-isolation"],
@@ -77,7 +80,7 @@ def main() -> int:
         digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
         lines.append(f"{digest}  {artifact.name}")
         print(f"built {artifact.name} ({artifact.stat().st_size:,} bytes)")
-    (out / "SHA256SUMS").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    sums_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"checksums written to {out / 'SHA256SUMS'}")
     print("both archives carry the sandbox harness, the prompts and the Dockerfile")
     return 0
