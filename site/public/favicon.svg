@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="RedFall shield and crosshair mark">
+  <defs>
+    <linearGradient id="rf-red" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#ff5147"/>
+      <stop offset="0.55" stop-color="#e01b1b"/>
+      <stop offset="1" stop-color="#8c0202"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke="url(#rf-red)" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M46 26 H210 L234 50 V142 L128 236 L22 142 V50 Z" stroke-width="16"/>
+    <circle cx="128" cy="118" r="42" stroke-width="10"/>
+    <path d="M128 52 V68 M128 168 V184 M60 118 H76 M180 118 H196" stroke-width="10"/>
+  </g>
+  <circle cx="128" cy="118" r="12" fill="url(#rf-red)"/>
+</svg>
