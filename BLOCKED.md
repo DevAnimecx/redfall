@@ -158,6 +158,8 @@ against the real target:
 | `python -m pip wheel . --no-deps -w dist` + `scripts/verify_wheel.py` in a fresh venv, run from outside the checkout | `WHEEL VERIFY: PASS` — the installed wheel ships the harness and finds the interprocedural taint |
 | `python scripts/build_release.py` | builds `redfall-0.1.0-py3-none-any.whl` + `redfall-0.1.0.tar.gz`, writes `SHA256SUMS`, and proves the harness, every prompt and the Dockerfile are inside both archives |
 | `powershell -File scripts/install.ps1 -NoPath` with a throwaway `REDFALL_HOME` | `Redfall 0.1.0 installed.` and the host's real doctor report — executed end to end on Windows; `bash -n scripts/install.sh` parses clean with a real POSIX shell here, and CI executes both installers on Ubuntu, Windows and macOS |
+| GitHub CI on `main` (`check` + 6-job package matrix) | green — the first run failed exactly two tests for environment reasons (no `node_modules`, no build backend) and both were fixed by making CI real, not by weakening the tests |
+| `gh attestation verify redfall-0.1.0-py3-none-any.whl --repo DevAnimecx/redfall` on the downloaded release | verified — signed by `release.yml@refs/tags/v0.1.0`; `SHA256SUMS` checked OK for both artifacts |
 | `node tests/harness/verify_harness.mjs --poc <poc>` | `ALL HARNESS CHECKS PASSED` |
 | `node tests/harness/verify_python_target.mjs` | `ALL PYTHON TARGET CHECKS PASSED` |
 | `node tests/harness/verify_chain_steps.mjs` | `ALL CHAIN HARNESS CHECKS PASSED` |
