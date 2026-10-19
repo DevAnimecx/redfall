@@ -2,7 +2,7 @@
 
 MCP uses newline-delimited JSON-RPC on stdio. The transport is intentionally
 small and dependency-free: the registry behind it is the same code used by the
-CLI and, later, the HTTP/A2A adapters. Tool failures are returned as MCP
+CLI and the HTTP/OpenAPI + A2A gateway. Tool failures are returned as MCP
 ``isError`` results, while malformed JSON-RPC gets a JSON-RPC error.
 """
 

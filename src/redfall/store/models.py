@@ -818,3 +818,226 @@ class EvidenceRecord(Base):
             "reportable": self.reportable,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class AgentToken(Base):
+    """An agent credential for the HTTP/A2A gateway.
+
+    The plaintext token is shown once when it is created; only its SHA-256
+    digest is stored. Scopes are an explicit allow-list, quotas are enforced per
+    rolling hour from the audit trail, and revocation is a timestamp — a
+    credential manager for the gateway, not a note in a config file.
+    """
+
+    __tablename__ = "agent_tokens"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    token_sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    scopes: Mapped[list] = mapped_column(JSON, default=list)
+    quota_per_hour: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "scopes": list(self.scopes or []),
+            "quota_per_hour": self.quota_per_hour,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+            "revoked_at": self.revoked_at.isoformat() if self.revoked_at else None,
+            "revoked": self.revoked_at is not None,
+        }
+
+
+class InteropAudit(Base):
+    """One authenticated gateway call: who, what, with which outcome.
+
+    Denials are recorded too (with ``ok`` false), because an audit trail that
+    only shows successes cannot answer "who tried to widen their scope".
+    """
+
+    __tablename__ = "interop_audit"
+    __table_args__ = (
+        Index("ix_interop_audit_token_created", "token_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    protocol: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    agent: Mapped[str] = mapped_column(String(64), default="", index=True)
+    token_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    tool: Mapped[str] = mapped_column(String(64), default="", index=True)
+    campaign_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    input_hash: Mapped[str] = mapped_column(String(64), default="")
+    ok: Mapped[bool] = mapped_column(Boolean, default=False)
+    error: Mapped[str] = mapped_column(Text, default="")
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "protocol": self.protocol,
+            "agent": self.agent,
+            "token_id": self.token_id,
+            "tool": self.tool,
+            "campaign_id": self.campaign_id,
+            "input_hash": self.input_hash,
+            "ok": self.ok,
+            "error": self.error,
+            "duration_ms": self.duration_ms,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class InteropTask(Base):
+    """An A2A task: one tool call with a durable lifecycle.
+
+    The row is the source of truth for ``GetTask``/``ListTasks``/streaming.
+    ``state`` uses the A2A v1.0 ProtoJSON enum names (``TASK_STATE_*``).
+    """
+
+    __tablename__ = "interop_tasks"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    context_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    agent: Mapped[str] = mapped_column(String(64), default="", index=True)
+    token_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    tool: Mapped[str] = mapped_column(String(64), default="")
+    arguments: Mapped[dict] = mapped_column(JSON, default=dict)
+    state: Mapped[str] = mapped_column(String(24), default="TASK_STATE_SUBMITTED", index=True)
+    status_message: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    artifacts: Mapped[list] = mapped_column(JSON, default=list)
+    history: Mapped[list] = mapped_column(JSON, default=list)
+    error: Mapped[str] = mapped_column(Text, default="")
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, default=False)
+    push_configs: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    def to_wire(
+        self,
+        *,
+        history_length: int | None = None,
+        include_artifacts: bool = True,
+    ) -> dict[str, object]:
+        history = list(self.history or [])
+        if history_length is not None:
+            history = history[-history_length:] if history_length > 0 else []
+        out: dict[str, object] = {
+            "id": self.id,
+            "contextId": self.context_id,
+            "status": {
+                "state": self.state,
+                "timestamp": (self.updated_at or self.created_at).isoformat()
+                if (self.updated_at or self.created_at)
+                else None,
+            },
+        }
+        if self.status_message:
+            out["status"]["message"] = self.status_message  # type: ignore[index]
+        if history:
+            out["history"] = history
+        if include_artifacts:
+            out["artifacts"] = list(self.artifacts or [])
+        return out
+
+
+class InteropArtifact(Base):
+    """A stored tool result behind a signed URL.
+
+    A2A artifacts inline the result for small payloads; the stored copy is what
+    signed URLs serve, so a follow-up fetch does not have to re-run the tool.
+    """
+
+    __tablename__ = "interop_artifacts"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    tool: Mapped[str] = mapped_column(String(64), default="")
+    sha256: Mapped[str] = mapped_column(String(64), default="")
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class InteropSetting(Base):
+    """Small durable key/value store for gateway-level secrets (e.g. HMAC keys)."""
+
+    __tablename__ = "interop_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[dict] = mapped_column(JSON, default=dict)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WebhookSubscription(Base):
+    """An operator-configured webhook endpoint for campaign events."""
+
+    __tablename__ = "webhook_subscriptions"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    events: Mapped[list] = mapped_column(JSON, default=list)
+    secret: Mapped[str] = mapped_column(String(64), default="")
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "url": self.url,
+            "events": list(self.events or []),
+            "active": self.active,
+            "has_secret": bool(self.secret),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class WebhookDelivery(Base):
+    """One pending or attempted delivery of one campaign event.
+
+    ``(subscription_id, event_id)`` is unique: enqueueing is idempotent, so a
+    server restart or a repeated drain cannot double-deliver a campaign event.
+    """
+
+    __tablename__ = "webhook_deliveries"
+    __table_args__ = (
+        UniqueConstraint(
+            "subscription_id", "event_id", name="uq_webhook_deliveries_subscription_event"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    subscription_id: Mapped[str] = mapped_column(
+        ForeignKey("webhook_subscriptions.id"), nullable=False, index=True
+    )
+    event_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    campaign_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    event_kind: Mapped[str] = mapped_column(String(48), default="")
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    last_status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "subscription_id": self.subscription_id,
+            "event_id": self.event_id,
+            "campaign_id": self.campaign_id,
+            "event_kind": self.event_kind,
+            "payload": self.payload or {},
+            "status": self.status,
+            "attempts": self.attempts,
+            "last_status_code": self.last_status_code,
+            "last_error": self.last_error,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }

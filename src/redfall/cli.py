@@ -1215,6 +1215,279 @@ def mcp_certify(timeout: float, out_path: Path | None) -> None:
 
 
 @main.group()
+def interop() -> None:
+    """Agent interoperability: HTTP/OpenAPI, A2A, tokens, webhooks and audit."""
+
+
+def _use_database(database_url: str) -> None:
+    import os
+
+    if database_url:
+        os.environ["DATABASE_URL"] = database_url
+
+
+@interop.command("serve")
+@click.option("--host", default="127.0.0.1", show_default=True)
+@click.option("--port", type=int, default=8787, show_default=True)
+@click.option("--database-url", default="", help="Override the database URL for the gateway.")
+@click.option("--public-url", default="", help="Externally visible base URL for the Agent Card and artifact links.")
+@click.option("--verbose", is_flag=True, help="Log every HTTP request.")
+def interop_serve(
+    host: str, port: int, database_url: str, public_url: str, verbose: bool
+) -> None:
+    """Serve the OpenAPI tool API and the A2A agent on one address."""
+    from sqlalchemy.orm import sessionmaker
+
+    from .interop.http_server import serve
+    from .interop.tools import ToolRegistry
+
+    _use_database(database_url)
+    config = load_config()
+    url = database_url or config.database_url
+    try:
+        engine = init_engine(url)
+        SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+        registry = ToolRegistry(SessionLocal)
+    except Exception as exc:  # noqa: BLE001 - startup must report the real failure
+        _fail(f"interop database unavailable: {type(exc).__name__}: {exc}")
+    try:
+        serve(
+            registry,
+            SessionLocal,
+            host=host,
+            port=port,
+            public_url=public_url,
+            verbose=verbose,
+        )
+    except OSError as exc:
+        _fail(f"cannot bind {host}:{port}: {exc}")
+
+
+@interop.group()
+def token() -> None:
+    """Manage agent bearer tokens (plaintext is shown once)."""
+
+
+@token.command("create")
+@click.option("--name", required=True, help="Agent identity name recorded in the audit trail.")
+@click.option("--scopes", default="read", show_default=True, help="Comma-separated: read,execute,write,admin.")
+@click.option("--quota-per-hour", type=int, default=0, show_default=True, help="0 means unlimited.")
+@click.option("--database-url", default="", help="Override the database URL.")
+def token_create(name: str, scopes: str, quota_per_hour: int, database_url: str) -> None:
+    """Create a token and print it exactly once."""
+    from .interop.auth import create_token
+
+    _use_database(database_url)
+    granted = [part.strip() for part in scopes.split(",") if part.strip()]
+    with _db_session() as session:
+        try:
+            row, plaintext = create_token(
+                session, name=name, scopes=granted, quota_per_hour=quota_per_hour
+            )
+        except ValueError as exc:
+            _fail(str(exc))
+        data = row.to_wire()
+        data["token"] = plaintext
+    console.print_json(data=data)
+    err_console.print(
+        "[yellow]This token is shown once. Only its SHA-256 digest is stored.[/yellow]"
+    )
+
+
+@token.command("list")
+@click.option("--database-url", default="", help="Override the database URL.")
+def token_list(database_url: str) -> None:
+    """List token metadata. Plaintext tokens are never stored or shown."""
+    from .interop.auth import list_tokens
+
+    _use_database(database_url)
+    with _db_session() as session:
+        rows = [row.to_wire() for row in list_tokens(session)]
+    console.print_json(data={"tokens": rows})
+
+
+@token.command("revoke")
+@click.option("--id", "token_id", default="", help="Token id.")
+@click.option("--name", default="", help="Most recent token with this name.")
+@click.option("--database-url", default="", help="Override the database URL.")
+def token_revoke(token_id: str, name: str, database_url: str) -> None:
+    """Revoke a token immediately."""
+    from .interop.auth import revoke_token
+
+    if not token_id and not name:
+        _fail("pass --id or --name")
+    _use_database(database_url)
+    with _db_session() as session:
+        try:
+            row = revoke_token(session, token_id=token_id, name=name)
+        except ValueError as exc:
+            _fail(str(exc))
+        data = row.to_wire()
+    console.print_json(data=data)
+
+
+@interop.group()
+def webhook() -> None:
+    """Operator webhooks for campaign events, signed with HMAC-SHA256."""
+
+
+def _split_events(events: tuple[str, ...], csv_events: str) -> list[str]:
+    values: list[str] = list(events)
+    values.extend(part.strip() for part in csv_events.split(",") if part.strip())
+    return values or ["campaign.*"]
+
+
+@webhook.command("add")
+@click.option("--url", required=True, help="Absolute http(s) receiver URL.")
+@click.option("--event", "events", multiple=True, help="Event pattern; repeatable. Defaults to campaign.*.")
+@click.option("--events", "csv_events", default="", help="Comma-separated event patterns.")
+@click.option("--secret", default="", help="Signing secret. Generated and shown once when omitted.")
+@click.option("--allow-loopback", is_flag=True, help="Allow a loopback receiver (local testing only).")
+@click.option("--database-url", default="", help="Override the database URL.")
+def webhook_add(
+    url: str,
+    events: tuple[str, ...],
+    csv_events: str,
+    secret: str,
+    allow_loopback: bool,
+    database_url: str,
+) -> None:
+    """Subscribe an endpoint to campaign events."""
+    from .interop.webhooks import WebhookError, subscribe
+
+    _use_database(database_url)
+    patterns = _split_events(events, csv_events)
+    with _db_session() as session:
+        try:
+            row, plaintext = subscribe(
+                session,
+                url=url,
+                events=patterns,
+                secret=secret,
+                allow_loopback=allow_loopback,
+            )
+        except WebhookError as exc:
+            _fail(str(exc))
+        data = row.to_wire()
+        data["secret"] = plaintext
+    console.print_json(data=data)
+    err_console.print(
+        "[yellow]This signing secret is shown once; store it on the receiver.[/yellow]"
+    )
+
+
+@webhook.command("list")
+@click.option("--database-url", default="", help="Override the database URL.")
+def webhook_list(database_url: str) -> None:
+    """List webhook subscriptions (secrets are not printed)."""
+    from .interop.webhooks import list_subscriptions
+
+    _use_database(database_url)
+    with _db_session() as session:
+        rows = [row.to_wire() for row in list_subscriptions(session)]
+    console.print_json(data={"webhooks": rows})
+
+
+@webhook.command("remove")
+@click.option("--id", "subscription_id", required=True)
+@click.option("--database-url", default="", help="Override the database URL.")
+def webhook_remove(subscription_id: str, database_url: str) -> None:
+    """Remove a webhook subscription."""
+    from .interop.webhooks import remove_subscription
+
+    _use_database(database_url)
+    with _db_session() as session:
+        removed = remove_subscription(session, subscription_id)
+    if not removed:
+        _fail(f"no webhook subscription: {subscription_id}")
+    console.print_json(data={"removed": subscription_id})
+
+
+@webhook.command("deliver")
+@click.option("--limit", type=int, default=20, show_default=True)
+@click.option("--timeout", type=float, default=10.0, show_default=True)
+@click.option("--allow-loopback", is_flag=True)
+@click.option("--database-url", default="", help="Override the database URL.")
+def webhook_deliver(
+    limit: int, timeout: float, allow_loopback: bool, database_url: str
+) -> None:
+    """Enqueue recent campaign events and attempt pending deliveries once."""
+    from .interop.webhooks import deliver_pending, enqueue_recent_events
+
+    _use_database(database_url)
+    with _db_session() as session:
+        enqueued = enqueue_recent_events(session)
+        summary = deliver_pending(
+            session, limit=limit, timeout=timeout, allow_loopback=allow_loopback
+        )
+    console.print_json(data={"enqueued": enqueued, **summary})
+
+
+@interop.command("audit")
+@click.option("--limit", type=int, default=50, show_default=True)
+@click.option("--agent", default="", help="Filter by token name.")
+@click.option("--tool", default="", help="Filter by tool name.")
+@click.option("--database-url", default="", help="Override the database URL.")
+def interop_audit(limit: int, agent: str, tool: str, database_url: str) -> None:
+    """Read the gateway call audit trail."""
+    from .interop.audit import list_calls
+
+    _use_database(database_url)
+    with _db_session() as session:
+        rows = [row.to_wire() for row in list_calls(session, limit=limit, agent=agent, tool=tool)]
+    console.print_json(data={"calls": rows})
+
+
+@interop.command("certify")
+@click.option("--protocol", type=click.Choice(["http", "a2a"]), required=True)
+@click.option("--timeout", type=float, default=60.0, show_default=True)
+@click.option("--out", "out_path", type=click.Path(path_type=Path), default=None)
+@click.option("--database-url", default="", help="Contract database URL (defaults to a temporary SQLite database).")
+def interop_certify(
+    protocol: str, timeout: float, out_path: Path | None, database_url: str
+) -> None:
+    """Run a real adapter contract and persist the measured result."""
+    import uuid
+
+    from .interop.contract import run_a2a_contract, run_http_contract
+    from .store.models import AdapterCertification
+
+    _use_database(database_url)
+    report = (
+        run_http_contract(database_url or None, timeout=timeout)
+        if protocol == "http"
+        else run_a2a_contract(database_url or None, timeout=timeout)
+    )
+    data = report.to_wire()
+    with _db_session() as session:
+        session.add(
+            AdapterCertification(
+                id=f"adapter-{uuid.uuid4().hex}",
+                adapter=report.adapter,
+                protocol=report.protocol,
+                transport=report.transport,
+                server_name=report.server_name,
+                server_version=report.server_version,
+                tool_count=report.tool_count,
+                certified=report.certified,
+                checks=[check.to_wire() for check in report.checks],
+                details={
+                    "protocol_version": report.protocol_version,
+                    "error": report.error,
+                    "contract_database": report.database_url,
+                },
+                duration_ms=report.duration_ms,
+            )
+        )
+    if out_path:
+        out_path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+        console.print(f"contract report written to {out_path}")
+    console.print_json(data=data)
+    if not report.certified:
+        raise SystemExit(2)
+
+
+@main.group()
 def adapters() -> None:
     """Protocol adapter availability and measured certifications."""
 
@@ -1243,15 +1516,15 @@ def adapters_list() -> None:
                     "name": "http-openapi",
                     "protocol": "openapi",
                     "transport": "http",
-                    "status": "planned",
-                    "certification": "not implemented",
+                    "status": "supported",
+                    "certification": "run `redfall interop certify --protocol http`",
                 },
                 {
                     "name": "a2a",
                     "protocol": "a2a",
                     "transport": "http",
-                    "status": "planned",
-                    "certification": "not implemented",
+                    "status": "supported",
+                    "certification": "run `redfall interop certify --protocol a2a`",
                 },
             ]
         }

@@ -103,14 +103,19 @@ def test_campaign_run_cli_executes_graph_task(tmp_path, monkeypatch):
     assert "refusing to report" in refused.output
 
 
-def test_adapters_list_does_not_claim_unimplemented_transports(tmp_path, monkeypatch):
+def test_adapters_list_reflects_shipped_transports(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", f"sqlite+pysqlite:///{tmp_path / 'adapters.db'}")
     data = invoke_json(CliRunner(), ["adapters", "list"])
     by_name = {item["name"]: item for item in data["adapters"]}
     assert by_name["mcp-stdio"]["status"] == "supported"
-    assert by_name["a2a"]["status"] == "planned"
-    assert by_name["http-openapi"]["status"] == "planned"
-    assert "not implemented" in by_name["a2a"]["certification"]
+    assert by_name["a2a"]["status"] == "supported"
+    assert by_name["http-openapi"]["status"] == "supported"
+    assert "interop certify --protocol a2a" in by_name["a2a"]["certification"]
+    assert "interop certify --protocol http" in by_name["http-openapi"]["certification"]
+    # The CLI is implemented but has no executable adapter contract, and the
+    # listing must say so rather than implying certification.
+    assert by_name["cli"]["status"] == "supported"
+    assert by_name["cli"]["certification"] == "not contract-certified"
 
 
 def test_mcp_certify_persists_measured_contract_result(tmp_path, monkeypatch):

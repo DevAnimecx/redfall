@@ -8,6 +8,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Phase 3 agent interoperability gateway** — one stdlib
+  `ThreadingHTTPServer` serves the same 44-tool `ToolRegistry` over HTTP/OpenAPI
+  and A2A v1.0 on one address. HTTP adds `GET /healthz`,
+  `GET /v1/openapi.json`, `GET /v1/tools`, `POST /v1/tools/{name}`, admin-only
+  `GET /v1/audit` and HMAC-signed `GET /v1/artifacts/{id}`. A2A adds the Agent
+  Card at `/.well-known/agent-card.json`, JSON-RPC at `/a2a/v1`, SSE streaming,
+  `SendMessage`, `SendStreamingMessage`, `GetTask`, `ListTasks`, `CancelTask`
+  and `SubscribeToTask`, with deterministic cancellation before execution and
+  cooperative cancellation during a call. Push notifications return `-32003`;
+  multi-turn continuation returns `-32004`.
+- **Gateway security and operations** — `AgentToken` rows store only SHA-256
+  digests with explicit scopes (`read`, `execute`, `write`, `admin`), optional
+  hourly quotas and immediate revocation; tool executions, unknown-tool
+  attempts and scope/quota denials are audited. Tokens are created, listed and
+  revoked only through the CLI. `redfall interop serve|token|webhook|audit|
+  certify` is the operator surface. Webhooks use HMAC-SHA256
+  (`X-Redfall-Signature: sha256=<hex>`), idempotent per-subscription/event
+  enqueue, at most three attempts, no redirects, and loopback/link-local URL
+  policy. Tool results are labelled `untrusted-repository-data` in the JSON
+  envelope, the `X-Redfall-Trust` header and A2A artifact metadata.
+- **Phase 3 executable contracts** — `redfall interop certify --protocol http`
+  launches a fresh gateway subprocess against a temporary database and
+  repository and runs 10 checks; `--protocol a2a` runs 11. Both report
+  `certified=True` locally. The checks use a real socket, real tool execution,
+  SSE streaming and signed artifacts.
+- **Phase 3 focused verification on Windows** — 53 Phase 3 tests pass (18
+  auth/HTTP, 14 A2A, 11 webhooks, 2 contracts, 8 CLI), and 362 tests are
+  collected. Compile clean; no-mock **PASS** across 80 files; orphan **PASS**
+  (78 reachable modules). A further 192 pre-existing tests passed in focused
+  chunks covering the subsystems the new registry and tables touch; six
+  environment tests skipped and one Postgres-only SARIF store test could not
+  connect locally. The full suite is not completed on this host because the
+  pre-existing ingestion-heavy tests exceed the local harness limit; CI remains
+  authoritative and its result is recorded in the follow-up docs commit after
+  the run.
 - **Phase 2 execution layer** — a persisted, provenance-aware code graph v1
   (`graph_snapshots`, `graph_nodes`, `graph_edges`) built from real ingestion,
   with bounded search/traversal/paths/inventory and snapshot diff; a resumable

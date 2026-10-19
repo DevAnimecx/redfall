@@ -4,24 +4,24 @@
 > the path to it. Nothing below should be read as shipped until it has a real
 > test, a reproducible run, or a published benchmark result.
 >
-> **Implementation status (2026-10-19):** Phase 1 and Phase 2 are implemented —
-> durable campaigns/tasks/leases/budgets, the E0–E4 hash-chained evidence
-> ledger, a persisted provenance-aware graph v1, a resumable runner with
-> preflight reservations, real graph/scan/reproduce/report handlers, 44 MCP
-> stdio tools, and an executable MCP adapter contract. Local Windows
-> verification: compile clean, no-mock **73 files PASS**, orphan **71 modules
-> PASS**, and **35 focused SQLite/CLI/MCP tests passed**, including a real stdio
-> subprocess. The full Postgres-backed suite passed in CI (run 39286891463,
-> `check` job with Postgres 17: 304 passed, 5 gVisor-dependent environment
-> skips); it remains CI-authoritative.
+> **Implementation status (2026-10-20):** Phases 1–3 are implemented — durable
+> campaigns/tasks/leases/budgets, the E0–E4 hash-chained evidence ledger, a
+> persisted provenance-aware graph v1, a resumable runner with preflight
+> reservations, real graph/scan/reproduce/report handlers, 44 MCP stdio tools,
+> and a single HTTP/OpenAPI + A2A v1.0 gateway over the same tool registry.
+> Local Windows verification: compile clean, no-mock **80 files PASS**, orphan
+> **78 modules PASS**, and **53 focused Phase 3 tests passed**, including real
+> sockets, SSE and two gateway subprocess contracts. The Phase 2 Postgres-backed
+> suite remains the CI baseline (run 39286891463: 304 passed, 5 gVisor-dependent
+> environment skips); Phase 3 CI verification is pending.
 >
-> Still unimplemented: A2A/HTTP adapters, environment recipes/synthesis,
-> multi-role campaigns, sanitizer-node synthesis, languages outside the current
-> TypeScript/JavaScript/Python ingestion, self-learning, external-agent
-> certification beyond the shipped MCP server, and the four-hour campaign. See
-> [`CHANGELOG.md`](CHANGELOG.md).
+> Still unimplemented: A2A push notifications and multi-turn continuation,
+> environment recipes/synthesis, multi-role campaigns, sanitizer-node synthesis,
+> languages outside the current TypeScript/JavaScript/Python ingestion,
+> self-learning, external-agent certification beyond the shipped surfaces, and
+> the four-hour campaign. See [`CHANGELOG.md`](CHANGELOG.md).
 >
-> Baseline: RedFall `0.1.0`, commit `c131929`, 2026-10-19.
+> Baseline: RedFall `0.1.0`, commit `4db5982`, 2026-10-19.
 >
 > The plan deliberately avoids promising “all vulnerabilities”, “any language”,
 > “self-evolving” or “best” as facts. It defines how those claims would be
@@ -768,7 +768,11 @@ for narrow, well-measured gaps, not the first version of “learning”.
 
 ### 5.8 Interoperability Gateway
 
-**Current.** CLI only; model access through LiteLLM; no agent protocol.
+**Current (Phase 3).** One gateway process exposes the same 44-tool registry
+over MCP stdio, HTTP/OpenAPI and A2A v1.0 JSON-RPC/SSE. Bearer tokens, scopes,
+hourly quotas, audit, signed artifacts and HMAC webhooks are implemented.
+A2A push notifications, multi-turn continuation, a CLI adapter contract, TLS
+termination and built-in multi-tenancy remain open.
 
 **Target.** Any agent can use RedFall, and RedFall can use any suitable agent or
 model, without special-casing every vendor.
