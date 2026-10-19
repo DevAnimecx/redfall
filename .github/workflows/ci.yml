@@ -57,7 +57,21 @@ jobs:
           cd site
           npm ci --no-audit --no-fund
           npm run build
+          npm run check:seo
           grep -q "What is RedFall?" dist/index.html
+          test -f dist/og/landing.png
+
+      - name: SEO, layout, accessibility and Lighthouse gates (real Chrome)
+        run: |
+          cd site
+          node node_modules/vite/bin/vite.js preview --port 4173 --strictPort &
+          for i in $(seq 1 40); do curl -sf http://localhost:4173/redfall/ >/dev/null && break; sleep 0.5; done
+          CHROME_PATH=$(command -v google-chrome || command -v chromium || command -v chromium-browser)
+          export CHROME_PATH
+          node scripts/mobile_check.mjs http://localhost:4173/redfall/
+          node scripts/a11y_check.mjs http://localhost:4173/redfall/
+          node scripts/docs_check.mjs http://localhost:4173/redfall/
+          node scripts/lighthouse_check.mjs http://localhost:4173/redfall/
 
       - name: no-mock contract (SS1/SS2)
         run: python scripts/check_no_mock.py

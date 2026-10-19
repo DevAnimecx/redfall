@@ -8,29 +8,72 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- **Landing page** (`site/`) — one-page React + Tailwind site, statically
-  prerendered at build time so crawlers and answer engines read the full page
-  without JavaScript. Deployed to <https://devanimecx.github.io/redfall/> by
-  `.github/workflows/pages.yml`. SEO/AEO: canonical, Open Graph and Twitter
-  cards, JSON-LD (SoftwareApplication + FAQPage + WebSite), `robots.txt`,
-  `sitemap.xml`, generated social card. Lighthouse: performance /
-  accessibility / best-practices / SEO all 100 on both local presets; 99–100
-  performance on the live CDN under simulated throttling.
+- **Landing page + documentation** (`site/`) — a one-page React + Tailwind
+  landing page, statically prerendered at build time, plus **22 docs/trust
+  pages** generated from Markdown with zero client JavaScript. Deployed to
+  <https://devanimecx.github.io/redfall/> by `.github/workflows/pages.yml`.
+- **Technical SEO + GEO/AEO system** — one canonical per page, unique titles and
+  descriptions, hreflang, a real 404, `sitemap.xml` (23 URLs), `robots.txt` with
+  named AI crawlers, a byte-identical `llms.txt` at repo and site root,
+  23 generated 1200×630 OG cards, JSON-LD graphs (Organization, Person, WebSite,
+  SoftwareApplication, WebPage, FAQPage, BreadcrumbList, TechArticle), IndexNow
+  key plus submission script, a weekly live SEO monitor workflow, and the
+  operating manual in [`site/SEO.md`](site/SEO.md). Build gates:
+  `check:seo`, `check:docs`, `check:layout`, `check:a11y`, `check:lighthouse`.
 - **Brand assets** — `assets/` carries the vector lockups (dark, light, mark);
-  `scripts/generate_brand_assets.py` renders the 1200×630 social card and the
-  touch icons from the same geometry. `tests/test_brand_assets.py` pins the SVG
-  path to the generator so the two cannot drift.
-- **`llms.txt`** — machine-readable project summary for answer engines; the
-  README gains a hero logo, a definition-first opening and a seven-question
-  FAQ that matches the landing page's structured data.
+  `scripts/generate_brand_assets.py` renders the base social card and touch
+  icons, and `scripts/generate_og_assets.py` renders a per-page 1200×630 card.
+  `tests/test_brand_assets.py` pins the SVG path to the generator so the two
+  cannot drift.
+- **`llms.txt`** — machine-readable project summary for answer engines, generated
+  from the same page manifest as the sitemap and copied byte-for-byte to the repo
+  root; the build fails if the two drift.
+
+### Fixed
+
+- **Mobile layout overflow on the landing page** — the install code blocks are
+  CSS-grid children, and grid items default to `min-width: auto`, so each
+  `<pre>` forced its track to 554 px and the document was 578 px wide on a
+  390 px phone (188 px of sideways scroll). Lighthouse's viewport audit only
+  reads the meta tag, so it did not catch this; `site/scripts/mobile_check.mjs`
+  now drives real Chrome at 390/768/1280 px and CI fails on any unclipped
+  overflow.
+- **Dark logo lockup** — the white "Fall" was invisible when the SVG was
+  rendered on a light background; the dark variant now carries an opaque plate.
 
 ### Changed
 
+- **Landing page rebuilt as a dark design system** — exact token layer
+  (`#050505` / `#0d0d0d` / `#ff0033`), Inter self-hosted from a single 47 kB
+  Latin variable font, SVG orbital hero with 20 s rotation and pointer
+  parallax, IntersectionObserver reveals and count-ups, full-screen mobile
+  menu, copy states, reduced-motion fallbacks, and a 1200 px content grid.
+  The JavaScript bundle is **80.9 kB gzipped**; CSS is **8.22 kB gzipped** and
+  inlined into the prerendered HTML with a font preload, while the static docs
+  share it as one cached file.
+- **Accessibility and layout are now CI contracts** — `axe-core` runs at 390,
+  768 and 1280 px and must report zero violations; `mobile_check.mjs` drives
+  real Chrome and fails on any unclipped horizontal overflow. Both found real
+  bugs during this change (an unfocusable scrollable code block and a grid-track
+  overflow), which are fixed.
+- **Measured after the rebuild** (2026-10-19, local production build) — landing
+  Lighthouse **100 / 100 / 100 / 100 desktop**, mobile **98–100 performance** with
+  100 accessibility, best-practices and SEO on every run; docs page 100/100/100/100
+  desktop and 99–100 performance mobile with 100 elsewhere. Landing mobile LCP
+  1.5–1.7 s, CLS 0, TBT 0–10 ms; every category stays above the 95 gate. axe-core
+  found 0 violations on the landing page at 390/768/1280 and on all 22 docs/trust
+  routes at 390/1280; the SEO gate found 0 errors across 24 HTML routes and 23
+  sitemap URLs.
+- **Brand assets follow the new palette** — the dark lockup plate is now
+  `#0d0d0d → #050505`, the red wordmark is `#ff0033`, and the OG card, touch
+  icons and favicon are regenerated from the same geometry.
 - Test suite: **254 passed, 5 skipped** (the four new brand-asset guard tests;
   `pillow` added to the dev extras so CI runs them).
-- CI: the `check` job now builds the landing site from a clean lockfile and
-  asserts the prerendered output; site builds use Node 22 (vite 8 requires
-  `^20.19 || >=22.12`).
+- CI: the `check` job now builds the site from a clean lockfile, runs the SEO
+  gate, and drives real Chrome for layout, axe, docs and Lighthouse checks; site
+  builds use Node 22 (vite 8 requires `^20.19 || >=22.12`). The Pages workflow
+  runs `check:seo` before upload and submits the deployed sitemap to IndexNow,
+  then re-checks the live surface.
 
 ## [0.1.0] — 2026-10-19
 

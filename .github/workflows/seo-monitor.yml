@@ -1,0 +1,39 @@
+name: seo-monitor
+
+# Weekly live check of the deployed SEO surface: canonical tags, titles,
+# descriptions, one H1 per page, JSON-LD, OG cards, robots, sitemap, llms.txt,
+# IndexNow key and custom 404. It only observes the public site; it does not
+# claim rankings, backlinks or AI citations.
+
+on:
+  schedule:
+    - cron: "30 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: install
+        run: npm ci --prefix site --no-audit --no-fund
+
+      - name: check the live surface
+        run: node site/scripts/seo_monitor.mjs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: seo-monitor-report
+          path: build/seo-monitor-report.json
+          if-no-files-found: ignore

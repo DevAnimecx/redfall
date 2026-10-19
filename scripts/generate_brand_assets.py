@@ -32,6 +32,7 @@ TICK_WIDTH = 10.0
 DOT = (128, 118, 12)
 
 RED_TOP = (255, 81, 71)
+RED_MID = (255, 0, 51)
 RED_BOTTOM = (140, 2, 2)
 CANVAS_TOP = 10.0
 CANVAS_BOTTOM = 250.0
@@ -39,6 +40,13 @@ CANVAS_BOTTOM = 250.0
 
 def _lerp(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[int, int, int]:
     return tuple(round(x + (y - x) * t) for x, y in zip(a, b))
+
+
+def _red_at(t: float) -> tuple[int, int, int]:
+    """Three-stop brand gradient: coral top, accent middle, deep red bottom."""
+    if t < 0.55:
+        return _lerp(RED_TOP, RED_MID, t / 0.55)
+    return _lerp(RED_MID, RED_BOTTOM, (t - 0.55) / 0.45)
 
 
 def _font(bold: bool, size: int) -> ImageFont.FreeTypeFont:
@@ -82,7 +90,7 @@ def mark_image(canvas: tuple[int, int], scale: float, offset: tuple[float, float
     for y in range(height):
         t = (y / scale - CANVAS_TOP) / span if scale else 0.0
         t = min(1.0, max(0.0, t))
-        color = _lerp(RED_TOP, RED_BOTTOM, t) + (255,)
+        color = _red_at(t) + (255,)
         for x in range(width):
             pixels[x, y] = color
 
@@ -108,7 +116,7 @@ def rounded_square(size: int, color: str, radius_ratio: float = 0.2) -> Image.Im
 
 def social_card() -> Image.Image:
     width, height = 1200, 630
-    card = Image.new("RGB", (width, height), "#0d1117")
+    card = Image.new("RGB", (width, height), "#050505")
     mark = mark_image((width, height), 1.16, (92, 168))
     card.paste(mark, (0, 0), mark)
 
@@ -120,18 +128,18 @@ def social_card() -> Image.Image:
     x = 458
     y = 250
     red = "Red"
-    draw.text((x, y), red, font=title_font, fill="#ff2b2b", anchor="lm")
+    draw.text((x, y), red, font=title_font, fill="#ff0033", anchor="lm")
     x += draw.textlength(red, font=title_font)
     draw.text((x, y), "Fall", font=title_font, fill="#ffffff", anchor="lm")
 
-    draw.text((462, 338), "Autonomous vulnerability discovery", font=tagline_font, fill="#98a2b3", anchor="lm")
-    draw.text((462, 382), "and verified repair.", font=tagline_font, fill="#98a2b3", anchor="lm")
-    draw.text((width - 72, height - 52), "github.com/DevAnimecx/redfall", font=url_font, fill="#6b7280", anchor="rs")
+    draw.text((462, 338), "Autonomous vulnerability discovery", font=tagline_font, fill="#8a8a8a", anchor="lm")
+    draw.text((462, 382), "and verified repair.", font=tagline_font, fill="#8a8a8a", anchor="lm")
+    draw.text((width - 72, height - 52), "github.com/DevAnimecx/redfall", font=url_font, fill="#555555", anchor="rs")
     return card
 
 
 def touch_icon(size: int) -> Image.Image:
-    icon = rounded_square(size, "#0d1117", 0.22)
+    icon = rounded_square(size, "#050505", 0.22)
     mark = shield_only(size, size * 0.62 / 256)
     return Image.alpha_composite(icon, mark)
 

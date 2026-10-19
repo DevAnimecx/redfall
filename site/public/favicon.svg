@@ -2,7 +2,7 @@
   <defs>
     <linearGradient id="rf-red" x1="0.1" y1="0" x2="0.9" y2="1">
       <stop offset="0" stop-color="#ff5147"/>
-      <stop offset="0.55" stop-color="#e01b1b"/>
+      <stop offset="0.55" stop-color="#ff0033"/>
       <stop offset="1" stop-color="#8c0202"/>
     </linearGradient>
   </defs>

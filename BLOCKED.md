@@ -172,11 +172,17 @@ against the real target:
 | `npm test` (chainbank) | `8 passed` |
 | `npx ts-node scripts/replay_chain_poc.ts` (chainbank) | `6/6 chain(s) reproduced end to end` |
 | `redfall scan range/vulnbank` | refuses with both blockers named |
-| `cd site && npm ci && npm run build` | prerenders the landing page into `dist/index.html` (full rendered markup plus JSON-LD); the `pages` CI run re-asserts the content before upload and deploys it |
-| `https://devanimecx.github.io/redfall/` (live) | `200` with hero, 7-question FAQ, canonical and `og:image`; `robots.txt`, `sitemap.xml`, `og.png` and the touch icons all `200`; the JSON-LD parses as SoftwareApplication + FAQPage + WebSite |
-| Lighthouse, local preview, mobile and desktop presets | performance / accessibility / best-practices / SEO = **100 / 100 / 100 / 100** on both presets (mobile LCP 1.4 s, TBT 10 ms, CLS 0 under simulated Slow-4G) |
-| Lighthouse, live GitHub Pages URL, mobile preset | **100** on a second run; the first run scored 99 performance (LCP 1.6 s through the CDN under simulated Slow-4G) — accessibility, best-practices and SEO were 100 in both |
+| `cd site && npm ci && npm run build` | prerenders the landing page into `dist/index.html` (full rendered markup plus JSON-LD), generates 22 static docs/trust pages, a 23-URL sitemap, `robots.txt`, `llms.txt`, a real 404 and 23 per-page OG cards; the `pages` workflow re-asserts the content and runs `npm run check:seo` before upload |
+| `https://devanimecx.github.io/redfall/` (live, previous deployment) | `200` with hero, FAQ, canonical and `og:image`; `robots.txt`, `sitemap.xml` and the icons all `200`. The redesigned site + docs are verified locally and are re-checked on the live URL by the deploy workflow; if the live re-check fails, the failure is recorded here rather than papered over |
+| Lighthouse, local production build, redesigned landing mobile preset | **98–100 performance**, with **100 / 100 / 100** accessibility, best-practices and SEO on every run; LCP 1.5–1.7 s, TBT 0–10 ms, CLS 0 under simulated Slow-4G. Every category stays above the 95 gate |
+| Lighthouse, local production build, redesigned landing desktop preset | **100 / 100 / 100 / 100**; LCP 0.4 s, CLS 0 |
+| Lighthouse, local production build, docs page mobile | **99–100 performance**, with **100 / 100 / 100** accessibility, best-practices and SEO; the docs ship zero client JavaScript, so `robots-txt` only passes once `connect-src 'self'` is allowed (it was `'none'`, which blocked Lighthouse's own `robots.txt` probe) |
+| `node site/scripts/a11y_check.mjs` (axe-core in real Chrome) at 390, 768 and 1280 px | `PASS` — **0 violations** at every width on the landing page. This caught a real bug: the horizontally scrollable install code blocks were not keyboard-reachable; they are now labelled, focusable regions |
+| `node site/scripts/docs_check.mjs` (axe-core + layout + zero-JS on every docs route) | `PASS` — 22 routes × 390/1280 px, **0 axe violations**, **0 px horizontal overflow**, exactly one H1, no client scripts, and the H1 is readable with JavaScript disabled. This found and fixed two real bugs: duplicate `role="region"` landmark names in Markdown tables/code, and a long inline `pipx install git+https://…` token that widened the mobile document by 9 px until `overflow-wrap: anywhere` was applied |
+| `node site/scripts/seo_check.mjs` | `SEO GATE: PASS` — 24 HTML routes, 23 sitemap URLs, 0 errors; canonical/H1/schema/internal-link/OG/robots/llms/IndexNow checks included |
+| `node site/scripts/indexnow.mjs --dry-run` | prints the 23 sitemap URLs and the public key location, sends nothing. Production submission runs in the Pages deploy workflow and its HTTP response is the evidence |
 | `python -m pytest tests/test_brand_assets.py -q` | `4 passed` — the SVG shield geometry is pinned to the raster generator's point list; the committed social card is 1200×630 and every icon matches the size its link advertises |
+| `python scripts/check_no_mock.py` / `check_version.py` / `check_orphans.py` / `check_clean_tree.py` | `PASS` (51 files scanned, 9 version declarations, 49/49 modules reachable, no stray files) |
 
 The ingestion engine, run against the real `vulnbank` tree:
 
@@ -366,6 +372,27 @@ here is the pair of scan outputs to compare.
 
 Blockers 1 and 2 first. Writing the Rust orchestrator before the Python scan
 path works would mean comparing two things that both fail.
+
+---
+
+## Blocker 6 — actions that require a human account or a human decision
+
+### What is blocked
+
+| Item | Why it cannot be done from this repository | Smallest real unblock |
+| --- | --- | --- |
+| Google Search Console verification | Google issues a per-account verification file/token; committing a fabricated one would be a false claim | The owner adds a URL-prefix property for `https://devanimecx.github.io/redfall/`, verifies with the real HTML file, and submits `sitemap.xml` |
+| Bing Webmaster Tools | Same account-bound verification | The owner verifies the property and confirms the IndexNow submissions in the dashboard |
+| GitHub social preview upload | GitHub exposes this through the web UI, not the API used here | Upload `site/public/og.png` (1200×630) in repository settings |
+| Backlinks, organic rankings, AI citations | Depend on external sites, search engines and assistants; they cannot be manufactured or guaranteed | Earn them by publishing and submitting real work; record only observed referrals/citations with a date and source |
+| Full `python -m pytest tests/ -q` on this host | The database-backed tests default to PostgreSQL on `127.0.0.1:5432`; this host has no PostgreSQL service or binaries, so the run hangs before producing a result. The last recorded full run (254 passed / 5 skipped, 2026-10-18) used a real PostgreSQL | Provision PostgreSQL and set `REDFALL_TEST_DATABASE_URL`, then re-run the full suite |
+| License choice | Choosing a licence is a legal decision for the project owner, not an SEO or engineering default | The owner adds the chosen `LICENSE` file; until then the repository is source-available, and no licence is claimed |
+| Dependabot pull requests | Need human review before merge; merging unreviewed dependency bumps would weaken the supply-chain claim | Review and merge or close them, one at a time, with CI evidence |
+
+None of these blocks the technical SEO gates: those run on every push without
+external accounts. The site does not pretend a verification happened before the
+account confirms it, and it does not display a ranking, a backlink count or an
+AI-citation count that was not observed.
 
 ---
 

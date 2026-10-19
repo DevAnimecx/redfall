@@ -43,7 +43,7 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | Installers (`scripts/install.sh`, `scripts/install.ps1`) | **Built and verified** — the PowerShell installer was executed end to end on this host into a throwaway home; the POSIX script is syntax-checked against a real shell here and both are executed by the CI package matrix on Ubuntu/Windows/macOS |
 | Release supply chain (Sigstore attestations, SHA256SUMS, weekly dependency audit) | **Built** — releases are constructed and attested by CI from the tagged source; `pip-audit` runs weekly |
 | SARIF 2.1.0 export (`redfall report --format sarif`) | **Built and verified** — every result carries `properties.redfall.verified`; unproven candidates stay visible |
-| Landing page (`site/`, React + Tailwind, prerendered static) | **Live and measured** — <https://devanimecx.github.io/redfall/>, deployed by the `pages` workflow; Lighthouse 100/100/100/100 on both local presets, 99–100 performance on the live CDN under throttling |
+| Landing page + documentation (`site/`, React + Tailwind landing, static Markdown docs) | **Live** — <https://devanimecx.github.io/redfall/> and 22 docs/trust pages, deployed by the `pages` workflow. Local production build (2026-10-19): Lighthouse 100/100/100/100 desktop, 98–100 mobile performance with 100 accessibility/best-practices/SEO. Live CDN results are recorded after deployment in `BLOCKED.md`/`CHANGELOG.md` |
 | Sandbox (Docker + gVisor) | **Built, refuses on this host** — no container runtime |
 | LLM (LiteLLM BYOK) | **Built, refuses without a key** — live calls only |
 | Scale-out (Firecracker microVMs, Rust orchestrator, NATS) | **Not started** — see [`BLOCKED.md`](BLOCKED.md) |
@@ -145,13 +145,14 @@ redfall/
 │   ├── chainbank/              6 two-step chains, 8 tests, 6/6 chains reproduce
 │   ├── pythonbank/             17 seeded vulns, 18 tests, 17/17 PoCs over real HTTP
 │   └── range_runner/           deterministic scorer, 5 metrics + 3 chain metrics
-├── site/                       React + Tailwind landing page (prerendered to static HTML, GitHub Pages)
+├── site/                       React + Tailwind landing page (prerendered static) and 22 generated docs/trust pages
 ├── web/                        Next.js 15 dashboard (scan + gate + chains)
 ├── assets/                     logo lockups and mark (SVG, dark/light)
 ├── scripts/                    the four contract checkers, verify_wheel.py, install.sh / install.ps1, build_release.py, generate_brand_assets.py
 ├── .github/workflows/          ci (checks + 3-OS packaging and installers), release (attested artifacts), security (weekly pip-audit), pages (landing deploy)
 ├── tests/                      254 tests, all against real artefacts
-├── llms.txt                    machine-readable project summary for answer engines
+├── llms.txt                    machine-readable project summary for answer engines (byte-identical to site/dist/llms.txt)
+├── site/SEO.md                 technical SEO/GEO operating manual and 90-day calendar
 ├── CONTRIBUTING.md             the no-mock rule, where each stage lives, PR contract
 ├── SECURITY.md                 vulnerability reporting, supply-chain checks, range-target warning
 ├── CHANGELOG.md                0.1.0 - what shipped, with the measured numbers
@@ -286,6 +287,51 @@ Every finding is a `result`; verified ones carry
 carry `false` — the export never drops or upgrades a finding. Severity maps to
 SARIF levels mechanically and the CVSS floor is exported as
 `security-severity`, with the dedupe key as the partial fingerprint.
+
+---
+
+## Site, documentation and SEO
+
+The public surface is deliberately small and static:
+
+- **Landing page** (`/redfall/`): React + Tailwind, prerendered to HTML, with
+  inlined CSS, a self-hosted Inter subset (SIL OFL 1.1, licence beside the
+  font), JSON-LD and a hash-based meta CSP.
+- **22 documentation and trust pages** under `/docs/`, `/compare/`, `/evidence/`,
+  `/about/` and `/privacy/`: generated from Markdown with **zero client
+  JavaScript**, shared cached CSS, breadcrumbs, related links and visible dates.
+- **Discovery files**: `sitemap.xml` (23 URLs), `robots.txt`, `llms.txt` at the
+  repo root and site root, a public IndexNow key, per-page 1200×630 OG cards and
+  a real custom 404 that returns HTTP 404.
+
+The operating manual is [`site/SEO.md`](site/SEO.md): technical SEO, schema,
+content clusters, internal linking, GEO/AEO, honest backlink strategy, monitoring
+and a 90-day calendar. It separates implemented work from tasks that require a
+human Google/Bing account. No ranking, backlink or AI citation is guaranteed or
+fabricated.
+
+Verify the whole surface from a clean lockfile:
+
+```bash
+cd site
+npm ci
+npm run build
+npm run check:seo
+npx vite preview --port 4173 --strictPort   # in another terminal
+npm run check:layout    -- http://localhost:4173/redfall/
+npm run check:a11y     -- http://localhost:4173/redfall/
+npm run check:docs     -- http://localhost:4173/redfall/
+npm run check:lighthouse -- http://localhost:4173/redfall/
+```
+
+Recorded 2026-10-19 on the local production build: SEO gate PASS (24 HTML
+routes, 23 sitemap URLs, 0 errors), axe 0 violations on all docs routes at 390
+and 1280 px, Lighthouse 100/100/100/100 desktop, and 98–100 mobile performance
+with 100 accessibility/best-practices/SEO (every category above the 95 gate).
+Live results are recorded after the Pages deployment in [`BLOCKED.md`](BLOCKED.md)
+and [`CHANGELOG.md`](CHANGELOG.md). The weekly
+[`seo-monitor`](.github/workflows/seo-monitor.yml) workflow re-checks the live
+site.
 
 ---
 

@@ -36,12 +36,16 @@ jobs:
           cd site
           npm ci --no-audit --no-fund
           npm run build
+          npm run check:seo
 
       - name: prove the prerender shipped real content
         run: |
           cd site
           grep -q "What is RedFall?" dist/index.html
           grep -q 'application/ld+json' dist/index.html
+          test -f dist/og/landing.png
+          test -f dist/docs/verified-findings/index.html
+          grep -q 'https://devanimecx.github.io/redfall/docs/' dist/sitemap.xml
           test ! -d dist-server
           echo "dist/index.html carries the rendered page and structured data"
 
@@ -58,8 +62,27 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     permissions:
+      contents: read
       pages: write
       id-token: write
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: install monitor dependencies
+        run: npm ci --prefix site --no-audit --no-fund
+
+      - name: submit the deployed sitemap to IndexNow
+        # Poll until Pages serves the new sitemap and the public key file.
+        run: node site/scripts/indexnow.mjs --wait=180
+
+      - name: verify the live SEO surface
+        run: node site/scripts/seo_monitor.mjs

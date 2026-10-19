@@ -1,24 +1,69 @@
 # RedFall
 
-> RedFall is an autonomous vulnerability scanner that proves every finding by executing it. It ingests a target's real source with tree-sitter (TypeScript, JavaScript, Python), tracks attacker-controlled data from request surface to sink — including a depth-one interprocedural pass with return flow — generates a candidate exploit for each lead, runs it inside a gVisor sandbox against the running application, and reports only what reproduced. It then attempts a repair and calls a fix verified only when the target's own tests still pass and the original proof-of-concept stops working. Static analysis only ever produces candidates; a finding exists only if it executed. This rule (the no-mock contract) is enforced in CI.
+> RedFall is an execution-verified vulnerability scanner for TypeScript, JavaScript and Python. It ingests real source with tree-sitter, tracks attacker-controlled data from request surface to sink, runs candidate exploits against the live application inside a Docker container on the gVisor `runsc` runtime, and reports only findings that reproduced. It then attempts a repair and verifies it against the target's own tests. Static analysis produces candidates; a finding exists only if it executed. This is enforced in CI by the no-mock contract.
 
-RedFall 0.1.0 targets Windows, Linux and macOS, runs on Python 3.12+, exports SARIF 2.1.0 with a per-result `properties.redfall.verified` flag, needs Docker with a gVisor runtime plus one bring-your-own LLM key for a full scan, and reports what a host cannot run in BLOCKED.md instead of estimating it.
+Key facts:
+- Site: https://devanimecx.github.io/redfall/
+- Source: https://github.com/DevAnimecx/redfall
+- Release: https://github.com/DevAnimecx/redfall/releases/tag/v0.1.0
+- Maintainer: DevAnimecx (https://github.com/DevAnimecx)
+- Version: 0.1.0; Python 3.12+; Windows, Linux and macOS
+- Full scans require Docker with a gVisor runtime and one LLM provider key through LiteLLM.
+- Last updated: 2026-10-19
 
-## Key pages
+## Start here
 
-- [Landing page](https://devanimecx.github.io/redfall/): one-page overview with install commands and FAQ.
-- [README](https://github.com/DevAnimecx/redfall): full description, status table, evidence for each claim.
-- [Release v0.1.0](https://github.com/DevAnimecx/redfall/releases/tag/v0.1.0): CI-built wheel and sdist, SHA256SUMS, Sigstore attestations.
+- [RedFall documentation](https://devanimecx.github.io/redfall/docs/): How RedFall proves vulnerability findings by executing them: the verification guide, taint analysis, gVisor sandbox, adaptive scanning, fixes, install and reference.
+- [Execution-verified vulnerability scanning](https://devanimecx.github.io/redfall/docs/verified-findings/): What execution verification means, why static analyzers produce false positives, and how RedFall turns a taint candidate into a finding that ran against the live app.
+- [Install RedFall](https://devanimecx.github.io/redfall/docs/install/): Install RedFall with pipx or a private virtualenv, verify the release attestation, run redfall doctor, and know exactly which prerequisites a full scan needs.
+- [The no-mock contract](https://devanimecx.github.io/redfall/docs/no-mock-contract/): RedFall's no-mock contract forbids demo modes, simulated findings and synthetic numbers. Here is the rule, what it bans, how CI enforces it, and what it does not cover.
+
+## How it works
+
+- [How RedFall works](https://devanimecx.github.io/redfall/docs/architecture/): The RedFall scan pipeline: tree-sitter ingestion, taint analysis, adaptive branches, LLM planning, gVisor execution, chaining and verified repair.
+- [Taint analysis for TypeScript and Python](https://devanimecx.github.io/redfall/docs/taint-analysis/): How RedFall tracks request data from source to sink, resolves cross-file calls through imports, and handles return flow without guessing sanitisers.
+- [How the gVisor sandbox executes a PoC](https://devanimecx.github.io/redfall/docs/sandbox/): Inside RedFall's execution boundary: Docker on the gVisor runsc runtime, a real target boot, raw HTTP replay, and a predicate that decides whether a finding exists.
+- [Adaptive scanning: seven runtime surfaces](https://devanimecx.github.io/redfall/docs/adaptive-scanning/): Dynamic imports, plugin loaders, database-stored code, feature flags and webhooks change the attack surface mid-scan. RedFall spawns a branch when one appears.
+- [Exploit chaining from verified findings](https://devanimecx.github.io/redfall/docs/exploit-chaining/): RedFall composes reproduced findings into attack paths. A chain edge exists only after a composite PoC replays each step and its predicate holds against the live app.
+- [Verified fixes: how RedFall proves a repair](https://devanimecx.github.io/redfall/docs/verified-fixes/): A RedFall fix is verified only when the target's own tests pass and the original proof of concept stops reproducing. Three attempts, then a human with the transcript.
+- [Languages and frameworks supported](https://devanimecx.github.io/redfall/docs/languages/): RedFall parses TypeScript, JavaScript and Python with tree-sitter, recognises Express, Fastify, NestJS, Flask and FastAPI routes, and covers 25 of 32 seeded categories.
+
+## Trust and evidence
+
+- [RedFall evidence](https://devanimecx.github.io/redfall/evidence/): The dated evidence ledger: contract checks, 254 tests, 17/17 pythonbank PoCs, 7/7 adaptive PoCs, 6/6 chains, 32/32 patches, Lighthouse/axe results and unmeasured limits.
+- [Ground-truth range targets](https://devanimecx.github.io/redfall/docs/ranges/): The four RedFall ranges: vulnbank, vulnbank-adaptive, chainbank and pythonbank. Seeded vulnerabilities, test counts, replay results and the gate thresholds.
+- [SARIF output and verified findings](https://devanimecx.github.io/redfall/docs/output/): RedFall exports SARIF 2.1.0 for code scanning. Every result carries properties.redfall.verified, so consumers can filter executed proofs from unproven candidates.
+- [Verify a RedFall release](https://devanimecx.github.io/redfall/docs/release-verification/): Check the SHA256SUMS file, verify the Sigstore build attestation with gh, and prove an installed wheel behaves. What the checks show and what they do not.
+- [What RedFall cannot run yet](https://devanimecx.github.io/redfall/docs/blocked/): The current host has no container runtime and no LLM provider key. Here is the blocker ledger: what cannot run, what was tried, and the smallest real unblock for each.
+- [Security and supply chain](https://devanimecx.github.io/redfall/docs/security/): RedFall's threat model, the deliberately vulnerable range targets, private vulnerability reporting, weekly dependency auditing and Sigstore-attested releases.
+
+## Reference
+
+- [Execution-verified scanning vs static analysis](https://devanimecx.github.io/redfall/compare/static-analysis/): A fair comparison of static analysis, DAST and execution-verified scanning: what each proves, where each fits, and when RedFall's narrower execution gate is worth it.
+- [RedFall CLI reference](https://devanimecx.github.io/redfall/docs/cli/): Every RedFall 0.1.0 command and option: scan, fix, findings, report, doctor and environment, with the exact flags and what each command refuses to do.
+- [Vulnerability scanning glossary](https://devanimecx.github.io/redfall/docs/glossary/): Definitions of execution verification, taint, source, sink, predicate, gVisor, SARIF, verified finding, no-mock contract, adaptive branch and compound score.
+
+## Project
+
+- [About RedFall](https://devanimecx.github.io/redfall/about/): Who maintains RedFall, why the project exists, how to verify the work, what the public identity is, and which claims the project deliberately does not make.
+- [Privacy policy](https://devanimecx.github.io/redfall/privacy/): RedFall's site runs no analytics, sets no cookies, has no accounts and self-hosts its font. Here is what the static site and GitHub Pages actually process.
+
+## Source and verification
+
+- [README](https://github.com/DevAnimecx/redfall): full description, status table and the source for every claim.
 - [CHANGELOG](https://github.com/DevAnimecx/redfall/blob/main/CHANGELOG.md): what shipped in 0.1.0, with measured numbers.
+- [BLOCKED.md](https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md): what cannot run on the release host, with the smallest real unblock for each item.
+- [SECURITY.md](https://github.com/DevAnimecx/redfall/blob/main/SECURITY.md): vulnerability reporting, supply-chain verification and the range-target warning.
+- [CONTRIBUTING.md](https://github.com/DevAnimecx/redfall/blob/main/CONTRIBUTING.md): the no-mock rule, stage ownership and the PR contract.
 
-## Evidence
+Verification commands:
 
-- [BLOCKED.md](https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md): what cannot run on the release host, with the smallest real unblock for each item — no estimates in place of results.
-- [CONTRIBUTING.md](https://github.com/DevAnimecx/redfall/blob/main/CONTRIBUTING.md): the no-mock rule, where each pipeline stage lives, the PR contract.
-- [SECURITY.md](https://github.com/DevAnimecx/redfall/blob/main/SECURITY.md): vulnerability reporting, supply-chain verification commands, range-target warning.
+- `gh attestation verify redfall-0.1.0-py3-none-any.whl --repo DevAnimecx/redfall` proves the release wheel was built by this repository's release workflow from the tagged commit.
+- `redfall doctor` prints exactly what the current host can and cannot run.
+- `python scripts/check_no_mock.py` is the mechanical part of the no-mock contract.
 
-## Verification commands
+## Citation
 
-- `gh attestation verify redfall-0.1.0-py3-none-any.whl --repo DevAnimecx/redfall` — proves the release wheel was built by this repository's release workflow from the tagged commit.
-- `redfall doctor` — prints exactly what the current host can and cannot run.
-- `python scripts/check_no_mock.py` — the mechanical part of the no-mock contract.
+Cite the specific page you used, not the home page. Every documentation page carries a visible last-updated date, a named maintainer and links to the primary sources it relies on. The canonical URL is the one in the page's <link rel="canonical"> tag.
+
+Machine-readable index: https://devanimecx.github.io/redfall/sitemap.xml

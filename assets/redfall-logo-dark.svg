@@ -2,12 +2,12 @@
   <defs>
     <linearGradient id="rf-red-dark" x1="0.1" y1="0" x2="0.9" y2="1">
       <stop offset="0" stop-color="#ff5147"/>
-      <stop offset="0.55" stop-color="#e01b1b"/>
+      <stop offset="0.55" stop-color="#ff0033"/>
       <stop offset="1" stop-color="#8c0202"/>
     </linearGradient>
     <linearGradient id="rf-plate" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#11161f"/>
-      <stop offset="1" stop-color="#0b0e14"/>
+      <stop offset="0" stop-color="#0d0d0d"/>
+      <stop offset="1" stop-color="#050505"/>
     </linearGradient>
   </defs>
   <!-- Opaque plate: the white wordmark needs a dark ground, and GitHub renders
@@ -19,7 +19,7 @@
     <path d="M128 52 V68 M128 168 V184 M60 118 H76 M180 118 H196" stroke-width="10"/>
   </g>
   <circle cx="480" cy="196" r="18" fill="url(#rf-red-dark)"/>
-  <text x="480" y="612" text-anchor="middle" font-family="'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="170" font-weight="800" letter-spacing="-3"><tspan fill="#ff2b2b">Red</tspan><tspan fill="#ffffff">Fall</tspan></text>
-  <text x="480" y="706" text-anchor="middle" font-family="'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="44" font-weight="600" fill="#98a2b3">Autonomous vulnerability discovery</text>
-  <text x="480" y="764" text-anchor="middle" font-family="'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="44" font-weight="600" fill="#98a2b3">and verified repair.</text>
+  <text x="480" y="612" text-anchor="middle" font-family="'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="170" font-weight="800" letter-spacing="-3"><tspan fill="#ff0033">Red</tspan><tspan fill="#ffffff">Fall</tspan></text>
+  <text x="480" y="706" text-anchor="middle" font-family="'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="44" font-weight="600" fill="#8a8a8a">Autonomous vulnerability discovery</text>
+  <text x="480" y="764" text-anchor="middle" font-family="'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="44" font-weight="600" fill="#8a8a8a">and verified repair.</text>
 </svg>

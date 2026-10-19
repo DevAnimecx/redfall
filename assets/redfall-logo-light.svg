@@ -2,7 +2,7 @@
   <defs>
     <linearGradient id="rf-red-light" x1="0.1" y1="0" x2="0.9" y2="1">
       <stop offset="0" stop-color="#ff5147"/>
-      <stop offset="0.55" stop-color="#d40f0f"/>
+      <stop offset="0.55" stop-color="#ff0033"/>
       <stop offset="1" stop-color="#7a0101"/>
     </linearGradient>
   </defs>
@@ -12,7 +12,7 @@
     <path d="M128 52 V68 M128 168 V184 M60 118 H76 M180 118 H196" stroke-width="10"/>
   </g>
   <circle cx="480" cy="196" r="18" fill="url(#rf-red-light)"/>
-  <text x="480" y="612" text-anchor="middle" font-family="'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="170" font-weight="800" letter-spacing="-3"><tspan fill="#d40f0f">Red</tspan><tspan fill="#0b0e14">Fall</tspan></text>
-  <text x="480" y="706" text-anchor="middle" font-family="'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="44" font-weight="600" fill="#475569">Autonomous vulnerability discovery</text>
-  <text x="480" y="764" text-anchor="middle" font-family="'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="44" font-weight="600" fill="#475569">and verified repair.</text>
+  <text x="480" y="612" text-anchor="middle" font-family="'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="170" font-weight="800" letter-spacing="-3"><tspan fill="#ff0033">Red</tspan><tspan fill="#050505">Fall</tspan></text>
+  <text x="480" y="706" text-anchor="middle" font-family="'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="44" font-weight="600" fill="#555555">Autonomous vulnerability discovery</text>
+  <text x="480" y="764" text-anchor="middle" font-family="'Segoe UI', -apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="44" font-weight="600" fill="#555555">and verified repair.</text>
 </svg>
