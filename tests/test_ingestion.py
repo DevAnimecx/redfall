@@ -64,16 +64,13 @@ def test_scripts_directory_is_not_attack_surface(ingest_result):
     assert not any(p.startswith("tests/") for p in paths)
 
 
-def test_symbols_are_persisted_with_unique_ids(ingest_result):
+def test_symbols_are_persisted_with_unique_ids(ingest_result, postgres_url):
     from sqlalchemy.orm import sessionmaker
 
     from redfall.store.db import init_engine
     from redfall.store.models import Symbol
 
-    import os
-
-    url = os.getenv("REDFALL_TEST_DATABASE_URL", "postgresql+psycopg://redfall:redfall@localhost:5432/redfall")
-    engine = init_engine(url)
+    engine = init_engine(postgres_url)
     Session = sessionmaker(bind=engine, expire_on_commit=False, future=True)
 
     from redfall.ingestion.ingest import ingest as do_ingest

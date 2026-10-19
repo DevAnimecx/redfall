@@ -10,8 +10,9 @@
 > reservations, real graph/scan/reproduce/report handlers, 44 MCP stdio tools,
 > and a single HTTP/OpenAPI + A2A v1.0 gateway over the same tool registry.
 > Local Windows verification: compile clean, no-mock **80 files PASS**, orphan
-> **78 modules PASS**, and **53 focused Phase 3 tests passed**, including real
-> sockets, SSE and two gateway subprocess contracts. CI run
+> **78 modules PASS**, **53 focused Phase 3 tests passed** (real sockets, SSE
+> and two gateway subprocess contracts), and a complete no-PostgreSQL run
+> reported **332 passed, 30 skipped, 0 failed**. CI run
 > [39310704310](https://github.com/DevAnimecx/redfall/actions/runs/39310704310)
 > passed every job: the Postgres 17 / Python 3.12 `check` job ran **357 passed,
 > 5 skipped in 62.97s** (the five skips are the live gVisor tests) and all six

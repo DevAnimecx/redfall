@@ -67,7 +67,7 @@ def test_budget_tracks_unknown_cost_without_faking_a_price():
     assert budget.tokens_used == 200
 
 
-def test_a_call_without_a_provider_credential_raises(monkeypatch):
+def test_a_call_without_a_provider_credential_raises(monkeypatch, postgres_url):
     """§1 rule 4: live calls only. No credential must mean no result."""
     from redfall.llm import LLM
 
@@ -75,14 +75,11 @@ def test_a_call_without_a_provider_credential_raises(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setenv("REDFALL_MODEL_FAST", "gpt-4o-mini")
 
-    import os
-
     from sqlalchemy.orm import sessionmaker
 
     from redfall.store.db import init_engine
 
-    url = os.getenv("REDFALL_TEST_DATABASE_URL", "postgresql+psycopg://redfall:redfall@localhost:5432/redfall")
-    Session = sessionmaker(bind=init_engine(url), expire_on_commit=False, future=True)
+    Session = sessionmaker(bind=init_engine(postgres_url), expire_on_commit=False, future=True)
 
     llm = LLM(session_factory=Session, budget=Budget(max_tokens=1000, max_cost_usd=1.0))
     with pytest.raises(LLMError):

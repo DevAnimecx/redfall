@@ -9,7 +9,6 @@ can be verified against an in-memory fake.
 
 from __future__ import annotations
 
-import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -25,15 +24,9 @@ TARGET = Path(__file__).resolve().parents[1] / "range" / "vulnbank-adaptive" / "
 
 
 @pytest.fixture()
-def session():
+def session(postgres_url):
     """A real Postgres session on a throwaway database."""
-    # Matches the convention in test_ingestion.py and test_llm.py: the URL comes
-    # from the environment so CI can point at its own database.
-    url = os.getenv(
-        "REDFALL_TEST_DATABASE_URL",
-        "postgresql+psycopg://vulnbank:Sup3rS3cretBankPwd!@127.0.0.1:5432/redfall_test",
-    )
-    engine = init_engine(url)
+    engine = init_engine(postgres_url)
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     with session_scope() as s:

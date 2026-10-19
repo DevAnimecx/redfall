@@ -33,14 +33,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   repository and runs 10 checks; `--protocol a2a` runs 11. Both report
   `certified=True` locally. The checks use a real socket, real tool execution,
   SSE streaming and signed artifacts.
-- **Phase 3 focused verification on Windows** — 53 Phase 3 tests pass (18
-  auth/HTTP, 14 A2A, 11 webhooks, 2 contracts, 8 CLI), and 362 tests are
-  collected. Compile clean; no-mock **PASS** across 80 files; orphan **PASS**
-  (78 reachable modules). A further 192 pre-existing tests passed in focused
-  chunks covering the subsystems the new registry and tables touch; six
-  environment tests skipped and one Postgres-only SARIF store test could not
-  connect locally. The local full suite is not authoritative because the
-  pre-existing ingestion-heavy tests exceed the local harness limit.
+- **Phase 3 verification on Windows** — 53 Phase 3 tests pass (18 auth/HTTP,
+  14 A2A, 11 webhooks, 2 contracts, 8 CLI), and 362 tests are collected. A
+  complete local run without a PostgreSQL service reports **332 passed, 30
+  skipped, 0 failed in 197.44s**: 25 PostgreSQL-backed tests skip until
+  `REDFALL_TEST_DATABASE_URL` is supplied (they no longer fall back to a
+  hardcoded database and wait on connection timeouts), and the five live
+  gVisor tests skip because `runsc` is absent. Compile clean; no-mock **PASS**
+  across 80 files; orphan **PASS** (78 reachable modules). CI remains the
+  authoritative database-backed run.
 - **Phase 3 CI verification** — run
   [39310704310](https://github.com/DevAnimecx/redfall/actions/runs/39310704310)
   passed every job on 2026-10-19: the `check` job ran **357 passed, 5 skipped

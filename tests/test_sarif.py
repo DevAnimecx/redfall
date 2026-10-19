@@ -8,7 +8,6 @@ Postgres scan and emitting the log.
 from __future__ import annotations
 
 import json
-import os
 import uuid
 
 import pytest
@@ -89,15 +88,11 @@ def test_builder_with_no_findings_still_emits_a_valid_run():
 
 # ---------------------------------------------------------------- real store
 @pytest.fixture()
-def session(monkeypatch):
+def session(monkeypatch, postgres_url):
     """A real Postgres session; DATABASE_URL is pointed at it so the CLI reads
     the same database the rows were written to."""
-    url = os.getenv(
-        "REDFALL_TEST_DATABASE_URL",
-        "postgresql+psycopg://vulnbank:Sup3rS3cretBankPwd!@127.0.0.1:5432/redfall_test",
-    )
-    monkeypatch.setenv("DATABASE_URL", url)
-    engine = init_engine(url)
+    monkeypatch.setenv("DATABASE_URL", postgres_url)
+    engine = init_engine(postgres_url)
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     with session_scope() as s:

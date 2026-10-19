@@ -160,7 +160,7 @@ redfall/
 ├── assets/                     logo lockups and mark (SVG, dark/light)
 ├── scripts/                    the four contract checkers, verify_wheel.py, install.sh / install.ps1, build_release.py, generate_brand_assets.py
 ├── .github/workflows/          ci (checks + 3-OS packaging and installers), release (attested artifacts), security (weekly pip-audit), pages (landing deploy)
-├── tests/                      362 collected tests; CI: 357 passed, 5 skipped (live gVisor), Postgres 17; 53 Phase 3 focused tests pass locally
+├── tests/                      362 collected; CI: 357 passed, 5 skipped (live gVisor), Postgres 17; local: 332 passed, 30 skipped (no Postgres)
 ├── llms.txt                    machine-readable project summary for answer engines (byte-identical to site/dist/llms.txt)
 ├── site/SEO.md                 technical SEO/GEO operating manual and 90-day calendar
 ├── CONTRIBUTING.md             the no-mock rule, where each stage lives, PR contract
@@ -599,6 +599,12 @@ GitHub's runner has Docker but no `runsc` gVisor runtime, so they skip rather
 than pretend. The same five skip on this host for the same reason. The no-mock
 contract forbids simulating them, so a skip is never counted as a pass; the
 sandbox's refusal path is covered by tests that do run.
+
+A local run without `REDFALL_TEST_DATABASE_URL` also skips the 25
+PostgreSQL-backed tests explicitly instead of falling back to a hardcoded
+database and waiting on connection timeouts. The complete local result is
+**332 passed, 30 skipped, 0 failed**; CI supplies the test database and runs
+those tests.
 
 ### Where is the source and are releases verifiable?
 

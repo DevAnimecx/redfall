@@ -10,7 +10,6 @@ code, against a real database.
 
 from __future__ import annotations
 
-import os
 import uuid
 from pathlib import Path
 from typing import Any
@@ -27,12 +26,8 @@ from redfall.validation.validator import Verdict
 
 
 @pytest.fixture()
-def session():
-    url = os.getenv(
-        "REDFALL_TEST_DATABASE_URL",
-        "postgresql+psycopg://vulnbank:Sup3rS3cretBankPwd!@127.0.0.1:5432/redfall_test",
-    )
-    engine = init_engine(url)
+def session(postgres_url):
+    engine = init_engine(postgres_url)
     Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
     with session_scope() as s:
