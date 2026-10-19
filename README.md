@@ -11,7 +11,7 @@
   <a href="https://devanimecx.github.io/redfall/"><img src="https://img.shields.io/badge/website-devanimecx.github.io%2Fredfall-ff2b2b" alt="website"></a>
   <img src="https://img.shields.io/badge/platforms-windows%20%7C%20linux%20%7C%20macos-blue" alt="platforms">
   <img src="https://img.shields.io/badge/python-3.12%20%7C%203.13-blue" alt="python versions">
-  <img src="https://img.shields.io/badge/tests-269%20passed-brightgreen" alt="269 tests passing">
+  <img src="https://img.shields.io/badge/tests-308%20collected-blue" alt="308 tests collected; the full suite runs in CI">
   <img src="https://img.shields.io/badge/findings-executed%20proofs%20only-brightgreen" alt="findings are executed proofs only">
   <a href="scripts/check_no_mock.py"><img src="https://img.shields.io/badge/no--mock%20contract-enforced%20in%20CI-brightgreen" alt="no-mock contract enforced in CI"></a>
 </p>
@@ -37,10 +37,12 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | Adaptive branching (recursive tree, 7 spawn triggers) | **Built and verified** — all 7 triggers fire on real source |
 | Cross-branch chaining (attack graph, compound CVSS, narrative) | **Built and verified** — 6/6 chains reproduce on `chainbank`; the LLM-proposed chain stage is wired end to end and structurally reviewed |
 | Range-runner gate (matcher, 5 metrics + 3 chain metrics) | **Built and verified** |
-| Campaign kernel (durable state machine, dependency tasks, leases, budgets) | **Built and tested** — 14 focused SQLite/CLI/MCP tests plus a Postgres integration test; production schema uses the existing `create_all` path |
+| Campaign kernel + resumable runner (durable state, leases, budgets, retries) | **Built and tested** — state machine, dependency tasks, heartbeat leases, preflight reservations and settlement, retry/blocked semantics, and real graph/scan/reproduce/report handlers; 34 focused SQLite/CLI/MCP tests pass locally, with the Postgres integration running in CI |
 | Evidence ledger (E0–E4, SHA-256 hash chain, report gate) | **Built and tested** — tamper detection, replayability validation and a required E3/E4 gate |
-| Agent tools / MCP stdio (22 tools) | **Built and tested** — real subprocess JSON-RPC session; campaign, task, evidence and readiness tools |
-| No-mock enforcement | **Passing** (`NO-MOCK CONTRACT: PASS`, 59 files) |
+| Code graph v1 (persisted, provenance-aware) | **Built and tested** — real ingestion into `graph_snapshots`, `graph_nodes` and `graph_edges`; bounded search, traversal, paths, inventory and snapshot diff. Covers the currently ingested TypeScript/JavaScript/Python source; not a completeness or all-language claim |
+| Agent tools / MCP stdio (44 tools) | **Built and tested** — real subprocess JSON-RPC session; campaign/runner, graph, scan, finding, reproduction, evidence and report tools |
+| Executable adapter contract | **Built and tested** — `redfall mcp certify` launches a fresh server, checks the handshake and schemas, persists a campaign/task, indexes real source, denies an out-of-scope path and rejects an unknown tool; only the shipped MCP stdio adapter is certified |
+| No-mock enforcement | **Passing** (`NO-MOCK CONTRACT: PASS`, 73 files) |
 | Data layer (Postgres 17 + Redis) | **Built and verified** |
 | Packaging (any platform Python 3.12 runs on) | **Built and verified** — the wheel ships the harness, prompts and Dockerfile; installed into a fresh venv and driven from outside the checkout (`WHEEL VERIFY: PASS`); CI matrix on Ubuntu/Windows/macOS |
 | Installers (`scripts/install.sh`, `scripts/install.ps1`) | **Built and verified** — the PowerShell installer was executed end to end on this host into a throwaway home; the POSIX script is syntax-checked against a real shell here and both are executed by the CI package matrix on Ubuntu/Windows/macOS |
@@ -156,7 +158,7 @@ redfall/
 ├── assets/                     logo lockups and mark (SVG, dark/light)
 ├── scripts/                    the four contract checkers, verify_wheel.py, install.sh / install.ps1, build_release.py, generate_brand_assets.py
 ├── .github/workflows/          ci (checks + 3-OS packaging and installers), release (attested artifacts), security (weekly pip-audit), pages (landing deploy)
-├── tests/                      269 passing tests (5 environment skips; 274 collected), against real artefacts
+├── tests/                      308 collected tests; 34 Phase 2 focused tests pass locally, full suite in CI
 ├── llms.txt                    machine-readable project summary for answer engines (byte-identical to site/dist/llms.txt)
 ├── site/SEO.md                 technical SEO/GEO operating manual and 90-day calendar
 ├── CONTRIBUTING.md             the no-mock rule, where each stage lives, PR contract
@@ -167,34 +169,53 @@ redfall/
 
 ---
 
-## Agent access (Phase 1)
+## Agent access (Phase 2)
 
-Phase 1 is the execution foundation, not a claim that every scan capability is
-already exposed to agents. It adds three things that later phases build on:
+Phase 2 exposes the execution layer to agents, not every capability in the
+roadmap. It adds:
 
-- **Durable campaigns** — explicit states (`draft` through `reported`), a
-  dependency-aware task graph, worker leases, and budget enforcement before
-  spend is recorded.
+- **Durable campaigns and a resumable runner** — explicit states (`draft`
+  through `reported`), dependency-aware tasks, heartbeat leases, preflight
+  budget reservations, measured settlement, retries, and blocked campaigns when
+  a real prerequisite is missing.
 - **A tamper-evident evidence ledger** — E0–E4 records chained with SHA-256.
   Only E3/E4 are reportable, and they must carry an execution id, observable,
   reproduction command and environment digest.
-- **MCP stdio** — 22 campaign, task, evidence and readiness tools over
-  newline-delimited JSON-RPC. The same registry is transport-neutral, so an
-  HTTP or A2A adapter can expose the same operations later.
+- **A persisted code graph** — `redfall_graph_index` parses the target through
+  the same ingestion pipeline as a scan, then stores deterministic snapshots,
+  provenance-bearing nodes/edges and bounded queries.
+- **Execution tools** — graph index/query/diff/inventory, scan, finding lookup,
+  stored-finding reproduction, chain verification and evidence-gated JSON/SARIF
+  reports. A report is refused unless the chain verifies and at least one
+  E3/E4 record is linked to a finding.
+- **MCP stdio** — 44 tools over newline-delimited JSON-RPC. The transport-neutral
+  `ToolRegistry` can back an HTTP or A2A adapter later; those adapters are not
+  implemented or certified yet.
 
 ```bash
 redfall campaign create ./my-service --objective discovery --budget-usd 10
 redfall campaign scope cmp-... --scope-json '{"repos":["./my-service"]}'
 redfall campaign start cmp-...
-redfall campaign task add cmp-... index --payload-json '{"path":"."}'
-redfall mcp serve                 # MCP client connects over stdin/stdout
+redfall campaign task add cmp-... graph.index --payload-json '{"target":"./my-service"}'
+redfall campaign run cmp-... --max-tasks 5
+redfall graph latest --campaign-id cmp-...
+redfall mcp certify              # real subprocess contract, stored as measured evidence
+redfall mcp serve                # MCP client connects over stdin/stdout
 ```
 
 The MCP process uses `DATABASE_URL` (or `--database-url`). It does not invent a
 local store: if the database is unavailable, startup fails with the real error.
-The current tool surface covers campaign, task and evidence operations. Source
-intelligence, scan execution, environment synthesis and fix tools remain in
-later phases, so a client should not claim them yet.
+MCP filesystem operations and the Phase 2 graph/reproduction commands are
+allowed only inside a campaign root or `REDFALL_ALLOWED_ROOTS`; callers can ask
+`redfall_policy_check` before acting.
+`redfall mcp certify` records a real result for the shipped server, not a badge
+for arbitrary third-party agents.
+
+This is still not the completed 1.0 campaign platform. Environment synthesis,
+multi-role campaigns, A2A/HTTP adapters, sanitizer-node synthesis, additional
+languages, self-learning and the four-hour campaign remain future work. A scan
+also still needs Docker + gVisor and an LLM key; when either is absent the task
+is reported as blocked instead of simulated.
 
 ---
 
@@ -254,7 +275,7 @@ project, same claims, same evidence, without scrolling a README.
 make install          # redfall + range-runner, editable, with dev deps
 make check            # every contract checker plus the test suite
 make check-no-mock    # NO-MOCK CONTRACT: PASS
-make test             # 269 passed (5 skips: gVisor tests, no container runtime here)
+make test             # full suite; needs the CI Postgres service and a container runtime for gVisor tests
 make doctor           # what this host can and cannot do
 ```
 
@@ -518,9 +539,9 @@ the transcripts go to a human. Nothing is committed or pushed for you.
 
 ### Why some skipped tests?
 
-The five skips are gVisor-dependent tests on the development host used for
-0.1.0; they run in CI where the container runtime exists. The no-mock contract
-forbids simulating them locally, so they are reported as skips, not passes.
+The five skips reported for the 0.1.0 local run were gVisor-dependent tests;
+they run in CI where the container runtime exists. The no-mock contract forbids
+simulating them locally, so they are reported as skips, not passes.
 
 ### Where is the source and are releases verifiable?
 

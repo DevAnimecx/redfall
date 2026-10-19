@@ -19,7 +19,13 @@ from typing import Any, Callable, Sequence
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from ..store.models import Campaign, CampaignEvent, CampaignTask, EvidenceRecord
+from ..store.models import (
+    Campaign,
+    CampaignEvent,
+    CampaignReservation,
+    CampaignTask,
+    EvidenceRecord,
+)
 from .state import (
     ACTIVE_STATES,
     SIDE_STATES,
@@ -198,6 +204,18 @@ class CampaignService:
     def pause(self, campaign_id: str, *, reason: str = "") -> Campaign:
         return self.transition(campaign_id, CampaignState.PAUSED, reason=reason or "paused")
 
+    def block(self, campaign_id: str, *, reason: str) -> Campaign:
+        if not reason.strip():
+            raise ValueError("a blocked reason is required")
+        campaign = self._get(campaign_id, lock=True)
+        current = self.state(campaign)
+        if current is CampaignState.BLOCKED:
+            return campaign
+        if current is CampaignState.PAUSED:
+            self._move(campaign, CampaignState.BLOCKED, reason=reason)
+            return campaign
+        return self.transition(campaign_id, CampaignState.BLOCKED, reason=reason)
+
     def resume(self, campaign_id: str, *, reason: str = "") -> Campaign:
         campaign = self._get(campaign_id, lock=True)
         current = self.state(campaign)
@@ -247,17 +265,218 @@ class CampaignService:
         if value is not None and value < 0:
             raise ValueError(f"{name} must be non-negative or null")
 
-    def budget_remaining(self, campaign_id: str) -> dict[str, float | int | None]:
+    def _held_reservations(self, campaign_id: str) -> dict[str, float]:
+        rows = self.session.execute(
+            select(
+                func.coalesce(func.sum(CampaignReservation.usd), 0.0),
+                func.coalesce(func.sum(CampaignReservation.tokens), 0),
+                func.coalesce(func.sum(CampaignReservation.sandbox_minutes), 0.0),
+            ).where(
+                CampaignReservation.campaign_id == campaign_id,
+                CampaignReservation.status == "held",
+            )
+        ).one()
+        return {"usd": float(rows[0]), "tokens": int(rows[1]), "sandbox_minutes": float(rows[2])}
+
+    def budget_remaining(
+        self,
+        campaign_id: str,
+        *,
+        include_reservations: bool = True,
+    ) -> dict[str, float | int | None]:
         campaign = self._get(campaign_id)
+        reserved = self._held_reservations(campaign_id) if include_reservations else {
+            "usd": 0.0,
+            "tokens": 0,
+            "sandbox_minutes": 0.0,
+        }
         return {
-            "usd": None if campaign.budget_usd is None else campaign.budget_usd - campaign.spent_usd,
-            "tokens": None if campaign.budget_tokens is None else campaign.budget_tokens - campaign.spent_tokens,
+            "usd": (
+                None
+                if campaign.budget_usd is None
+                else campaign.budget_usd - campaign.spent_usd - reserved["usd"]
+            ),
+            "tokens": (
+                None
+                if campaign.budget_tokens is None
+                else campaign.budget_tokens - campaign.spent_tokens - reserved["tokens"]
+            ),
             "sandbox_minutes": (
                 None
                 if campaign.budget_sandbox_minutes is None
-                else campaign.budget_sandbox_minutes - campaign.spent_sandbox_minutes
+                else campaign.budget_sandbox_minutes
+                - campaign.spent_sandbox_minutes
+                - reserved["sandbox_minutes"]
             ),
         }
+
+    def reserve_spend(
+        self,
+        campaign_id: str,
+        *,
+        task_id: str | None = None,
+        usd: float = 0.0,
+        tokens: int = 0,
+        sandbox_minutes: float = 0.0,
+        source: str = "",
+    ) -> CampaignReservation:
+        """Hold budget before an execution whose worst case is known.
+
+        The check includes spend and every other held reservation, so two workers
+        cannot both pass a preflight against the same remaining dollars.
+        """
+        if usd < 0 or tokens < 0 or sandbox_minutes < 0:
+            raise ValueError("reservation values must be non-negative")
+        campaign = self._get(campaign_id, lock=True)
+        current = self.state(campaign)
+        if current in TERMINAL_STATES:
+            raise InvalidTransition(f"cannot reserve budget while campaign is {current.value}")
+        if task_id is not None:
+            task = self.session.get(CampaignTask, task_id)
+            if task is None or task.campaign_id != campaign_id:
+                raise TaskStateError(f"task {task_id} does not belong to campaign {campaign_id}")
+        reserved = self._held_reservations(campaign_id)
+        if (
+            campaign.budget_usd is not None
+            and campaign.spent_usd + reserved["usd"] + usd > campaign.budget_usd + 1e-9
+        ):
+            raise CampaignBudgetExceeded(
+                "USD budget cannot cover reservation: "
+                f"spent {campaign.spent_usd:.6f} + held {reserved['usd']:.6f} + "
+                f"requested {usd:.6f} > {campaign.budget_usd:.6f}"
+            )
+        if (
+            campaign.budget_tokens is not None
+            and campaign.spent_tokens + reserved["tokens"] + tokens > campaign.budget_tokens
+        ):
+            raise CampaignBudgetExceeded(
+                "token budget cannot cover reservation: "
+                f"spent {campaign.spent_tokens} + held {reserved['tokens']} + "
+                f"requested {tokens} > {campaign.budget_tokens}"
+            )
+        if (
+            campaign.budget_sandbox_minutes is not None
+            and campaign.spent_sandbox_minutes
+            + reserved["sandbox_minutes"]
+            + sandbox_minutes
+            > campaign.budget_sandbox_minutes + 1e-9
+        ):
+            raise CampaignBudgetExceeded(
+                "sandbox-minute budget cannot cover reservation: "
+                f"spent {campaign.spent_sandbox_minutes:.3f} + "
+                f"held {reserved['sandbox_minutes']:.3f} + requested {sandbox_minutes:.3f} "
+                f"> {campaign.budget_sandbox_minutes:.3f}"
+            )
+        now = self._clock()
+        reservation = CampaignReservation(
+            id=_new_id("res"),
+            campaign_id=campaign_id,
+            task_id=task_id,
+            usd=float(usd),
+            tokens=int(tokens),
+            sandbox_minutes=float(sandbox_minutes),
+            status="held",
+            source=source,
+            created_at=now,
+        )
+        self.session.add(reservation)
+        self.session.flush()
+        self._event(
+            campaign,
+            "campaign.reserved",
+            {
+                "reservation_id": reservation.id,
+                "task_id": task_id or "",
+                "usd": float(usd),
+                "tokens": int(tokens),
+                "sandbox_minutes": float(sandbox_minutes),
+                "source": source,
+            },
+        )
+        return reservation
+
+    def release_reservation(self, reservation_id: str, *, reason: str = "") -> CampaignReservation:
+        reservation = self.session.get(CampaignReservation, reservation_id)
+        if reservation is None:
+            raise TaskStateError(f"no such reservation: {reservation_id}")
+        if reservation.status != "held":
+            raise TaskStateError(f"reservation {reservation_id} is {reservation.status}, not held")
+        reservation.status = "released"
+        reservation.settled_at = self._clock()
+        campaign = self._get(reservation.campaign_id)
+        self._event(
+            campaign,
+            "campaign.reservation_released",
+            {"reservation_id": reservation.id, "task_id": reservation.task_id, "reason": reason},
+        )
+        self.session.flush()
+        return reservation
+
+    def settle_reservation(
+        self,
+        reservation_id: str,
+        *,
+        usd: float = 0.0,
+        tokens: int = 0,
+        sandbox_minutes: float = 0.0,
+        source: str = "",
+        allow_overage: bool = False,
+    ) -> dict[str, Any]:
+        """Replace a held allowance with measured spend.
+
+        ``allow_overage`` does not bypass a budget ceiling; it only controls
+        whether measured spend above the estimate is accepted when the campaign
+        still has room. The ceiling is always enforced by ``record_spend``.
+        """
+        if usd < 0 or tokens < 0 or sandbox_minutes < 0:
+            raise ValueError("settlement values must be non-negative")
+        reservation = self.session.get(CampaignReservation, reservation_id)
+        if reservation is None:
+            raise TaskStateError(f"no such reservation: {reservation_id}")
+        if reservation.status != "held":
+            raise TaskStateError(f"reservation {reservation_id} is {reservation.status}, not held")
+        if not allow_overage:
+            if usd > reservation.usd + 1e-9:
+                raise CampaignBudgetExceeded(
+                    f"measured USD {usd:.6f} exceeds reserved {reservation.usd:.6f}"
+                )
+            if tokens > reservation.tokens:
+                raise CampaignBudgetExceeded(
+                    f"measured tokens {tokens} exceed reserved {reservation.tokens}"
+                )
+            if sandbox_minutes > reservation.sandbox_minutes + 1e-9:
+                raise CampaignBudgetExceeded(
+                    "measured sandbox minutes "
+                    f"{sandbox_minutes:.3f} exceed reserved {reservation.sandbox_minutes:.3f}"
+                )
+        reservation.status = "settling"
+        self.session.flush()
+        try:
+            spent = self.record_spend(
+                reservation.campaign_id,
+                usd=usd,
+                tokens=tokens,
+                sandbox_minutes=sandbox_minutes,
+                source=source or reservation.source,
+            )
+        except Exception:
+            self.session.rollback()
+            raise
+        reservation.status = "settled"
+        reservation.settled_at = self._clock()
+        self.session.flush()
+        return {
+            "reservation": reservation.to_wire(),
+            "spent": spent,
+            "remaining": self.budget_remaining(reservation.campaign_id),
+        }
+
+    def reservations(self, campaign_id: str, *, status: str | None = None) -> list[CampaignReservation]:
+        statement = select(CampaignReservation).where(CampaignReservation.campaign_id == campaign_id)
+        if status is not None:
+            statement = statement.where(CampaignReservation.status == status)
+        statement = statement.order_by(CampaignReservation.created_at.asc())
+        return list(self.session.execute(statement).scalars().all())
 
     def record_spend(
         self,
@@ -271,21 +490,34 @@ class CampaignService:
         if usd < 0 or tokens < 0 or sandbox_minutes < 0:
             raise ValueError("spend values must be non-negative")
         campaign = self._get(campaign_id, lock=True)
-        if campaign.budget_usd is not None and campaign.spent_usd + usd > campaign.budget_usd + 1e-9:
+        reserved = self._held_reservations(campaign_id)
+        if (
+            campaign.budget_usd is not None
+            and campaign.spent_usd + reserved["usd"] + usd > campaign.budget_usd + 1e-9
+        ):
             raise CampaignBudgetExceeded(
-                f"USD budget exceeded: spent {campaign.spent_usd:.6f} + {usd:.6f} > {campaign.budget_usd:.6f}"
+                f"USD budget exceeded: spent {campaign.spent_usd:.6f} + "
+                f"held {reserved['usd']:.6f} + {usd:.6f} > {campaign.budget_usd:.6f}"
             )
-        if campaign.budget_tokens is not None and campaign.spent_tokens + tokens > campaign.budget_tokens:
+        if (
+            campaign.budget_tokens is not None
+            and campaign.spent_tokens + reserved["tokens"] + tokens > campaign.budget_tokens
+        ):
             raise CampaignBudgetExceeded(
-                f"token budget exceeded: spent {campaign.spent_tokens} + {tokens} > {campaign.budget_tokens}"
+                f"token budget exceeded: spent {campaign.spent_tokens} + "
+                f"held {reserved['tokens']} + {tokens} > {campaign.budget_tokens}"
             )
         if (
             campaign.budget_sandbox_minutes is not None
-            and campaign.spent_sandbox_minutes + sandbox_minutes > campaign.budget_sandbox_minutes + 1e-9
+            and campaign.spent_sandbox_minutes
+            + reserved["sandbox_minutes"]
+            + sandbox_minutes
+            > campaign.budget_sandbox_minutes + 1e-9
         ):
             raise CampaignBudgetExceeded(
                 "sandbox-minute budget exceeded: "
-                f"spent {campaign.spent_sandbox_minutes:.3f} + {sandbox_minutes:.3f} "
+                f"spent {campaign.spent_sandbox_minutes:.3f} + "
+                f"held {reserved['sandbox_minutes']:.3f} + {sandbox_minutes:.3f} "
                 f"> {campaign.budget_sandbox_minutes:.3f}"
             )
         campaign.spent_usd += float(usd)
@@ -404,6 +636,18 @@ class CampaignService:
         task.lease_expires_at = None
         campaign = self._get(task.campaign_id)
         self._event(campaign, "task.completed", {"task_id": task.id, "worker": worker})
+        self.session.flush()
+        return task
+
+    def renew_lease(self, task_id: str, *, worker: str, lease_seconds: int = 300) -> CampaignTask:
+        if lease_seconds < 1:
+            raise ValueError("lease_seconds must be at least 1")
+        task = self.get_task(task_id)
+        self._require_lease(task, worker)
+        if task.status != "running":
+            raise TaskStateError(f"task {task_id} is {task.status}, not running")
+        task.lease_expires_at = self._clock() + timedelta(seconds=lease_seconds)
+        task.updated_at = self._clock()
         self.session.flush()
         return task
 
@@ -529,6 +773,7 @@ class CampaignService:
         from ..evidence.ledger import EvidenceLedger
 
         chain = EvidenceLedger(self.session).verify(campaign_id)
+        reserved = self._held_reservations(campaign_id)
         return {
             "campaign": campaign.to_wire(),
             "tasks": {"total": sum(task_counts.values()), "by_status": task_counts},
@@ -536,6 +781,10 @@ class CampaignService:
             "events": len(self.events(campaign_id)),
             "chain": chain.to_wire(),
             "budget_remaining": self.budget_remaining(campaign_id),
+            "budget_reserved": reserved,
+            "reservations": [
+                item.to_wire() for item in self.reservations(campaign_id, status="held")
+            ],
         }
 
     def _event(self, campaign: Campaign, kind: str, payload: dict[str, Any] | None = None) -> CampaignEvent:

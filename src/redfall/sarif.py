@@ -87,6 +87,7 @@ def build_sarif(scan: dict, findings: list[dict], tool_version: str = __version_
                         "cvss_score": finding.get("cvss_score"),
                         "symbol": location.get("symbol") or "",
                         "evidence": str(finding.get("evidence") or "")[:2000],
+                        "evidence_ids": list(finding.get("evidence_ids") or []),
                         "reproduction_run_id": finding.get("reproduction_run_id"),
                     }
                 },

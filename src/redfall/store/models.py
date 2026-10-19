@@ -543,6 +543,230 @@ class CampaignEvent(Base):
         }
 
 
+class CampaignReservation(Base):
+    """A preflight budget reservation for one task.
+
+    The reservation makes the budget a gate rather than a post-hoc report: a
+    worker cannot start work whose worst-case allowance does not fit. Settlement
+    removes the reservation and records the actual spend in the same
+    transaction; failure releases it.
+    """
+
+    __tablename__ = "campaign_reservations"
+    __table_args__ = (
+        Index("ix_campaign_reservations_campaign_status", "campaign_id", "status"),
+        Index("ix_campaign_reservations_task", "task_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), index=True)
+    task_id: Mapped[str | None] = mapped_column(ForeignKey("campaign_tasks.id"), nullable=True, index=True)
+    usd: Mapped[float] = mapped_column(Float, default=0.0)
+    tokens: Mapped[int] = mapped_column(Integer, default=0)
+    sandbox_minutes: Mapped[float] = mapped_column(Float, default=0.0)
+    status: Mapped[str] = mapped_column(String(16), default="held")
+    source: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "campaign_id": self.campaign_id,
+            "task_id": self.task_id,
+            "usd": self.usd,
+            "tokens": self.tokens,
+            "sandbox_minutes": self.sandbox_minutes,
+            "status": self.status,
+            "source": self.source,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "settled_at": self.settled_at.isoformat() if self.settled_at else None,
+        }
+
+
+class GraphSnapshot(Base):
+    """One immutable code-intelligence graph built from a real ingestion pass.
+
+    A snapshot is the unit that later campaigns query. It records the commit,
+    content digest and analyzer counts so two graphs can be compared without
+    trusting a label. Nodes and edges are stored separately and carry their own
+    provenance; this table is only the manifest.
+    """
+
+    __tablename__ = "graph_snapshots"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    scan_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    campaign_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    repo: Mapped[str] = mapped_column(Text, nullable=False)
+    root: Mapped[str] = mapped_column(Text, nullable=False)
+    commit: Mapped[str] = mapped_column(String(64), default="")
+    branch: Mapped[str] = mapped_column(Text, default="")
+    dirty: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String(16), default="building")
+    content_digest: Mapped[str] = mapped_column(String(64), default="")
+    file_count: Mapped[int] = mapped_column(Integer, default=0)
+    node_count: Mapped[int] = mapped_column(Integer, default=0)
+    edge_count: Mapped[int] = mapped_column(Integer, default=0)
+    route_count: Mapped[int] = mapped_column(Integer, default=0)
+    taint_count: Mapped[int] = mapped_column(Integer, default=0)
+    parse_errors: Mapped[list] = mapped_column(JSON, default=list)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "scan_id": self.scan_id,
+            "campaign_id": self.campaign_id,
+            "repo": self.repo,
+            "root": self.root,
+            "commit": self.commit,
+            "branch": self.branch,
+            "dirty": self.dirty,
+            "status": self.status,
+            "content_digest": self.content_digest,
+            "files": self.file_count,
+            "nodes": self.node_count,
+            "edges": self.edge_count,
+            "routes": self.route_count,
+            "taints": self.taint_count,
+            "parse_errors": list(self.parse_errors or []),
+            "metadata": self.metadata_json or {},
+            "duration_ms": self.duration_ms,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+        }
+
+
+class GraphNode(Base):
+    """A provenance-bearing graph node with a real source span when one exists."""
+
+    __tablename__ = "graph_nodes"
+    __table_args__ = (
+        UniqueConstraint("snapshot_id", "kind", "key", name="uq_graph_nodes_snapshot_kind_key"),
+        Index("ix_graph_nodes_snapshot_kind", "snapshot_id", "kind"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    snapshot_id: Mapped[str] = mapped_column(ForeignKey("graph_snapshots.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    key: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    file: Mapped[str] = mapped_column(Text, default="")
+    line: Mapped[int] = mapped_column(Integer, default=0)
+    end_line: Mapped[int] = mapped_column(Integer, default=0)
+    language: Mapped[str] = mapped_column(String(24), default="")
+    confidence: Mapped[float] = mapped_column(Float, default=1.0)
+    provenance: Mapped[dict] = mapped_column(JSON, default=dict)
+    properties: Mapped[dict] = mapped_column(JSON, default=dict)
+    evidence_ids: Mapped[list] = mapped_column(JSON, default=list)
+    content_hash: Mapped[str] = mapped_column(String(64), default="")
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "snapshot_id": self.snapshot_id,
+            "kind": self.kind,
+            "key": self.key,
+            "name": self.name,
+            "file": self.file,
+            "line": self.line,
+            "end_line": self.end_line,
+            "language": self.language,
+            "confidence": self.confidence,
+            "provenance": self.provenance or {},
+            "properties": self.properties or {},
+            "evidence_ids": list(self.evidence_ids or []),
+            "content_hash": self.content_hash,
+        }
+
+
+class GraphEdge(Base):
+    """A typed, provenance-bearing relation between two graph nodes."""
+
+    __tablename__ = "graph_edges"
+    __table_args__ = (
+        UniqueConstraint("snapshot_id", "key", name="uq_graph_edges_snapshot_key"),
+        Index("ix_graph_edges_snapshot_kind", "snapshot_id", "kind"),
+        Index("ix_graph_edges_source", "snapshot_id", "source_id"),
+        Index("ix_graph_edges_target", "snapshot_id", "target_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    snapshot_id: Mapped[str] = mapped_column(ForeignKey("graph_snapshots.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    key: Mapped[str] = mapped_column(Text, nullable=False)
+    source_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    file: Mapped[str] = mapped_column(Text, default="")
+    line: Mapped[int] = mapped_column(Integer, default=0)
+    confidence: Mapped[float] = mapped_column(Float, default=1.0)
+    provenance: Mapped[dict] = mapped_column(JSON, default=dict)
+    properties: Mapped[dict] = mapped_column(JSON, default=dict)
+    evidence_ids: Mapped[list] = mapped_column(JSON, default=list)
+    content_hash: Mapped[str] = mapped_column(String(64), default="")
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "snapshot_id": self.snapshot_id,
+            "kind": self.kind,
+            "key": self.key,
+            "source_id": self.source_id,
+            "target_id": self.target_id,
+            "file": self.file,
+            "line": self.line,
+            "confidence": self.confidence,
+            "provenance": self.provenance or {},
+            "properties": self.properties or {},
+            "evidence_ids": list(self.evidence_ids or []),
+            "content_hash": self.content_hash,
+        }
+
+
+class AdapterCertification(Base):
+    """The measured result of running an adapter contract.
+
+    A row is evidence of what a specific server and tool surface did during one
+    contract run. It is not a badge for every version of an agent that might
+    speak the protocol; callers should check the timestamp and tool count.
+    """
+
+    __tablename__ = "adapter_certifications"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    adapter: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    protocol: Mapped[str] = mapped_column(String(32), nullable=False)
+    transport: Mapped[str] = mapped_column(String(32), nullable=False)
+    server_name: Mapped[str] = mapped_column(String(64), default="")
+    server_version: Mapped[str] = mapped_column(String(32), default="")
+    tool_count: Mapped[int] = mapped_column(Integer, default=0)
+    certified: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    checks: Mapped[list] = mapped_column(JSON, default=list)
+    details: Mapped[dict] = mapped_column(JSON, default=dict)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    certified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "adapter": self.adapter,
+            "protocol": self.protocol,
+            "transport": self.transport,
+            "server_name": self.server_name,
+            "server_version": self.server_version,
+            "tool_count": self.tool_count,
+            "certified": self.certified,
+            "checks": list(self.checks or []),
+            "details": self.details or {},
+            "duration_ms": self.duration_ms,
+            "certified_at": self.certified_at.isoformat() if self.certified_at else None,
+        }
+
+
 class EvidenceRecord(Base):
     """One link in a campaign's tamper-evident evidence chain.
 

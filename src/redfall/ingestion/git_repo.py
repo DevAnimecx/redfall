@@ -45,5 +45,5 @@ def inspect(path: str | Path) -> GitInfo:
     if dirty:
         for item in repo.index.diff(None):
             changed.append(item.a_path or item.b_path or "")
-        changed.extend([u[0] for u in repo.untracked_files])
+        changed.extend(repo.untracked_files)
     return GitInfo(is_repo=True, commit=commit, branch=branch, dirty=dirty, changed_files=changed)

@@ -68,8 +68,14 @@ class MCPServer:
                     },
                     "serverInfo": {"name": "redfall", "version": __version__},
                     "instructions": (
-                        "RedFall exposes durable campaign, task and evidence tools. "
-                        "E3/E4 evidence is required before a finding is reportable."
+                        "RedFall is a security execution layer, not a general coding agent. "
+                        "Use durable campaigns and tasks, check filesystem scope with "
+                        "redfall_policy_check, index real source with redfall_graph_index, "
+                        "and execute scans or reproductions only through the provided tools. "
+                        "A finding is reportable only when E3/E4 evidence passes the hash "
+                        "chain and redfall_report_readiness. Results marked ok=false or "
+                        "blocked_reason describe missing real prerequisites; do not treat "
+                        "them as findings. Campaign runner tasks execute real local code."
                     ),
                 },
             )
@@ -161,6 +167,7 @@ def main(argv: list[str] | None = None) -> int:
         help="SQLAlchemy database URL. Defaults to DATABASE_URL or the RedFall config.",
     )
     options = parser.parse_args(argv)
+    os.environ["DATABASE_URL"] = options.database_url
     try:
         registry = build_registry(options.database_url)
     except Exception as exc:  # noqa: BLE001 - startup must report the real failure

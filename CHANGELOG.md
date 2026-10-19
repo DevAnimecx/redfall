@@ -8,6 +8,35 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Phase 2 execution layer** — a persisted, provenance-aware code graph v1
+  (`graph_snapshots`, `graph_nodes`, `graph_edges`) built from real ingestion,
+  with bounded search/traversal/paths/inventory and snapshot diff; a resumable
+  campaign runner with lease heartbeats, preflight budget reservations, measured
+  settlement, retries and blocked handling; real task handlers for graph, scan,
+  stored-finding reproduction and evidence-gated JSON/SARIF reports; and 44 MCP
+  stdio tools covering campaigns, graph, scans, findings, reproduction,
+  evidence, reports, policy checks and adapter certifications.
+- **Executable MCP adapter contract** — `redfall mcp certify` launches a fresh
+  stdio server process, completes the MCP handshake, checks every core tool
+  schema, persists a campaign and task, indexes real source, denies an
+  out-of-scope path and returns a protocol-visible error for an unknown tool.
+  The result is stored as a timestamped `AdapterCertification`; it certifies the
+  shipped server, not arbitrary third-party agents.
+- **Phase 2 CLI** — `redfall graph` (index/latest/stats/search/routes/sources/
+  sinks/neighbors/paths/inventory/diff), `campaign run`, reservations,
+  readiness/export, `reproduce`, `policy-check`, `mcp certify` and adapter
+  listings. The new graph and reproduction path-taking commands enforce
+  campaign roots or `REDFALL_ALLOWED_ROOTS`; unscoped graph and reproduction
+  operations are no longer exempt.
+- **Phase 2 verification on Windows** — compile clean; no-mock **PASS** across
+  73 files; orphan check **PASS** (71 reachable modules, 3 entrypoints); 34
+  focused SQLite/CLI/MCP tests pass, including a real stdio contract subprocess.
+  The full suite and the Postgres integration remain CI-authoritative because
+  this host has no local Postgres, Docker/gVisor runtime or LLM key.
+  Graph v1 covers the currently ingested TypeScript/JavaScript/Python source and
+  does not yet synthesize sanitizer nodes; A2A/HTTP adapters, environment
+  synthesis, multi-role campaigns, self-learning and the four-hour campaign are
+  not implemented.
 - **Phase 1 campaign kernel** — durable `campaigns`, `campaign_tasks` and
   `campaign_events` tables; an explicit state machine from `draft` through
   `reported` (with `paused`/`blocked` resume semantics); dependency-aware task

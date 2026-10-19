@@ -9,18 +9,40 @@ database is unavailable.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, replace
+from pathlib import Path
 from typing import Any, Callable, Iterator
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from ..campaign.handlers import record_scan_evidence
+from ..campaign.policy import (
+    PolicyError,
+    check_campaign_path,
+    check_os_path,
+    require_campaign_path,
+    require_os_path,
+)
+from ..campaign.runner import CampaignRunner
 from ..campaign.service import (
+    ACTIVE_STATES,
+    CampaignBudgetExceeded,
     CampaignError,
     CampaignService,
 )
+from ..config import PrerequisiteError, load_config
 from ..evidence.ledger import EvidenceError, EvidenceLedger
-from ..store.models import Campaign, EvidenceRecord
+from ..graph.indexer import GraphIndexError, GraphIndexer
+from ..graph.query import GraphQuery, GraphQueryError
+from ..orchestrator import run_scan
+from ..reporting.campaign_report import ReportError, build_campaign_report
+from ..store.models import AdapterCertification, Campaign, EvidenceRecord, Finding, Scan
+from ..validation.reproducer import (
+    ReproductionBlocked,
+    ReproductionError,
+    Reproducer,
+)
 from ..version import __version__
 
 
@@ -76,7 +98,16 @@ class ToolRegistry:
             result = spec.handler(args)
         except ToolError:
             raise
-        except (CampaignError, EvidenceError, ValueError) as exc:
+        except (
+            CampaignError,
+            EvidenceError,
+            GraphIndexError,
+            GraphQueryError,
+            PolicyError,
+            ReportError,
+            ReproductionError,
+            ValueError,
+        ) as exc:
             raise ToolError(str(exc)) from exc
         if not isinstance(result, dict):
             raise ToolError(f"tool {name} returned a non-object result")
@@ -391,7 +422,11 @@ class ToolRegistry:
             "redfall_evidence_list",
             "List evidence in chain order, optionally only E3/E4.",
             _object_schema(
-                {"campaign_id": {"type": "string"}, "reportable_only": {"type": "boolean"}},
+                {
+                    "campaign_id": {"type": "string"},
+                    "reportable_only": {"type": "boolean"},
+                    "finding_id": {"type": "string"},
+                },
                 ("campaign_id",),
             ),
             self._evidence_list,
@@ -407,6 +442,277 @@ class ToolRegistry:
             "Check that the evidence chain is intact and at least one E3/E4 record exists before reporting.",
             _object_schema({"campaign_id": {"type": "string"}}, ("campaign_id",)),
             self._report_readiness,
+        )
+        self._add(
+            "redfall_campaign_run",
+            "Run the resumable worker for this campaign. Executes real registered task handlers, reserves budget before work, and stops on blocked prerequisites.",
+            _object_schema(
+                {
+                    "campaign_id": {"type": "string"},
+                    "worker": {"type": "string"},
+                    "max_tasks": {"type": "integer", "minimum": 0},
+                    "lease_seconds": {"type": "integer", "minimum": 1},
+                },
+                ("campaign_id",),
+            ),
+            self._campaign_run,
+        )
+        self._add(
+            "redfall_campaign_reserve",
+            "Hold budget before a task executes. Reservations count against remaining budget and are settled or released.",
+            _object_schema(
+                {
+                    "campaign_id": {"type": "string"},
+                    "task_id": {"type": "string"},
+                    "usd": {"type": "number", "minimum": 0},
+                    "tokens": {"type": "integer", "minimum": 0},
+                    "sandbox_minutes": {"type": "number", "minimum": 0},
+                    "source": {"type": "string"},
+                },
+                ("campaign_id",),
+            ),
+            self._campaign_reserve,
+        )
+        self._add(
+            "redfall_campaign_release_reservation",
+            "Release a held budget reservation without recording spend.",
+            _object_schema(
+                {"reservation_id": {"type": "string"}, "reason": {"type": "string"}},
+                ("reservation_id",),
+            ),
+            self._campaign_release_reservation,
+        )
+        self._add(
+            "redfall_campaign_settle_reservation",
+            "Replace a held reservation with measured spend. The budget ceiling is still enforced.",
+            _object_schema(
+                {
+                    "reservation_id": {"type": "string"},
+                    "usd": {"type": "number", "minimum": 0},
+                    "tokens": {"type": "integer", "minimum": 0},
+                    "sandbox_minutes": {"type": "number", "minimum": 0},
+                    "source": {"type": "string"},
+                    "allow_overage": {"type": "boolean"},
+                },
+                ("reservation_id",),
+            ),
+            self._campaign_settle_reservation,
+        )
+        self._add(
+            "redfall_graph_index",
+            "Parse a local repository with the real ingestion pipeline and persist an immutable code-graph snapshot. No finding is produced.",
+            _object_schema(
+                {
+                    "target": {"type": "string"},
+                    "campaign_id": {"type": "string"},
+                    "label": {"type": "string"},
+                },
+                ("target",),
+            ),
+            self._graph_index,
+        )
+        self._add(
+            "redfall_graph_latest",
+            "Return the newest graph snapshot, optionally filtered to a campaign.",
+            _object_schema(
+                {"campaign_id": {"type": "string"}, "root": {"type": "string"}, "limit": {"type": "integer", "minimum": 1}},
+            ),
+            self._graph_latest,
+        )
+        self._add(
+            "redfall_graph_stats",
+            "Return node and edge counts by kind, plus file, route, source, sink and taint totals.",
+            _object_schema(
+                {"snapshot_id": {"type": "string"}, "campaign_id": {"type": "string"}},
+            ),
+            self._graph_stats,
+        )
+        self._add(
+            "redfall_graph_search",
+            "Search graph nodes by name, key or file, optionally filtered by node kind.",
+            _object_schema(
+                {
+                    "snapshot_id": {"type": "string"},
+                    "query": {"type": "string"},
+                    "kind": {"type": "string"},
+                    "file": {"type": "string"},
+                    "limit": {"type": "integer", "minimum": 1},
+                    "offset": {"type": "integer", "minimum": 0},
+                },
+            ),
+            self._graph_search,
+        )
+        self._add(
+            "redfall_graph_node",
+            "Return one node with its incoming and outgoing edges and provenance.",
+            _object_schema(
+                {"snapshot_id": {"type": "string"}, "node": {"type": "string"}},
+                ("node",),
+            ),
+            self._graph_node,
+        )
+        self._add(
+            "redfall_graph_neighbors",
+            "Traverse stored edges from a node with an explicit direction, kind filter, depth and node limit.",
+            _object_schema(
+                {
+                    "snapshot_id": {"type": "string"},
+                    "node": {"type": "string"},
+                    "direction": {"type": "string", "enum": ["out", "in", "both"]},
+                    "edge_kinds": {"type": "array", "items": {"type": "string"}},
+                    "depth": {"type": "integer", "minimum": 1, "maximum": 6},
+                    "limit": {"type": "integer", "minimum": 1},
+                },
+                ("node",),
+            ),
+            self._graph_neighbors,
+        )
+        self._add(
+            "redfall_graph_paths",
+            "Find bounded directed paths between two stored nodes, returning the full node and edge provenance.",
+            _object_schema(
+                {
+                    "snapshot_id": {"type": "string"},
+                    "source": {"type": "string"},
+                    "target": {"type": "string"},
+                    "max_depth": {"type": "integer", "minimum": 1, "maximum": 8},
+                    "edge_kinds": {"type": "array", "items": {"type": "string"}},
+                    "limit": {"type": "integer", "minimum": 1},
+                },
+                ("source", "target"),
+            ),
+            self._graph_paths,
+        )
+        self._add(
+            "redfall_graph_routes",
+            "List resolved HTTP routes from the graph, optionally filtered by method or path substring.",
+            _object_schema(
+                {
+                    "snapshot_id": {"type": "string"},
+                    "campaign_id": {"type": "string"},
+                    "method": {"type": "string"},
+                    "path_contains": {"type": "string"},
+                    "limit": {"type": "integer", "minimum": 1},
+                },
+            ),
+            self._graph_routes,
+        )
+        self._add(
+            "redfall_graph_diff",
+            "Compare two snapshots by stable node and edge keys, including changed provenance and properties.",
+            _object_schema(
+                {
+                    "base_snapshot": {"type": "string"},
+                    "head_snapshot": {"type": "string"},
+                    "limit": {"type": "integer", "minimum": 1},
+                },
+                ("base_snapshot", "head_snapshot"),
+            ),
+            self._graph_diff,
+        )
+        self._add(
+            "redfall_graph_sources",
+            "List taint sources, sinks and stored taint flows. Optional role=source or sink filters the node lists.",
+            _object_schema(
+                {
+                    "snapshot_id": {"type": "string"},
+                    "campaign_id": {"type": "string"},
+                    "role": {"type": "string", "enum": ["both", "source", "sink"]},
+                    "limit": {"type": "integer", "minimum": 1},
+                },
+            ),
+            self._graph_sources,
+        )
+        self._add(
+            "redfall_graph_inventory",
+            "Return a bounded route, dependency and secret inventory from a stored snapshot.",
+            _object_schema(
+                {
+                    "snapshot_id": {"type": "string"},
+                    "campaign_id": {"type": "string"},
+                    "limit": {"type": "integer", "minimum": 1},
+                },
+            ),
+            self._graph_inventory,
+        )
+        self._add(
+            "redfall_scan_run",
+            "Execute a full scan with the real orchestrator. Returns ok=false with blocked_reason when LLM, sandbox, Redis or database prerequisites are missing.",
+            _object_schema(
+                {
+                    "target": {"type": "string"},
+                    "campaign_id": {"type": "string"},
+                },
+                ("target",),
+            ),
+            self._scan_run,
+        )
+        self._add(
+            "redfall_findings",
+            "List stored findings and the evidence records linked to them. Optional campaign, scan or reportable filters.",
+            _object_schema(
+                {
+                    "campaign_id": {"type": "string"},
+                    "scan_id": {"type": "string"},
+                    "finding_id": {"type": "string"},
+                    "reportable": {"type": "boolean"},
+                    "limit": {"type": "integer", "minimum": 1},
+                },
+            ),
+            self._findings,
+        )
+        self._add(
+            "redfall_finding",
+            "Return one stored finding with its linked evidence, reproduction run and exact result.",
+            _object_schema({"finding_id": {"type": "string"}}, ("finding_id",)),
+            self._finding,
+        )
+        self._add(
+            "redfall_reproduce",
+            "Replay a stored finding's PoC in the gVisor sandbox. Returns blocked_reason when the sandbox is unavailable; never fabricates a verdict.",
+            _object_schema(
+                {
+                    "finding_id": {"type": "string"},
+                    "campaign_id": {"type": "string"},
+                    "target": {"type": "string"},
+                },
+                ("finding_id",),
+            ),
+            self._reproduce,
+        )
+        self._add(
+            "redfall_report",
+            "Build an evidence-gated campaign report or SARIF log. Refuses when the chain is broken or no evidence-linked finding is reportable.",
+            _object_schema(
+                {
+                    "campaign_id": {"type": "string"},
+                    "format": {"type": "string", "enum": ["json", "sarif"]},
+                },
+                ("campaign_id",),
+            ),
+            self._report,
+        )
+        self._add(
+            "redfall_policy_check",
+            "Check whether a filesystem action is inside campaign scope or REDFALL_ALLOWED_ROOTS. Denials include the resolved roots and reason.",
+            _object_schema(
+                {
+                    "action": {
+                        "type": "string",
+                        "enum": ["index", "scan", "reproduce", "report", "fix"],
+                    },
+                    "campaign_id": {"type": "string"},
+                    "target": {"type": "string"},
+                },
+                ("action",),
+            ),
+            self._policy_check,
+        )
+        self._add(
+            "redfall_adapter_certifications",
+            "List measured adapter contract results. A certified row covers only the recorded server version, tool count and timestamp.",
+            _object_schema({"limit": {"type": "integer", "minimum": 1}}),
+            self._adapter_certifications,
         )
 
     def _add(
@@ -596,16 +902,15 @@ class ToolRegistry:
             return record.to_wire()
 
     def _evidence_list(self, args: dict[str, Any]) -> dict[str, Any]:
+        finding_id = self._optional_str(args, "finding_id")
         with self._scope() as session:
-            return {
-                "evidence": [
-                    record.to_wire()
-                    for record in EvidenceLedger(session).list(
-                        self._required_str(args, "campaign_id"),
-                        reportable_only=self._optional_bool(args, "reportable_only", False),
-                    )
-                ]
-            }
+            records = EvidenceLedger(session).list(
+                self._required_str(args, "campaign_id"),
+                reportable_only=self._optional_bool(args, "reportable_only", False),
+            )
+            if finding_id:
+                records = [record for record in records if record.finding_id == finding_id]
+            return {"evidence": [record.to_wire() for record in records]}
 
     def _evidence_verify(self, args: dict[str, Any]) -> dict[str, Any]:
         with self._scope() as session:
@@ -627,3 +932,423 @@ class ToolRegistry:
                 "chain": chain.to_wire(),
                 "evidence_ids": [record.id for record in reportable],
             }
+
+    # -------------------------------------------------------- phase 2 helpers
+    def _database_url(self) -> str:
+        session = self._session_factory()
+        try:
+            return session.get_bind().url.render_as_string(hide_password=False)
+        finally:
+            session.close()
+
+    def _campaign_or_error(self, session: Session, campaign_id: str) -> Campaign:
+        campaign = session.get(Campaign, campaign_id)
+        if campaign is None:
+            raise ToolError(f"campaign not found: {campaign_id}")
+        return campaign
+
+    def _require_active(self, service: CampaignService, campaign: Campaign) -> None:
+        if service.state(campaign) not in ACTIVE_STATES:
+            raise ToolError(f"campaign {campaign.id} is {campaign.status}, not active")
+
+    def _authorized_target(
+        self,
+        session: Session,
+        target: str,
+        *,
+        campaign_id: str,
+        action: str,
+    ) -> Path:
+        if campaign_id:
+            campaign = self._campaign_or_error(session, campaign_id)
+            self._require_active(CampaignService(session), campaign)
+            return require_campaign_path(campaign, target, action=action)
+        return require_os_path(target, action=action)
+
+    def _snapshot_id(self, session: Session, args: dict[str, Any], *, campaign_id: str = "") -> str:
+        snapshot_id = self._optional_str(args, "snapshot_id")
+        if snapshot_id:
+            return snapshot_id
+        return GraphQuery(session).snapshot(campaign_id=campaign_id or None).id
+
+    # --------------------------------------------------------- phase 2 tools
+    def _campaign_run(self, args: dict[str, Any]) -> dict[str, Any]:
+        max_tasks = self._optional_int(args, "max_tasks", 5)
+        lease_seconds = self._optional_int(args, "lease_seconds", 300)
+        if max_tasks is None:
+            max_tasks = 5
+        if lease_seconds is None:
+            lease_seconds = 300
+        config = replace(load_config(), database_url=self._database_url())
+        runner = CampaignRunner(
+            self._session_factory,
+            worker=self._optional_str(args, "worker", "mcp-worker") or "mcp-worker",
+            config=config,
+            lease_seconds=lease_seconds,
+            max_tasks=max_tasks,
+        )
+        return runner.run(self._required_str(args, "campaign_id"), max_tasks=max_tasks)
+
+    def _campaign_reserve(self, args: dict[str, Any]) -> dict[str, Any]:
+        with self._scope() as session:
+            reservation = CampaignService(session).reserve_spend(
+                self._required_str(args, "campaign_id"),
+                task_id=self._optional_str(args, "task_id") or None,
+                usd=self._optional_number(args, "usd", 0.0) or 0.0,
+                tokens=self._optional_int(args, "tokens", 0) or 0,
+                sandbox_minutes=self._optional_number(args, "sandbox_minutes", 0.0) or 0.0,
+                source=self._optional_str(args, "source"),
+            )
+            return reservation.to_wire()
+
+    def _campaign_release_reservation(self, args: dict[str, Any]) -> dict[str, Any]:
+        with self._scope() as session:
+            return CampaignService(session).release_reservation(
+                self._required_str(args, "reservation_id"),
+                reason=self._optional_str(args, "reason"),
+            ).to_wire()
+
+    def _campaign_settle_reservation(self, args: dict[str, Any]) -> dict[str, Any]:
+        with self._scope() as session:
+            return CampaignService(session).settle_reservation(
+                self._required_str(args, "reservation_id"),
+                usd=self._optional_number(args, "usd", 0.0) or 0.0,
+                tokens=self._optional_int(args, "tokens", 0) or 0,
+                sandbox_minutes=self._optional_number(args, "sandbox_minutes", 0.0) or 0.0,
+                source=self._optional_str(args, "source"),
+                allow_overage=self._optional_bool(args, "allow_overage", False),
+            )
+
+    def _graph_index(self, args: dict[str, Any]) -> dict[str, Any]:
+        target = self._required_str(args, "target")
+        campaign_id = self._optional_str(args, "campaign_id")
+        with self._scope() as session:
+            if campaign_id:
+                campaign = self._campaign_or_error(session, campaign_id)
+                self._require_active(CampaignService(session), campaign)
+                resolved = require_campaign_path(campaign, target, action="index")
+            else:
+                resolved = require_os_path(target, action="index")
+            snapshot = GraphIndexer(session).index(
+                resolved,
+                campaign_id=campaign_id or None,
+                label=self._optional_str(args, "label"),
+            )
+            stats = GraphQuery(session).stats(snapshot.id)
+            return {
+                "ok": True,
+                "snapshot": snapshot.to_wire(),
+                "stats": stats,
+                "scan_id": snapshot.scan_id,
+            }
+
+    def _graph_latest(self, args: dict[str, Any]) -> dict[str, Any]:
+        campaign_id = self._optional_str(args, "campaign_id")
+        limit = self._optional_int(args, "limit", 1)
+        if limit is None:
+            limit = 1
+        with self._scope() as session:
+            query = GraphQuery(session)
+            root = self._optional_str(args, "root")
+            snapshots = query.list_snapshots(
+                campaign_id=campaign_id or None,
+                root=root or None,
+                limit=limit,
+            )
+            return {"snapshots": snapshots, "snapshot": snapshots[0] if snapshots else None}
+
+    def _graph_stats(self, args: dict[str, Any]) -> dict[str, Any]:
+        with self._scope() as session:
+            return GraphQuery(session).stats(
+                self._optional_str(args, "snapshot_id") or None,
+                campaign_id=self._optional_str(args, "campaign_id") or None,
+            )
+
+    def _graph_search(self, args: dict[str, Any]) -> dict[str, Any]:
+        limit = self._optional_int(args, "limit", 50)
+        offset = self._optional_int(args, "offset", 0)
+        with self._scope() as session:
+            return GraphQuery(session).search(
+                snapshot_id=self._optional_str(args, "snapshot_id") or None,
+                query=self._optional_str(args, "query"),
+                kind=self._optional_str(args, "kind"),
+                file=self._optional_str(args, "file"),
+                limit=limit if limit is not None else 50,
+                offset=offset if offset is not None else 0,
+            )
+
+    def _graph_node(self, args: dict[str, Any]) -> dict[str, Any]:
+        with self._scope() as session:
+            snapshot_id = self._snapshot_id(session, args)
+            return GraphQuery(session).node_detail(snapshot_id, self._required_str(args, "node"))
+
+    def _graph_neighbors(self, args: dict[str, Any]) -> dict[str, Any]:
+        depth = self._optional_int(args, "depth", 1)
+        limit = self._optional_int(args, "limit", 200)
+        with self._scope() as session:
+            snapshot_id = self._snapshot_id(session, args)
+            return GraphQuery(session).neighbors(
+                snapshot_id,
+                self._required_str(args, "node"),
+                direction=self._optional_str(args, "direction", "both") or "both",
+                edge_kinds=self._optional_str_list(args, "edge_kinds") or None,
+                depth=depth if depth is not None else 1,
+                limit=limit if limit is not None else 200,
+            )
+
+    def _graph_paths(self, args: dict[str, Any]) -> dict[str, Any]:
+        max_depth = self._optional_int(args, "max_depth", 5)
+        limit = self._optional_int(args, "limit", 10)
+        with self._scope() as session:
+            snapshot_id = self._snapshot_id(session, args)
+            return GraphQuery(session).paths(
+                snapshot_id,
+                self._required_str(args, "source"),
+                self._required_str(args, "target"),
+                max_depth=max_depth if max_depth is not None else 5,
+                edge_kinds=self._optional_str_list(args, "edge_kinds") or None,
+                limit=limit if limit is not None else 10,
+            )
+
+    def _graph_routes(self, args: dict[str, Any]) -> dict[str, Any]:
+        limit = self._optional_int(args, "limit", 200)
+        with self._scope() as session:
+            return GraphQuery(session).routes(
+                self._optional_str(args, "snapshot_id") or None,
+                campaign_id=self._optional_str(args, "campaign_id") or None,
+                method=self._optional_str(args, "method"),
+                path_contains=self._optional_str(args, "path_contains"),
+                limit=limit if limit is not None else 200,
+            )
+
+    def _graph_diff(self, args: dict[str, Any]) -> dict[str, Any]:
+        limit = self._optional_int(args, "limit", 200)
+        with self._scope() as session:
+            return GraphQuery(session).diff(
+                self._required_str(args, "base_snapshot"),
+                self._required_str(args, "head_snapshot"),
+                limit=limit if limit is not None else 200,
+            )
+
+    def _graph_sources(self, args: dict[str, Any]) -> dict[str, Any]:
+        limit = self._optional_int(args, "limit", 200)
+        role = self._optional_str(args, "role", "both") or "both"
+        with self._scope() as session:
+            data = GraphQuery(session).sources_sinks(
+                self._optional_str(args, "snapshot_id") or None,
+                campaign_id=self._optional_str(args, "campaign_id") or None,
+                limit=limit if limit is not None else 200,
+            )
+        if role == "source":
+            return {
+                "snapshot_id": data["snapshot_id"],
+                "sources": data["sources"],
+                "truncated": data["truncated"],
+            }
+        if role == "sink":
+            return {
+                "snapshot_id": data["snapshot_id"],
+                "sinks": data["sinks"],
+                "truncated": data["truncated"],
+            }
+        return data
+
+    def _graph_inventory(self, args: dict[str, Any]) -> dict[str, Any]:
+        limit = self._optional_int(args, "limit", 200)
+        with self._scope() as session:
+            return GraphQuery(session).inventory(
+                self._optional_str(args, "snapshot_id") or None,
+                campaign_id=self._optional_str(args, "campaign_id") or None,
+                limit=limit if limit is not None else 200,
+            )
+
+    def _scan_run(self, args: dict[str, Any]) -> dict[str, Any]:
+        target = self._required_str(args, "target")
+        campaign_id = self._optional_str(args, "campaign_id")
+        with self._scope() as session:
+            campaign: Campaign | None = None
+            if campaign_id:
+                campaign = self._campaign_or_error(session, campaign_id)
+                self._require_active(CampaignService(session), campaign)
+                resolved = require_campaign_path(campaign, target, action="scan")
+            else:
+                resolved = require_os_path(target, action="scan")
+            database_url = session.get_bind().url.render_as_string(hide_password=False)
+            config = replace(load_config(), database_url=database_url)
+            try:
+                report = run_scan(config, resolved)
+            except PrerequisiteError as exc:
+                return {"ok": False, "blocked_reason": str(exc), "failures": list(exc.failures)}
+            except RuntimeError as exc:
+                return {"ok": False, "blocked_reason": str(exc), "failures": []}
+            evidence: dict[str, Any] | None = None
+            if campaign is not None:
+                evidence = record_scan_evidence(session, campaign, report, target=resolved)
+            return {
+                "ok": True,
+                "scan": asdict(report),
+                "evidence": evidence,
+            }
+
+    def _findings(self, args: dict[str, Any]) -> dict[str, Any]:
+        limit = self._optional_int(args, "limit", 100)
+        if limit is None:
+            limit = 100
+        limit = min(max(limit, 1), 1000)
+        with self._scope() as session:
+            statement = select(Finding)
+            campaign_id = self._optional_str(args, "campaign_id")
+            scan_id = self._optional_str(args, "scan_id")
+            finding_id = self._optional_str(args, "finding_id")
+            if finding_id:
+                statement = statement.where(Finding.id == finding_id)
+            if scan_id:
+                statement = statement.where(Finding.scan_id == scan_id)
+            if campaign_id:
+                campaign = self._campaign_or_error(session, campaign_id)
+                linked = session.scalars(
+                    select(EvidenceRecord.finding_id).where(
+                        EvidenceRecord.campaign_id == campaign_id,
+                        EvidenceRecord.finding_id.is_not(None),
+                    )
+                ).all()
+                ids = {str(item) for item in linked if item}
+                if campaign.scan_id:
+                    statement = statement.where(
+                        or_(Finding.scan_id == campaign.scan_id, Finding.id.in_(ids) if ids else Finding.id == "")
+                    )
+                elif ids:
+                    statement = statement.where(Finding.id.in_(ids))
+                else:
+                    statement = statement.where(Finding.id == "")
+            if self._optional_bool(args, "reportable", False):
+                evidence_ids = select(EvidenceRecord.finding_id).where(
+                    EvidenceRecord.grade.in_(("E3", "E4")),
+                    EvidenceRecord.finding_id.is_not(None),
+                )
+                if campaign_id:
+                    evidence_ids = evidence_ids.where(EvidenceRecord.campaign_id == campaign_id)
+                statement = statement.where(Finding.id.in_(evidence_ids))
+            total = int(
+                session.execute(
+                    select(func.count()).select_from(statement.order_by(None).subquery())
+                ).scalar_one()
+            )
+            rows = session.scalars(
+                statement.order_by(Finding.discovered_at.desc()).limit(limit)
+            ).all()
+            evidence_statement = select(EvidenceRecord).where(
+                EvidenceRecord.finding_id.in_([row.id for row in rows])
+            )
+            if campaign_id:
+                evidence_statement = evidence_statement.where(
+                    EvidenceRecord.campaign_id == campaign_id
+                )
+            evidence_rows = session.scalars(evidence_statement).all() if rows else []
+            by_finding: dict[str, list[EvidenceRecord]] = {}
+            for record in evidence_rows:
+                if record.finding_id:
+                    by_finding.setdefault(record.finding_id, []).append(record)
+            findings = []
+            for row in rows:
+                wire = row.to_wire()
+                records = by_finding.get(row.id, [])
+                wire["evidence_ids"] = [record.id for record in records]
+                wire["verified_by_evidence"] = any(record.grade in {"E3", "E4"} for record in records)
+                findings.append(wire)
+            return {
+                "findings": findings,
+                "returned": len(findings),
+                "total": total,
+                "truncated": total > len(findings),
+            }
+
+    def _finding(self, args: dict[str, Any]) -> dict[str, Any]:
+        with self._scope() as session:
+            finding = session.get(Finding, self._required_str(args, "finding_id"))
+            if finding is None:
+                raise ToolError(f"finding not found: {args.get('finding_id')}")
+            records = session.scalars(
+                select(EvidenceRecord)
+                .where(EvidenceRecord.finding_id == finding.id)
+                .order_by(EvidenceRecord.created_at)
+            ).all()
+            wire = finding.to_wire()
+            wire["evidence_records"] = [record.to_wire() for record in records]
+            return {"finding": wire}
+
+    def _reproduce(self, args: dict[str, Any]) -> dict[str, Any]:
+        finding_id = self._required_str(args, "finding_id")
+        campaign_id = self._optional_str(args, "campaign_id")
+        with self._scope() as session:
+            finding = session.get(Finding, finding_id)
+            if finding is None:
+                raise ToolError(f"finding not found: {finding_id}")
+            scan = session.get(Scan, finding.scan_id)
+            if scan is None:
+                raise ToolError(f"finding {finding_id} has no scan target")
+            raw_target = self._optional_str(args, "target") or scan.repo
+            if campaign_id:
+                campaign = self._campaign_or_error(session, campaign_id)
+                self._require_active(CampaignService(session), campaign)
+                target = require_campaign_path(campaign, raw_target, action="reproduce")
+            else:
+                target = require_os_path(raw_target, action="reproduce")
+            config = load_config()
+            try:
+                outcome = Reproducer(
+                    session,
+                    workdir=config.workdir / "workspaces",
+                    timeout_s=config.sandbox_timeout_s,
+                ).reproduce(finding_id, campaign_id=campaign_id or None, target=target)
+            except ReproductionBlocked as exc:
+                return {
+                    "ok": False,
+                    "blocked_reason": exc.reason,
+                    "details": exc.details,
+                }
+            except ReproductionError as exc:
+                raise ToolError(str(exc)) from exc
+            return {"ok": True, **outcome.to_wire()}
+
+    def _report(self, args: dict[str, Any]) -> dict[str, Any]:
+        with self._scope() as session:
+            report = build_campaign_report(
+                session,
+                self._required_str(args, "campaign_id"),
+                report_format=self._optional_str(args, "format", "json") or "json",
+            )
+            return {"ok": True, **report}
+
+    def _policy_check(self, args: dict[str, Any]) -> dict[str, Any]:
+        action = self._required_str(args, "action")
+        target = self._optional_str(args, "target")
+        campaign_id = self._optional_str(args, "campaign_id")
+        if not target:
+            return {
+                "allowed": action in {"report"},
+                "action": action,
+                "target": "",
+                "roots": [],
+                "reason": "no filesystem path requested" if action == "report" else "a target path is required",
+            }
+        with self._scope() as session:
+            if campaign_id:
+                campaign = self._campaign_or_error(session, campaign_id)
+                decision = check_campaign_path(campaign, target, action=action)
+            else:
+                decision = check_os_path(target, action=action)
+            return decision.to_wire()
+
+    def _adapter_certifications(self, args: dict[str, Any]) -> dict[str, Any]:
+        limit = self._optional_int(args, "limit", 20)
+        if limit is None:
+            limit = 20
+        limit = min(max(limit, 1), 100)
+        with self._scope() as session:
+            rows = session.scalars(
+                select(AdapterCertification)
+                .order_by(AdapterCertification.certified_at.desc())
+                .limit(limit)
+            ).all()
+            return {"certifications": [row.to_wire() for row in rows]}

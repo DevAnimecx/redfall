@@ -114,43 +114,134 @@ def scan(target: Path, out_path: Path | None, quiet: bool) -> None:
 
 
 @main.command()
-@click.argument("scan_id")
+@click.argument("scan_id", required=False)
+@click.option("--campaign", "campaign_id", default="", help="List findings linked to a campaign instead.")
 @click.option("--out", "out_path", type=click.Path(path_type=Path), default=None)
-def findings(scan_id: str, out_path: Path | None) -> None:
-    """List the findings recorded for a scan."""
-    from sqlalchemy import select
+def findings(scan_id: str | None, campaign_id: str, out_path: Path | None) -> None:
+    """List the findings recorded for a scan or campaign."""
+    from sqlalchemy import or_, select
     from sqlalchemy.orm import sessionmaker
 
-    from .store.models import Finding
+    from .store.models import Campaign, EvidenceRecord, Finding
 
+    if not scan_id and not campaign_id:
+        _fail("pass a scan id or --campaign")
     config = load_config()
     engine = init_engine(config.database_url)
     SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
     with SessionLocal() as session:
-        rows = (
-            session.execute(
-                select(Finding).where(Finding.scan_id == scan_id).order_by(Finding.discovered_at)
-            )
-            .scalars()
-            .all()
-        )
+        statement = select(Finding)
+        title = f"Findings for scan {scan_id}"
+        if campaign_id:
+            campaign = session.get(Campaign, campaign_id)
+            if campaign is None:
+                _fail(f"no such campaign: {campaign_id}")
+            linked = session.scalars(
+                select(EvidenceRecord.finding_id).where(
+                    EvidenceRecord.campaign_id == campaign_id,
+                    EvidenceRecord.finding_id.is_not(None),
+                )
+            ).all()
+            ids = {str(item) for item in linked if item}
+            if campaign.scan_id:
+                statement = statement.where(
+                    or_(Finding.scan_id == campaign.scan_id, Finding.id.in_(ids) if ids else Finding.id == "")
+                )
+            elif ids:
+                statement = statement.where(Finding.id.in_(ids))
+            else:
+                statement = statement.where(Finding.id == "")
+            title = f"Findings for campaign {campaign_id}"
+        elif scan_id:
+            statement = statement.where(Finding.scan_id == scan_id)
+        rows = session.execute(statement.order_by(Finding.discovered_at)).scalars().all()
         if not rows:
-            _fail(f"no findings recorded for scan {scan_id}")
-        table = Table(title=f"Findings for {scan_id}")
-        for column in ("id", "category", "severity", "location", "status"):
+            _fail("no findings recorded")
+        table = Table(title=title)
+        for column in ("id", "category", "severity", "location", "status", "evidence"):
             table.add_column(column)
         for row in rows:
+            evidence = session.scalars(
+                select(EvidenceRecord).where(EvidenceRecord.finding_id == row.id)
+            ).all()
+            reportable = any(record.grade in {"E3", "E4"} for record in evidence)
             table.add_row(
                 row.id,
                 row.category,
                 row.severity,
                 f"{row.location_file}:{row.location_line}",
                 row.status,
+                "E3/E4" if reportable else "unverified",
             )
         console.print(table)
         if out_path:
-            out_path.write_text(json.dumps([r.to_wire() for r in rows], indent=2, default=str))
+            out_path.write_text(
+                json.dumps([r.to_wire() for r in rows], indent=2, default=str),
+                encoding="utf-8",
+            )
             console.print(f"written to {out_path}")
+
+
+@main.command()
+@click.argument("finding_id")
+@click.option("--target", "target_path", type=click.Path(exists=True, file_okay=False, path_type=Path), default=None)
+@click.option("--campaign-id", default="", help="Append a hash-chained evidence record to this campaign.")
+@click.option("--out", "out_path", type=click.Path(path_type=Path), default=None, help="Write the outcome JSON here.")
+def reproduce(finding_id: str, target_path: Path | None, campaign_id: str, out_path: Path | None) -> None:
+    """Replay a stored finding's PoC inside the gVisor sandbox."""
+    from sqlalchemy.orm import sessionmaker
+
+    from .campaign.policy import (
+        PolicyError,
+        require_campaign_path,
+        require_os_path,
+    )
+    from .store.models import Campaign, Finding, Scan
+    from .validation.reproducer import ReproductionBlocked, ReproductionError, Reproducer
+
+    config = load_config()
+    engine = init_engine(config.database_url)
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+    with SessionLocal() as session:
+        finding = session.get(Finding, finding_id)
+        if finding is None:
+            _fail(f"no such finding: {finding_id}")
+        scan = session.get(Scan, finding.scan_id)
+        if scan is None:
+            _fail(f"finding {finding_id} has no scan target")
+        resolved_target = target_path or Path(scan.repo)
+        try:
+            if campaign_id:
+                campaign = session.get(Campaign, campaign_id)
+                if campaign is None:
+                    _fail(f"no such campaign: {campaign_id}")
+                resolved_target = require_campaign_path(
+                    campaign, resolved_target, action="reproduce"
+                )
+            else:
+                resolved_target = require_os_path(resolved_target, action="reproduce")
+        except PolicyError as exc:
+            _fail(f"target is outside allowed scope: {exc}")
+        try:
+            outcome = Reproducer(
+                session,
+                workdir=config.workdir / "workspaces",
+                timeout_s=config.sandbox_timeout_s,
+            ).reproduce(finding_id, campaign_id=campaign_id or None, target=resolved_target)
+        except ReproductionBlocked as exc:
+            err_console.print(f"blocked: {exc.reason}")
+            for detail in exc.details:
+                err_console.print(f"  - {detail}")
+            raise SystemExit(2) from None
+        except ReproductionError as exc:
+            _fail(str(exc))
+        data = outcome.to_wire()
+        if out_path:
+            out_path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+            console.print(f"outcome written to {out_path}")
+        console.print_json(data=data)
+    if not outcome.reproduced:
+        raise SystemExit(2)
 
 
 @main.command()
@@ -477,6 +568,167 @@ def campaign_spend(campaign_id: str, usd: float, tokens: int, sandbox_minutes: f
     console.print_json(data=data)
 
 
+@campaign.command("run")
+@click.argument("campaign_id")
+@click.option("--worker", default="cli-worker", show_default=True)
+@click.option("--max-tasks", type=int, default=10, show_default=True)
+@click.option("--lease-seconds", type=int, default=300, show_default=True)
+@click.option("--out", "out_path", type=click.Path(path_type=Path), default=None)
+def campaign_run(campaign_id: str, worker: str, max_tasks: int, lease_seconds: int, out_path: Path | None) -> None:
+    """Claim and execute ready tasks with the real resumable runner."""
+    from sqlalchemy.orm import sessionmaker
+
+    from .campaign.runner import CampaignRunner
+
+    config = load_config()
+    engine = init_engine(config.database_url)
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+    result = CampaignRunner(
+        SessionLocal,
+        worker=worker,
+        config=config,
+        lease_seconds=lease_seconds,
+        max_tasks=max_tasks,
+    ).run(campaign_id, max_tasks=max_tasks)
+    if out_path:
+        out_path.write_text(json.dumps(result, indent=2, default=str), encoding="utf-8")
+        console.print(f"run summary written to {out_path}")
+    console.print_json(data=result)
+
+
+@campaign.command("reserve")
+@click.argument("campaign_id")
+@click.option("--task-id", default="")
+@click.option("--usd", type=float, default=0.0)
+@click.option("--tokens", type=int, default=0)
+@click.option("--sandbox-minutes", type=float, default=0.0)
+@click.option("--source", default="")
+def campaign_reserve(campaign_id: str, task_id: str, usd: float, tokens: int, sandbox_minutes: float, source: str) -> None:
+    """Hold budget before an execution."""
+    from .campaign.service import CampaignService
+
+    with _db_session() as session:
+        data = CampaignService(session).reserve_spend(
+            campaign_id,
+            task_id=task_id or None,
+            usd=usd,
+            tokens=tokens,
+            sandbox_minutes=sandbox_minutes,
+            source=source,
+        ).to_wire()
+    console.print_json(data=data)
+
+
+@campaign.command("reservations")
+@click.argument("campaign_id")
+@click.option("--status", default="held", help="Filter by reservation status; empty shows all.")
+def campaign_reservations(campaign_id: str, status: str) -> None:
+    """List budget reservations."""
+    from .campaign.service import CampaignService
+
+    with _db_session() as session:
+        data = [
+            item.to_wire()
+            for item in CampaignService(session).reservations(campaign_id, status=status or None)
+        ]
+    console.print_json(data={"reservations": data})
+
+
+@campaign.command("release-reservation")
+@click.argument("reservation_id")
+@click.option("--reason", default="")
+def campaign_release_reservation(reservation_id: str, reason: str) -> None:
+    """Release a held reservation without spend."""
+    from .campaign.service import CampaignService
+
+    with _db_session() as session:
+        data = CampaignService(session).release_reservation(reservation_id, reason=reason).to_wire()
+    console.print_json(data=data)
+
+
+@campaign.command("settle-reservation")
+@click.argument("reservation_id")
+@click.option("--usd", type=float, default=0.0)
+@click.option("--tokens", type=int, default=0)
+@click.option("--sandbox-minutes", type=float, default=0.0)
+@click.option("--source", default="")
+@click.option(
+    "--allow-overage",
+    is_flag=True,
+    help="Accept measured spend above the estimate while the campaign ceiling still holds.",
+)
+def campaign_settle_reservation(
+    reservation_id: str,
+    usd: float,
+    tokens: int,
+    sandbox_minutes: float,
+    source: str,
+    allow_overage: bool,
+) -> None:
+    """Replace a reservation with measured spend."""
+    from .campaign.service import CampaignService
+
+    with _db_session() as session:
+        data = CampaignService(session).settle_reservation(
+            reservation_id,
+            usd=usd,
+            tokens=tokens,
+            sandbox_minutes=sandbox_minutes,
+            source=source,
+            allow_overage=allow_overage,
+        )
+    console.print_json(data=data)
+
+
+@campaign.command("readiness")
+@click.argument("campaign_id")
+def campaign_readiness(campaign_id: str) -> None:
+    """Check chain integrity and the reportable-evidence gate."""
+    from .evidence.ledger import EvidenceLedger
+
+    with _db_session() as session:
+        ledger = EvidenceLedger(session)
+        chain = ledger.verify(campaign_id)
+        reportable = ledger.reportable(campaign_id)
+        ready = chain.ok and bool(reportable)
+        data = {
+            "ready": ready,
+            "reason": "" if ready else ("evidence chain is broken" if not chain.ok else "no E3/E4 evidence"),
+            "chain": chain.to_wire(),
+            "evidence_ids": [record.id for record in reportable],
+        }
+    console.print_json(data=data)
+    if not ready:
+        raise SystemExit(2)
+
+
+@campaign.command("export")
+@click.argument("campaign_id")
+@click.option("--format", "fmt", type=click.Choice(["json", "sarif"]), default="json", show_default=True)
+@click.option("--out", "out_path", type=click.Path(path_type=Path), default=None)
+def campaign_export(campaign_id: str, fmt: str, out_path: Path | None) -> None:
+    """Emit an evidence-gated campaign report. Refuses when the gate fails."""
+    from sqlalchemy.orm import sessionmaker
+
+    from .reporting.campaign_report import ReportError, build_campaign_report
+
+    config = load_config()
+    engine = init_engine(config.database_url)
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+    with SessionLocal() as session:
+        try:
+            data = build_campaign_report(session, campaign_id, report_format=fmt)
+        except ReportError as exc:
+            _fail(f"refusing to report: {exc}")
+        payload = data["report"]
+        rendered = json.dumps(payload, indent=2, default=str)
+        if out_path:
+            out_path.write_text(rendered + "\n", encoding="utf-8")
+            console.print(f"{fmt} report written to {out_path}")
+        else:
+            print(rendered)
+
+
 @campaign.group("task")
 def campaign_task() -> None:
     """Durable task graph operations."""
@@ -634,6 +886,270 @@ def campaign_evidence_verify(campaign_id: str) -> None:
     console.print_json(data=data)
 
 
+# ------------------------------------------------------------------- graph
+@main.group()
+def graph() -> None:
+    """Build and query persisted code-graph snapshots."""
+
+
+@graph.command("index")
+@click.argument("target", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--campaign-id", default="")
+@click.option("--label", default="")
+def graph_index(target: Path, campaign_id: str, label: str) -> None:
+    """Parse real source and persist an immutable graph snapshot."""
+    from .campaign.policy import PolicyError, require_campaign_path, require_os_path
+    from .graph.indexer import GraphIndexer
+    from .graph.query import GraphQuery
+    from .store.models import Campaign
+
+    with _db_session() as session:
+        resolved = target
+        try:
+            if campaign_id:
+                campaign = session.get(Campaign, campaign_id)
+                if campaign is None:
+                    _fail(f"no such campaign: {campaign_id}")
+                resolved = require_campaign_path(campaign, target, action="index")
+            else:
+                resolved = require_os_path(target, action="index")
+        except PolicyError as exc:
+            _fail(f"target is outside allowed scope: {exc}")
+        snapshot = GraphIndexer(session).index(resolved, campaign_id=campaign_id or None, label=label)
+        data = {
+            "snapshot": snapshot.to_wire(),
+            "stats": GraphQuery(session).stats(snapshot.id),
+        }
+    console.print_json(data=data)
+
+
+@graph.command("stats")
+@click.option("--snapshot-id", default="")
+@click.option("--campaign-id", default="")
+def graph_stats(snapshot_id: str, campaign_id: str) -> None:
+    """Show graph counts by node and edge kind."""
+    from .graph.query import GraphQuery
+
+    with _db_session() as session:
+        data = GraphQuery(session).stats(snapshot_id or None, campaign_id=campaign_id or None)
+    console.print_json(data=data)
+
+
+@graph.command("latest")
+@click.option("--campaign-id", default="")
+@click.option("--root", default="")
+@click.option("--limit", type=int, default=1, show_default=True)
+def graph_latest(campaign_id: str, root: str, limit: int) -> None:
+    """Show the most recent persisted snapshot."""
+    from .graph.query import GraphQuery
+
+    with _db_session() as session:
+        snapshots = GraphQuery(session).list_snapshots(
+            campaign_id=campaign_id or None,
+            root=root or None,
+            limit=limit,
+        )
+    console.print_json(
+        data={"snapshots": snapshots, "snapshot": snapshots[0] if snapshots else None}
+    )
+
+
+@graph.command("search")
+@click.argument("query", required=False, default="")
+@click.option("--snapshot-id", default="")
+@click.option("--kind", default="")
+@click.option("--file", "file_filter", default="")
+@click.option("--limit", type=int, default=50, show_default=True)
+def graph_search(query: str, snapshot_id: str, kind: str, file_filter: str, limit: int) -> None:
+    """Search graph nodes without inventing absent records."""
+    from .graph.query import GraphQuery
+
+    with _db_session() as session:
+        data = GraphQuery(session).search(
+            snapshot_id=snapshot_id or None,
+            query=query,
+            kind=kind,
+            file=file_filter,
+            limit=limit,
+        )
+    console.print_json(data=data)
+
+
+@graph.command("node")
+@click.argument("node")
+@click.option("--snapshot-id", default="")
+def graph_node(node: str, snapshot_id: str) -> None:
+    """Show a node and its incoming/outgoing edges."""
+    from .graph.query import GraphQuery
+
+    with _db_session() as session:
+        query = GraphQuery(session)
+        data = query.node_detail(query.snapshot(snapshot_id or None).id, node)
+    console.print_json(data=data)
+
+
+@graph.command("neighbors")
+@click.argument("node")
+@click.option("--snapshot-id", default="")
+@click.option("--direction", type=click.Choice(["out", "in", "both"]), default="both", show_default=True)
+@click.option("--edge-kind", "edge_kinds", multiple=True)
+@click.option("--depth", type=int, default=1, show_default=True)
+@click.option("--limit", type=int, default=200, show_default=True)
+def graph_neighbors(node: str, snapshot_id: str, direction: str, edge_kinds: tuple[str, ...], depth: int, limit: int) -> None:
+    """Traverse stored edges with a hard node budget."""
+    from .graph.query import GraphQuery
+
+    with _db_session() as session:
+        query = GraphQuery(session)
+        data = query.neighbors(
+            query.snapshot(snapshot_id or None).id,
+            node,
+            direction=direction,
+            edge_kinds=list(edge_kinds) or None,
+            depth=depth,
+            limit=limit,
+        )
+    console.print_json(data=data)
+
+
+@graph.command("paths")
+@click.argument("source")
+@click.argument("target")
+@click.option("--snapshot-id", default="")
+@click.option("--edge-kind", "edge_kinds", multiple=True)
+@click.option("--max-depth", type=int, default=5, show_default=True)
+@click.option("--limit", type=int, default=10, show_default=True)
+def graph_paths(source: str, target: str, snapshot_id: str, edge_kinds: tuple[str, ...], max_depth: int, limit: int) -> None:
+    """Find bounded directed paths and return full provenance."""
+    from .graph.query import GraphQuery
+
+    with _db_session() as session:
+        query = GraphQuery(session)
+        data = query.paths(
+            query.snapshot(snapshot_id or None).id,
+            source,
+            target,
+            edge_kinds=list(edge_kinds) or None,
+            max_depth=max_depth,
+            limit=limit,
+        )
+    console.print_json(data=data)
+
+
+@graph.command("routes")
+@click.option("--snapshot-id", default="")
+@click.option("--campaign-id", default="")
+@click.option("--method", default="")
+@click.option("--path-contains", default="")
+@click.option("--limit", type=int, default=200, show_default=True)
+def graph_routes(snapshot_id: str, campaign_id: str, method: str, path_contains: str, limit: int) -> None:
+    """List resolved HTTP routes with their source locations."""
+    from .graph.query import GraphQuery
+
+    with _db_session() as session:
+        data = GraphQuery(session).routes(
+            snapshot_id or None,
+            campaign_id=campaign_id or None,
+            method=method,
+            path_contains=path_contains,
+            limit=limit,
+        )
+    console.print_json(data=data)
+
+
+@graph.command("sources")
+@click.option("--snapshot-id", default="")
+@click.option("--campaign-id", default="")
+@click.option("--role", type=click.Choice(["both", "source", "sink"]), default="both", show_default=True)
+@click.option("--limit", type=int, default=200, show_default=True)
+def graph_sources(snapshot_id: str, campaign_id: str, role: str, limit: int) -> None:
+    """List stored taint sources, sinks and flows."""
+    from .graph.query import GraphQuery
+
+    with _db_session() as session:
+        data = GraphQuery(session).sources_sinks(
+            snapshot_id or None,
+            campaign_id=campaign_id or None,
+            limit=limit,
+        )
+    if role == "source":
+        data = {
+            "snapshot_id": data["snapshot_id"],
+            "sources": data["sources"],
+            "truncated": data["truncated"],
+        }
+    elif role == "sink":
+        data = {
+            "snapshot_id": data["snapshot_id"],
+            "sinks": data["sinks"],
+            "truncated": data["truncated"],
+        }
+    console.print_json(data=data)
+
+
+@graph.command("inventory")
+@click.option("--snapshot-id", default="")
+@click.option("--campaign-id", default="")
+@click.option("--limit", type=int, default=200, show_default=True)
+def graph_inventory(snapshot_id: str, campaign_id: str, limit: int) -> None:
+    """Return the route, dependency and surface inventory of a snapshot."""
+    from .graph.query import GraphQuery
+
+    with _db_session() as session:
+        data = GraphQuery(session).inventory(
+            snapshot_id or None,
+            campaign_id=campaign_id or None,
+            limit=limit,
+        )
+    console.print_json(data=data)
+
+
+@graph.command("diff")
+@click.argument("base_snapshot")
+@click.argument("head_snapshot")
+@click.option("--limit", type=int, default=200, show_default=True)
+def graph_diff(base_snapshot: str, head_snapshot: str, limit: int) -> None:
+    """Compare two persisted snapshots by stable key and content hash."""
+    from .graph.query import GraphQuery
+
+    with _db_session() as session:
+        data = GraphQuery(session).diff(base_snapshot, head_snapshot, limit=limit)
+    console.print_json(data=data)
+
+
+@main.command("policy-check")
+@click.argument("action", type=click.Choice(["index", "scan", "reproduce", "report", "fix"]))
+@click.option("--target", default="")
+@click.option("--campaign-id", default="")
+def policy_check(action: str, target: str, campaign_id: str) -> None:
+    """Check a filesystem action against campaign scope or allowed roots."""
+    from .campaign.policy import check_campaign_path, check_os_path
+    from .store.models import Campaign
+
+    if not target:
+        console.print_json(
+            data={
+                "allowed": action == "report",
+                "action": action,
+                "target": "",
+                "roots": [],
+                "reason": "no filesystem path requested",
+            }
+        )
+        return
+    with _db_session() as session:
+        if campaign_id:
+            campaign = session.get(Campaign, campaign_id)
+            if campaign is None:
+                _fail(f"no such campaign: {campaign_id}")
+            decision = check_campaign_path(campaign, target, action=action)
+        else:
+            decision = check_os_path(target, action=action)
+    console.print_json(data=decision.to_wire())
+    if not decision.allowed:
+        raise SystemExit(2)
+
+
 # -------------------------------------------------------------------- MCP
 @main.group()
 def mcp() -> None:
@@ -648,11 +1164,120 @@ def mcp_serve(database_url: str) -> None:
 
     config = load_config()
     url = database_url or config.database_url
+    import os
+
+    os.environ["DATABASE_URL"] = url
     try:
         registry = build_registry(url)
     except Exception as exc:  # noqa: BLE001 - startup must report the real failure
         _fail(f"MCP database unavailable: {type(exc).__name__}: {exc}")
     run_stdio(registry)
+
+
+@mcp.command("certify")
+@click.option("--timeout", type=float, default=60.0, show_default=True)
+@click.option("--out", "out_path", type=click.Path(path_type=Path), default=None)
+def mcp_certify(timeout: float, out_path: Path | None) -> None:
+    """Run the MCP stdio adapter contract against a fresh real server."""
+    import uuid
+
+    from .interop.contract import run_mcp_stdio_contract
+    from .store.models import AdapterCertification
+
+    report = run_mcp_stdio_contract(timeout=timeout)
+    data = report.to_wire()
+    with _db_session() as session:
+        session.add(
+            AdapterCertification(
+                id=f"adapter-{uuid.uuid4().hex}",
+                adapter=report.adapter,
+                protocol=report.protocol,
+                transport=report.transport,
+                server_name=report.server_name,
+                server_version=report.server_version,
+                tool_count=report.tool_count,
+                certified=report.certified,
+                checks=[check.to_wire() for check in report.checks],
+                details={
+                    "protocol_version": report.protocol_version,
+                    "error": report.error,
+                    "contract_database": report.database_url,
+                },
+                duration_ms=report.duration_ms,
+            )
+        )
+    if out_path:
+        out_path.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+        console.print(f"contract report written to {out_path}")
+    console.print_json(data=data)
+    if not report.certified:
+        raise SystemExit(2)
+
+
+@main.group()
+def adapters() -> None:
+    """Protocol adapter availability and measured certifications."""
+
+
+@adapters.command("list")
+def adapters_list() -> None:
+    """List implemented transports without claiming unimplemented ones."""
+    console.print_json(
+        data={
+            "adapters": [
+                {
+                    "name": "mcp-stdio",
+                    "protocol": "mcp",
+                    "transport": "stdio",
+                    "status": "supported",
+                    "certification": "run `redfall mcp certify`",
+                },
+                {
+                    "name": "cli",
+                    "protocol": "process",
+                    "transport": "cli",
+                    "status": "supported",
+                    "certification": "not contract-certified",
+                },
+                {
+                    "name": "http-openapi",
+                    "protocol": "openapi",
+                    "transport": "http",
+                    "status": "planned",
+                    "certification": "not implemented",
+                },
+                {
+                    "name": "a2a",
+                    "protocol": "a2a",
+                    "transport": "http",
+                    "status": "planned",
+                    "certification": "not implemented",
+                },
+            ]
+        }
+    )
+
+
+@adapters.command("certifications")
+@click.option("--limit", type=int, default=20, show_default=True)
+def adapters_certifications(limit: int) -> None:
+    """List persisted adapter contract results."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import sessionmaker
+
+    from .store.models import AdapterCertification
+
+    config = load_config()
+    engine = init_engine(config.database_url)
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
+    with SessionLocal() as session:
+        rows = session.scalars(
+            select(AdapterCertification)
+            .order_by(AdapterCertification.certified_at.desc())
+            .limit(limit)
+        ).all()
+        data = [row.to_wire() for row in rows]
+    console.print_json(data={"certifications": data})
 
 
 @contextmanager
