@@ -11,7 +11,7 @@
   <a href="https://devanimecx.github.io/redfall/"><img src="https://img.shields.io/badge/website-devanimecx.github.io%2Fredfall-ff2b2b" alt="website"></a>
   <img src="https://img.shields.io/badge/platforms-windows%20%7C%20linux%20%7C%20macos-blue" alt="platforms">
   <img src="https://img.shields.io/badge/python-3.12%20%7C%203.13-blue" alt="python versions">
-  <img src="https://img.shields.io/badge/tests-308%20collected-blue" alt="308 tests collected; the full suite runs in CI">
+  <img src="https://img.shields.io/badge/tests-309%20collected-blue" alt="309 tests collected; the full suite runs in CI">
   <img src="https://img.shields.io/badge/findings-executed%20proofs%20only-brightgreen" alt="findings are executed proofs only">
   <a href="scripts/check_no_mock.py"><img src="https://img.shields.io/badge/no--mock%20contract-enforced%20in%20CI-brightgreen" alt="no-mock contract enforced in CI"></a>
 </p>
@@ -37,7 +37,7 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | Adaptive branching (recursive tree, 7 spawn triggers) | **Built and verified** — all 7 triggers fire on real source |
 | Cross-branch chaining (attack graph, compound CVSS, narrative) | **Built and verified** — 6/6 chains reproduce on `chainbank`; the LLM-proposed chain stage is wired end to end and structurally reviewed |
 | Range-runner gate (matcher, 5 metrics + 3 chain metrics) | **Built and verified** |
-| Campaign kernel + resumable runner (durable state, leases, budgets, retries) | **Built and tested** — state machine, dependency tasks, heartbeat leases, preflight reservations and settlement, retry/blocked semantics, and real graph/scan/reproduce/report handlers; 34 focused SQLite/CLI/MCP tests pass locally, with the Postgres integration running in CI |
+| Campaign kernel + resumable runner (durable state, leases, budgets, retries) | **Built and tested** — state machine, dependency tasks, heartbeat leases, preflight reservations and settlement, retry/blocked semantics, and real graph/scan/reproduce/report handlers; 35 focused SQLite/CLI/MCP tests pass locally, with the Postgres integration running in CI |
 | Evidence ledger (E0–E4, SHA-256 hash chain, report gate) | **Built and tested** — tamper detection, replayability validation and a required E3/E4 gate |
 | Code graph v1 (persisted, provenance-aware) | **Built and tested** — real ingestion into `graph_snapshots`, `graph_nodes` and `graph_edges`; bounded search, traversal, paths, inventory and snapshot diff. Covers the currently ingested TypeScript/JavaScript/Python source; not a completeness or all-language claim |
 | Agent tools / MCP stdio (44 tools) | **Built and tested** — real subprocess JSON-RPC session; campaign/runner, graph, scan, finding, reproduction, evidence and report tools |
@@ -158,7 +158,7 @@ redfall/
 ├── assets/                     logo lockups and mark (SVG, dark/light)
 ├── scripts/                    the four contract checkers, verify_wheel.py, install.sh / install.ps1, build_release.py, generate_brand_assets.py
 ├── .github/workflows/          ci (checks + 3-OS packaging and installers), release (attested artifacts), security (weekly pip-audit), pages (landing deploy)
-├── tests/                      308 collected tests; 34 Phase 2 focused tests pass locally, full suite in CI
+├── tests/                      309 collected tests; 35 Phase 2 focused tests pass locally, full suite in CI
 ├── llms.txt                    machine-readable project summary for answer engines (byte-identical to site/dist/llms.txt)
 ├── site/SEO.md                 technical SEO/GEO operating manual and 90-day calendar
 ├── CONTRIBUTING.md             the no-mock rule, where each stage lives, PR contract
@@ -206,7 +206,9 @@ redfall mcp serve                # MCP client connects over stdin/stdout
 The MCP process uses `DATABASE_URL` (or `--database-url`). It does not invent a
 local store: if the database is unavailable, startup fails with the real error.
 MCP filesystem operations and the Phase 2 graph/reproduction commands are
-allowed only inside a campaign root or `REDFALL_ALLOWED_ROOTS`; callers can ask
+allowed only inside a campaign root. When `REDFALL_ALLOWED_ROOTS` is set it is
+a hard outer boundary: a campaign root that is not inside it is ignored, so an
+agent cannot widen its access by creating a campaign. Callers can ask
 `redfall_policy_check` before acting.
 `redfall mcp certify` records a real result for the shipped server, not a badge
 for arbitrary third-party agents.

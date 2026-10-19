@@ -10,7 +10,7 @@
 > preflight reservations, real graph/scan/reproduce/report handlers, 44 MCP
 > stdio tools, and an executable MCP adapter contract. Local Windows
 > verification: compile clean, no-mock **73 files PASS**, orphan **71 modules
-> PASS**, and **34 focused SQLite/CLI/MCP tests passed**, including a real stdio
+> PASS**, and **35 focused SQLite/CLI/MCP tests passed**, including a real stdio
 > subprocess. The full Postgres-backed suite remains CI-authoritative.
 >
 > Still unimplemented: A2A/HTTP adapters, environment recipes/synthesis,

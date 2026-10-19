@@ -52,6 +52,33 @@ def test_campaign_scope_allows_descendants_and_denies_others(campaign, tmp_path)
         require_campaign_path(campaign, outside, action="index")
 
 
+def test_operator_roots_are_a_hard_boundary_for_campaign_scope(campaign, tmp_path, monkeypatch):
+    inside = Path(campaign.repo)
+    monkeypatch.setenv("REDFALL_ALLOWED_ROOTS", str(inside))
+    allowed = check_campaign_path(campaign, inside, action="index")
+    assert allowed.allowed is True
+    assert len(allowed.roots) == 1
+
+    # A campaign root broader than the allowlist cannot widen access: the
+    # claimed root is dropped, so even a path below the allowlist is denied
+    # rather than inheriting the wider claim.
+    narrower = inside / "inner"
+    narrower.mkdir()
+    monkeypatch.setenv("REDFALL_ALLOWED_ROOTS", str(narrower))
+    denied = check_campaign_path(campaign, narrower, action="index")
+    assert denied.allowed is False
+    assert denied.roots == []
+
+    # A campaign the client scoped outside the allowlist does not bypass it.
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.setenv("REDFALL_ALLOWED_ROOTS", str(elsewhere))
+    denied = check_campaign_path(campaign, inside, action="index")
+    assert denied.allowed is False
+    with pytest.raises(PolicyError):
+        require_campaign_path(campaign, inside, action="index")
+
+
 def test_operator_roots_are_required_for_unscoped_operations(tmp_path, monkeypatch):
     allowed_root = tmp_path / "allowed"
     allowed_root.mkdir()

@@ -4,6 +4,11 @@ An MCP client is not trusted merely because it can reach the server. A path is
 allowed only when it resolves inside a campaign root or an operator-provided
 allowlist. Symlinks are resolved before comparison, so a link inside an allowed
 root cannot point at `/etc` and pass the check.
+
+``REDFALL_ALLOWED_ROOTS`` is a hard outer boundary, not an alternative to
+campaign scope: an MCP client can create a campaign and set its scope, so a
+campaign root that is not itself inside the operator allowlist is ignored when
+the allowlist is configured.
 """
 
 from __future__ import annotations
@@ -66,6 +71,16 @@ def campaign_roots(campaign: Campaign) -> list[Path]:
     repo = Path(campaign.repo).expanduser()
     if repo.exists():
         roots.append(repo.resolve())
+    allowed = env_roots()
+    if allowed:
+        # The client can create campaigns and rewrite scope. When the operator
+        # has configured an allowlist, a claimed root broader than that
+        # allowlist must not widen access: keep only roots inside it.
+        roots = [
+            root
+            for root in roots
+            if any(_same_or_inside(root, allowed_root) for allowed_root in allowed)
+        ]
     unique: dict[str, Path] = {str(path): path for path in roots}
     return list(unique.values())
 

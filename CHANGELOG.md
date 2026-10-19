@@ -27,9 +27,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   readiness/export, `reproduce`, `policy-check`, `mcp certify` and adapter
   listings. The new graph and reproduction path-taking commands enforce
   campaign roots or `REDFALL_ALLOWED_ROOTS`; unscoped graph and reproduction
-  operations are no longer exempt.
+  operations are no longer exempt. `REDFALL_ALLOWED_ROOTS` is a hard outer
+  boundary: when it is set, a campaign root that falls outside it is ignored,
+  so an MCP client cannot widen the operator allowlist by creating a campaign
+  with a broader scope.
 - **Phase 2 verification on Windows** — compile clean; no-mock **PASS** across
-  73 files; orphan check **PASS** (71 reachable modules, 3 entrypoints); 34
+  73 files; orphan check **PASS** (71 reachable modules, 3 entrypoints); 35
   focused SQLite/CLI/MCP tests pass, including a real stdio contract subprocess.
   The full suite and the Postgres integration remain CI-authoritative because
   this host has no local Postgres, Docker/gVisor runtime or LLM key.
