@@ -5,7 +5,14 @@
       <stop offset="0.55" stop-color="#e01b1b"/>
       <stop offset="1" stop-color="#8c0202"/>
     </linearGradient>
+    <linearGradient id="rf-plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#11161f"/>
+      <stop offset="1" stop-color="#0b0e14"/>
+    </linearGradient>
   </defs>
+  <!-- Opaque plate: the white wordmark needs a dark ground, and GitHub renders
+       this file with no control over the surrounding page. -->
+  <rect x="0" y="0" width="960" height="830" rx="36" fill="url(#rf-plate)"/>
   <g transform="translate(293 24) scale(1.46)" fill="none" stroke="url(#rf-red-dark)" stroke-linejoin="round" stroke-linecap="round">
     <path d="M46 26 H210 L234 50 V142 L128 236 L22 142 V50 Z" stroke-width="16"/>
     <circle cx="128" cy="118" r="42" stroke-width="10"/>

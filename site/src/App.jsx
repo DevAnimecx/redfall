@@ -57,7 +57,7 @@ function CopyButton({ text, label }) {
 
 function CodeBlock({ title, code }) {
   return (
-    <figure className="rounded-xl border border-white/10 bg-ink-soft">
+    <figure className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-ink-soft">
       <figcaption className="flex items-center justify-between border-b border-white/10 px-4 py-2.5">
         <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{title}</span>
         <CopyButton text={code} label={title} />
