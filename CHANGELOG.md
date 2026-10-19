@@ -29,7 +29,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `status`, `transition`, `pause`, `resume`, `cancel`, `report` and `spend`, plus
   `campaign task` and `campaign evidence` subcommands. New focused tests use
   SQLite and a real stdio subprocess: **14 passed** locally, plus a Postgres
-  integration test that runs in CI; the full suite still requires Postgres.
+  integration test in CI. CI run
+  [39265074808](https://github.com/DevAnimecx/redfall/actions/runs/39265074808)
+  completed **269 passed, 5 skipped** on 2026-10-19; the five skips are the
+  gVisor tests that need a container runtime.
 - **Landing page + documentation** (`site/`) — a one-page React + Tailwind
   landing page, statically prerendered at build time, plus **22 docs/trust
   pages** generated from Markdown with zero client JavaScript. Deployed to
@@ -97,8 +100,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Brand assets follow the new palette** — the dark lockup plate is now
   `#0d0d0d → #050505`, the red wordmark is `#ff0033`, and the OG card, touch
   icons and favicon are regenerated from the same geometry.
-- Test suite: **254 passed, 5 skipped** (the four new brand-asset guard tests;
-  `pillow` added to the dev extras so CI runs them).
+- Test suite: **269 passed, 5 skipped** (baseline plus Phase 1; the four new
+  brand-asset guard tests are included, and `pillow` was added to the dev extras
+  so CI runs them).
 - CI: the `check` job now builds the site from a clean lockfile, runs the SEO
   gate, and drives real Chrome for layout, axe, docs and Lighthouse checks; site
   builds use Node 22 (vite 8 requires `^20.19 || >=22.12`). The Pages workflow

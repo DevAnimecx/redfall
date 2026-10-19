@@ -11,7 +11,7 @@
   <a href="https://devanimecx.github.io/redfall/"><img src="https://img.shields.io/badge/website-devanimecx.github.io%2Fredfall-ff2b2b" alt="website"></a>
   <img src="https://img.shields.io/badge/platforms-windows%20%7C%20linux%20%7C%20macos-blue" alt="platforms">
   <img src="https://img.shields.io/badge/python-3.12%20%7C%203.13-blue" alt="python versions">
-  <img src="https://img.shields.io/badge/tests-254%20passed-brightgreen" alt="254 tests passing">
+  <img src="https://img.shields.io/badge/tests-269%20passed-brightgreen" alt="269 tests passing">
   <img src="https://img.shields.io/badge/findings-executed%20proofs%20only-brightgreen" alt="findings are executed proofs only">
   <a href="scripts/check_no_mock.py"><img src="https://img.shields.io/badge/no--mock%20contract-enforced%20in%20CI-brightgreen" alt="no-mock contract enforced in CI"></a>
 </p>
@@ -156,7 +156,7 @@ redfall/
 ├── assets/                     logo lockups and mark (SVG, dark/light)
 ├── scripts/                    the four contract checkers, verify_wheel.py, install.sh / install.ps1, build_release.py, generate_brand_assets.py
 ├── .github/workflows/          ci (checks + 3-OS packaging and installers), release (attested artifacts), security (weekly pip-audit), pages (landing deploy)
-├── tests/                      254 baseline tests + 14 Phase 1 tests, against real artefacts
+├── tests/                      269 passing tests (5 environment skips; 274 collected), against real artefacts
 ├── llms.txt                    machine-readable project summary for answer engines (byte-identical to site/dist/llms.txt)
 ├── site/SEO.md                 technical SEO/GEO operating manual and 90-day calendar
 ├── CONTRIBUTING.md             the no-mock rule, where each stage lives, PR contract
@@ -254,7 +254,7 @@ project, same claims, same evidence, without scrolling a README.
 make install          # redfall + range-runner, editable, with dev deps
 make check            # every contract checker plus the test suite
 make check-no-mock    # NO-MOCK CONTRACT: PASS
-make test             # 254 passed (5 skips: gVisor tests, no container runtime here)
+make test             # 269 passed (5 skips: gVisor tests, no container runtime here)
 make doctor           # what this host can and cannot do
 ```
 
