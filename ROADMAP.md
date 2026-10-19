@@ -4,6 +4,13 @@
 > the path to it. Nothing below should be read as shipped until it has a real
 > test, a reproducible run, or a published benchmark result.
 >
+> **Implementation status (2026-10-19):** the first Phase 1 foundation slice has
+> landed — durable campaign state/tasks/leases/budgets, the E0–E4 hash-chained
+> evidence ledger, the campaign CLI, and 22 MCP stdio tools. The rest of Phase
+> 0/1 — graph v1, scan/reproduce tools, external-agent certification,
+> environment recipes and the four-hour campaign — is still unimplemented; see
+> [`CHANGELOG.md`](CHANGELOG.md).
+>
 > Baseline: RedFall `0.1.0`, commit `c131929`, 2026-10-19.
 >
 > The plan deliberately avoids promising “all vulnerabilities”, “any language”,

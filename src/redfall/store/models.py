@@ -14,9 +14,11 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -389,3 +391,206 @@ class SandboxRun(Base):
     ok: Mapped[bool] = mapped_column(Boolean, default=False)
     stdout_tail: Mapped[str] = mapped_column(Text, default="")
     error: Mapped[str] = mapped_column(Text, default="")
+
+
+class Campaign(Base):
+    """A long-lived security campaign, distinct from one linear scan.
+
+    A campaign owns the task graph, budget and policy. A scan remains the
+    execution record for a single ingestion/analysis pass; ``scan_id`` links the
+    two when a campaign runs one.
+    """
+
+    __tablename__ = "campaigns"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    repo: Mapped[str] = mapped_column(Text, nullable=False)
+    commit: Mapped[str] = mapped_column(String(64), default="")
+    objective: Mapped[str] = mapped_column(String(32), default="discovery")
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+
+    scope: Mapped[dict] = mapped_column(JSON, default=dict)
+    policy: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    # ``None`` means no ceiling on that dimension. A zero value means zero
+    # spend is allowed, which is different and is enforced as such.
+    budget_usd: Mapped[float | None] = mapped_column(Float, nullable=True)
+    budget_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    budget_sandbox_minutes: Mapped[float | None] = mapped_column(Float, nullable=True)
+    budget_wall_clock_s: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    spent_usd: Mapped[float] = mapped_column(Float, default=0.0)
+    spent_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    spent_sandbox_minutes: Mapped[float] = mapped_column(Float, default=0.0)
+
+    previous_status: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    scan_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    def budget_dict(self) -> dict[str, float | int | None]:
+        return {
+            "usd": self.budget_usd,
+            "tokens": self.budget_tokens,
+            "sandbox_minutes": self.budget_sandbox_minutes,
+            "wall_clock_s": self.budget_wall_clock_s,
+        }
+
+    def spent_dict(self) -> dict[str, float | int]:
+        return {
+            "usd": self.spent_usd,
+            "tokens": self.spent_tokens,
+            "sandbox_minutes": self.spent_sandbox_minutes,
+        }
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "repo": self.repo,
+            "commit": self.commit,
+            "objective": self.objective,
+            "status": self.status,
+            "scope": self.scope or {},
+            "policy": self.policy or {},
+            "budget": self.budget_dict(),
+            "spent": self.spent_dict(),
+            "previous_status": self.previous_status,
+            "reason": self.reason,
+            "scan_id": self.scan_id,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+        }
+
+
+class CampaignTask(Base):
+    """A durable unit of campaign work with leases and dependency edges."""
+
+    __tablename__ = "campaign_tasks"
+    __table_args__ = (Index("ix_campaign_tasks_campaign_status", "campaign_id", "status"),)
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), default="pending")
+    priority: Mapped[int] = mapped_column(Integer, default=0)
+
+    depends_on: Mapped[list] = mapped_column(JSON, default=list)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    result: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    lease_owner: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    error: Mapped[str] = mapped_column(Text, default="")
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "campaign_id": self.campaign_id,
+            "kind": self.kind,
+            "status": self.status,
+            "priority": self.priority,
+            "depends_on": list(self.depends_on or []),
+            "payload": self.payload or {},
+            "result": self.result or {},
+            "attempts": self.attempts,
+            "max_attempts": self.max_attempts,
+            "lease_owner": self.lease_owner,
+            "lease_expires_at": self.lease_expires_at.isoformat() if self.lease_expires_at else None,
+            "error": self.error,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+        }
+
+
+class CampaignEvent(Base):
+    """Append-only campaign audit stream. Event order is per campaign."""
+
+    __tablename__ = "campaign_events"
+    __table_args__ = (
+        UniqueConstraint("campaign_id", "seq", name="uq_campaign_events_campaign_seq"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), index=True)
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    kind: Mapped[str] = mapped_column(String(48), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "campaign_id": self.campaign_id,
+            "seq": self.seq,
+            "kind": self.kind,
+            "payload": self.payload or {},
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class EvidenceRecord(Base):
+    """One link in a campaign's tamper-evident evidence chain.
+
+    The ``grade`` is not decoration. E0/E1/E2 are hypotheses or observations;
+    only E3/E4 are reportable findings. The ledger refuses an E3/E4 record that
+    does not carry an execution id, an observable, a reproduction command and an
+    environment digest.
+    """
+
+    __tablename__ = "evidence_records"
+    __table_args__ = (
+        UniqueConstraint("campaign_id", "seq", name="uq_evidence_records_campaign_seq"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    campaign_id: Mapped[str] = mapped_column(ForeignKey("campaigns.id"), index=True)
+    seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    finding_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    grade: Mapped[str] = mapped_column(String(2), nullable=False)
+    kind: Mapped[str] = mapped_column(String(24), nullable=False)
+    claim: Mapped[str] = mapped_column(Text, nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    artifacts: Mapped[list] = mapped_column(JSON, default=list)
+    reproduce_command: Mapped[str] = mapped_column(Text, default="")
+    environment_digest: Mapped[str] = mapped_column(String(128), default="")
+    previous_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    @property
+    def reportable(self) -> bool:
+        return self.grade in {"E3", "E4"}
+
+    def to_wire(self) -> dict[str, object]:
+        return {
+            "id": self.id,
+            "campaign_id": self.campaign_id,
+            "seq": self.seq,
+            "finding_id": self.finding_id,
+            "grade": self.grade,
+            "kind": self.kind,
+            "claim": self.claim,
+            "payload": self.payload or {},
+            "artifacts": list(self.artifacts or []),
+            "reproduce_command": self.reproduce_command,
+            "environment_digest": self.environment_digest,
+            "previous_hash": self.previous_hash,
+            "content_hash": self.content_hash,
+            "reportable": self.reportable,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

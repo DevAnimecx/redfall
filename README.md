@@ -37,7 +37,10 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | Adaptive branching (recursive tree, 7 spawn triggers) | **Built and verified** — all 7 triggers fire on real source |
 | Cross-branch chaining (attack graph, compound CVSS, narrative) | **Built and verified** — 6/6 chains reproduce on `chainbank`; the LLM-proposed chain stage is wired end to end and structurally reviewed |
 | Range-runner gate (matcher, 5 metrics + 3 chain metrics) | **Built and verified** |
-| No-mock enforcement | **Passing** (`NO-MOCK CONTRACT: PASS`, 51 files) |
+| Campaign kernel (durable state machine, dependency tasks, leases, budgets) | **Built and tested** — 14 focused SQLite/CLI/MCP tests plus a Postgres integration test; production schema uses the existing `create_all` path |
+| Evidence ledger (E0–E4, SHA-256 hash chain, report gate) | **Built and tested** — tamper detection, replayability validation and a required E3/E4 gate |
+| Agent tools / MCP stdio (22 tools) | **Built and tested** — real subprocess JSON-RPC session; campaign, task, evidence and readiness tools |
+| No-mock enforcement | **Passing** (`NO-MOCK CONTRACT: PASS`, 59 files) |
 | Data layer (Postgres 17 + Redis) | **Built and verified** |
 | Packaging (any platform Python 3.12 runs on) | **Built and verified** — the wheel ships the harness, prompts and Dockerfile; installed into a fresh venv and driven from outside the checkout (`WHEEL VERIFY: PASS`); CI matrix on Ubuntu/Windows/macOS |
 | Installers (`scripts/install.sh`, `scripts/install.ps1`) | **Built and verified** — the PowerShell installer was executed end to end on this host into a throwaway home; the POSIX script is syntax-checked against a real shell here and both are executed by the CI package matrix on Ubuntu/Windows/macOS |
@@ -129,8 +132,11 @@ redfall/
 │   ├── config.py               prerequisites, asserted not assumed
 │   ├── llm.py                  LiteLLM BYOK, tiers, budget, verbatim transcripts
 │   ├── orchestrator.py         ingest → plan → branch → analyse → execute → chain
-│   ├── cli.py                  redfall scan | fix | findings | report | doctor | environment
+│   ├── cli.py                  redfall scan | fix | findings | report | campaign | mcp | doctor | environment
 │   ├── sarif.py                SARIF 2.1.0 export (verified flag on every result)
+│   ├── campaign/               explicit state machine, dependency tasks, leases, budget enforcement
+│   ├── evidence/               E0–E4 ledger, SHA-256 hash chain, reportability gate
+│   ├── interop/                transport-neutral tool registry + MCP stdio server
 │   ├── ingestion/              tree-sitter parsing (TS/JS + Python), symbols, taint (intra + cross-function in both languages), deps, git, languages.py registry
 │   ├── branching/              tree.py (recursive, adaptive) + adaptive.py (7 detectors)
 │   ├── chain/                  plan.py, executor.py, stage.py, graph.py, cvss_compound.py, narrative.py
@@ -150,7 +156,7 @@ redfall/
 ├── assets/                     logo lockups and mark (SVG, dark/light)
 ├── scripts/                    the four contract checkers, verify_wheel.py, install.sh / install.ps1, build_release.py, generate_brand_assets.py
 ├── .github/workflows/          ci (checks + 3-OS packaging and installers), release (attested artifacts), security (weekly pip-audit), pages (landing deploy)
-├── tests/                      254 tests, all against real artefacts
+├── tests/                      254 baseline tests + 14 Phase 1 tests, against real artefacts
 ├── llms.txt                    machine-readable project summary for answer engines (byte-identical to site/dist/llms.txt)
 ├── site/SEO.md                 technical SEO/GEO operating manual and 90-day calendar
 ├── CONTRIBUTING.md             the no-mock rule, where each stage lives, PR contract
@@ -158,6 +164,37 @@ redfall/
 ├── CHANGELOG.md                0.1.0 - what shipped, with the measured numbers
 └── BLOCKED.md                  what cannot run here, and why
 ```
+
+---
+
+## Agent access (Phase 1)
+
+Phase 1 is the execution foundation, not a claim that every scan capability is
+already exposed to agents. It adds three things that later phases build on:
+
+- **Durable campaigns** — explicit states (`draft` through `reported`), a
+  dependency-aware task graph, worker leases, and budget enforcement before
+  spend is recorded.
+- **A tamper-evident evidence ledger** — E0–E4 records chained with SHA-256.
+  Only E3/E4 are reportable, and they must carry an execution id, observable,
+  reproduction command and environment digest.
+- **MCP stdio** — 22 campaign, task, evidence and readiness tools over
+  newline-delimited JSON-RPC. The same registry is transport-neutral, so an
+  HTTP or A2A adapter can expose the same operations later.
+
+```bash
+redfall campaign create ./my-service --objective discovery --budget-usd 10
+redfall campaign scope cmp-... --scope-json '{"repos":["./my-service"]}'
+redfall campaign start cmp-...
+redfall campaign task add cmp-... index --payload-json '{"path":"."}'
+redfall mcp serve                 # MCP client connects over stdin/stdout
+```
+
+The MCP process uses `DATABASE_URL` (or `--database-url`). It does not invent a
+local store: if the database is unavailable, startup fails with the real error.
+The current tool surface covers campaign, task and evidence operations. Source
+intelligence, scan execution, environment synthesis and fix tools remain in
+later phases, so a client should not claim them yet.
 
 ---
 

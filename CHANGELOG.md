@@ -8,6 +8,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- **Phase 1 campaign kernel** — durable `campaigns`, `campaign_tasks` and
+  `campaign_events` tables; an explicit state machine from `draft` through
+  `reported` (with `paused`/`blocked` resume semantics); dependency-aware task
+  claims with worker leases, expiry requeue and retry limits; and atomic budget
+  enforcement for USD, tokens and sandbox minutes before spend is recorded.
+  Campaigns are persisted through the existing SQLAlchemy `create_all` path, so
+  a Postgres deployment gets the new tables on startup without a migration step.
+- **Tamper-evident evidence ledger** — append-only `evidence_records` with
+  per-campaign SHA-256 hash chains. E0–E2 are hypotheses/observations; only
+  E3/E4 are reportable, and those records are rejected unless they carry an
+  execution id, observable, reproduction command and environment digest.
+  `redfall campaign evidence verify` and the report-readiness tool recompute the
+  chain and name the first broken link.
+- **Agent tool surface and MCP stdio** — 22 tools for campaign lifecycle, scoped
+  tasks, leases, evidence and report readiness, exposed by `redfall mcp serve`
+  over newline-delimited JSON-RPC. The transport-neutral `ToolRegistry` is the
+  same implementation used by the CLI and can back later HTTP/A2A adapters.
+- **Campaign CLI** — `redfall campaign` supports `create`, `scope`, `start`,
+  `status`, `transition`, `pause`, `resume`, `cancel`, `report` and `spend`, plus
+  `campaign task` and `campaign evidence` subcommands. New focused tests use
+  SQLite and a real stdio subprocess: **14 passed** locally, plus a Postgres
+  integration test that runs in CI; the full suite still requires Postgres.
 - **Landing page + documentation** (`site/`) — a one-page React + Tailwind
   landing page, statically prerendered at build time, plus **22 docs/trust
   pages** generated from Markdown with zero client JavaScript. Deployed to
