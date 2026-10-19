@@ -173,14 +173,18 @@ against the real target:
 | `npx ts-node scripts/replay_chain_poc.ts` (chainbank) | `6/6 chain(s) reproduced end to end` |
 | `redfall scan range/vulnbank` | refuses with both blockers named |
 | `cd site && npm ci && npm run build` | prerenders the landing page into `dist/index.html` (full rendered markup plus JSON-LD), generates 22 static docs/trust pages, a 23-URL sitemap, `robots.txt`, `llms.txt`, a real 404 and 23 per-page OG cards; the `pages` workflow re-asserts the content and runs `npm run check:seo` before upload |
-| `https://devanimecx.github.io/redfall/` (live, previous deployment) | `200` with hero, FAQ, canonical and `og:image`; `robots.txt`, `sitemap.xml` and the icons all `200`. The redesigned site + docs are verified locally and are re-checked on the live URL by the deploy workflow; if the live re-check fails, the failure is recorded here rather than papered over |
+| Pages deploy ([run 39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525), 2026-10-19) | **build + deploy both succeeded**. The build ran `check:seo` (`PASS`, 24 HTML routes / 23 sitemap URLs / 0 errors). The deploy job verified the live key, POSTed 23 URLs to IndexNow and received **HTTP 202 Accepted**, then the live SEO monitor passed all 23 pages. A missing live path returned **HTTP 404**, not a soft 200 |
+| Live site `https://devanimecx.github.io/redfall/` after that deploy | landing and docs `200`; canonical/hreflang/title/OG present; `sitemap.xml`, `robots.txt`, `llms.txt`, IndexNow key and OG card all `200` |
+| Lighthouse, live deployed landing, desktop preset | **100 / 100 / 100 / 100**; LCP 0.6 s, TBT 0 ms, CLS 0 |
+| Lighthouse, live deployed landing, mobile preset | **98 performance**, with **100 / 100 / 100** accessibility, best-practices and SEO; LCP 1.7 s, TBT 60 ms, CLS 0. Above the 95 gate |
+| Lighthouse, live deployed docs page | **100 / 100 / 100 / 100** desktop; **99 performance**, 100 accessibility/best-practices/SEO mobile; zero client JavaScript |
 | Lighthouse, local production build, redesigned landing mobile preset | **98–100 performance**, with **100 / 100 / 100** accessibility, best-practices and SEO on every run; LCP 1.5–1.7 s, TBT 0–10 ms, CLS 0 under simulated Slow-4G. Every category stays above the 95 gate |
 | Lighthouse, local production build, redesigned landing desktop preset | **100 / 100 / 100 / 100**; LCP 0.4 s, CLS 0 |
 | Lighthouse, local production build, docs page mobile | **99–100 performance**, with **100 / 100 / 100** accessibility, best-practices and SEO; the docs ship zero client JavaScript, so `robots-txt` only passes once `connect-src 'self'` is allowed (it was `'none'`, which blocked Lighthouse's own `robots.txt` probe) |
 | `node site/scripts/a11y_check.mjs` (axe-core in real Chrome) at 390, 768 and 1280 px | `PASS` — **0 violations** at every width on the landing page. This caught a real bug: the horizontally scrollable install code blocks were not keyboard-reachable; they are now labelled, focusable regions |
 | `node site/scripts/docs_check.mjs` (axe-core + layout + zero-JS on every docs route) | `PASS` — 22 routes × 390/1280 px, **0 axe violations**, **0 px horizontal overflow**, exactly one H1, no client scripts, and the H1 is readable with JavaScript disabled. This found and fixed two real bugs: duplicate `role="region"` landmark names in Markdown tables/code, and a long inline `pipx install git+https://…` token that widened the mobile document by 9 px until `overflow-wrap: anywhere` was applied |
 | `node site/scripts/seo_check.mjs` | `SEO GATE: PASS` — 24 HTML routes, 23 sitemap URLs, 0 errors; canonical/H1/schema/internal-link/OG/robots/llms/IndexNow checks included |
-| `node site/scripts/indexnow.mjs --dry-run` | prints the 23 sitemap URLs and the public key location, sends nothing. Production submission runs in the Pages deploy workflow and its HTTP response is the evidence |
+| `node site/scripts/indexnow.mjs --dry-run` | prints the 23 sitemap URLs and the public key location, sends nothing. Production submission ran in the Pages deploy workflow: **HTTP 202 Accepted, 23 URLs** |
 | `python -m pytest tests/test_brand_assets.py -q` | `4 passed` — the SVG shield geometry is pinned to the raster generator's point list; the committed social card is 1200×630 and every icon matches the size its link advertises |
 | `python scripts/check_no_mock.py` / `check_version.py` / `check_orphans.py` / `check_clean_tree.py` | `PASS` (51 files scanned, 9 version declarations, 49/49 modules reachable, no stray files) |
 
@@ -554,3 +558,24 @@ package data, and is verified from outside the checkout by
 a `package` matrix (Ubuntu, Windows, macOS × Python 3.12, 3.13) that builds the
 wheel, installs it, and drives the console script from a directory outside the
 repository.
+
+---
+
+## Update 2026-10-19 — redesign, documentation and SEO surface deployed
+
+The redesigned landing page and 22 static docs/trust pages are live at
+<https://devanimecx.github.io/redfall/>. Pages run
+[39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525)
+completed both jobs: the build ran the SEO gate (24 HTML routes, 23 sitemap URLs,
+0 errors), the deploy job verified the live IndexNow key, submitted 23 URLs and
+received **HTTP 202 Accepted**, and the live SEO monitor passed all 23 pages. A
+missing live path returned **HTTP 404** with the custom page. Live Lighthouse:
+landing 100/100/100/100 desktop and 98 performance with 100 accessibility,
+best-practices and SEO mobile; docs 100/100/100/100 desktop and 99 performance
+with 100 elsewhere mobile.
+
+What remains outside this repository is still outside it: Google Search Console
+and Bing Webmaster verification need the account owner, the GitHub social
+preview is a web-UI upload, and rankings, backlinks and AI citations are
+outcomes that are observed (or not) rather than manufactured. The full checklist
+is in [`site/SEO.md`](site/SEO.md).

@@ -40,10 +40,17 @@ node scripts/docs_check.mjs
 Lighthouse desktop   100 performance / 100 accessibility / 100 best-practices / 100 SEO
 Lighthouse mobile    98–100 performance / 100 accessibility / 100 best-practices / 100 SEO
 Lighthouse docs      100 / 100 / 100 / 100 desktop and 99–100 performance mobile
+Pages deploy         build + deploy PASS; live monitor PASS (23 pages)
+IndexNow             HTTP 202 Accepted; 23 URLs
+Live landing         100/100/100/100 desktop; 98 performance, 100 elsewhere mobile
+Live docs            100/100/100/100 desktop; 99 performance, 100 elsewhere mobile
+Live 404             HTTP 404 with the custom page
 ```
 
-Live numbers are recorded in `BLOCKED.md` after deployment. Local numbers are not
-presented as live numbers.
+The local and live numbers are kept separate; a local measurement is never
+presented as a live one. The deploy run is
+[39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525),
+and the full evidence is in `BLOCKED.md`.
 
 ---
 

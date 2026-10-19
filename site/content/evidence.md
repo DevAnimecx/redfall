@@ -67,13 +67,16 @@ The release checks are about provenance and behaviour. They do not claim the sof
 
 ## What did the site measure?
 
-The redesigned landing page was measured locally on 2026-10-19, against the production build with real Chrome:
+The redesigned landing page was measured locally on 2026-10-19 against the production build with real Chrome, then the same build was deployed and measured again on the live URL:
 
 | Check | Result |
 | --- | --- |
-| Lighthouse, landing desktop | 100 performance / 100 accessibility / 100 best-practices / 100 SEO; LCP 0.4 s; TBT 0 ms; CLS 0 |
-| Lighthouse, landing mobile | 98–100 performance, 100 accessibility/best-practices/SEO across runs; LCP 1.5–1.7 s; TBT 0–10 ms; CLS 0 |
-| Lighthouse, docs page (desktop and mobile) | 100 / 100 / 100 / 100 desktop; 99–100 performance, 100 accessibility/best-practices/SEO mobile; zero client JavaScript |
+| Lighthouse, local landing desktop | 100 performance / 100 accessibility / 100 best-practices / 100 SEO; LCP 0.4 s; TBT 0 ms; CLS 0 |
+| Lighthouse, local landing mobile | 98–100 performance, 100 accessibility/best-practices/SEO across runs; LCP 1.5–1.7 s; TBT 0–10 ms; CLS 0 |
+| Lighthouse, local docs page (desktop and mobile) | 100 / 100 / 100 / 100 desktop; 99–100 performance, 100 accessibility/best-practices/SEO mobile; zero client JavaScript |
+| Lighthouse, live landing desktop | 100 / 100 / 100 / 100; LCP 0.6 s; TBT 0 ms; CLS 0 |
+| Lighthouse, live landing mobile | 98 performance, 100 accessibility/best-practices/SEO; LCP 1.7 s; TBT 60 ms; CLS 0 |
+| Lighthouse, live docs page | 100 / 100 / 100 / 100 desktop; 99 performance, 100 accessibility/best-practices/SEO mobile; zero client JavaScript |
 | axe-core, landing at 390, 768 and 1280 px | 0 violations at every width |
 | axe-core, 22 docs/trust routes at 390 and 1280 px | 0 violations; no horizontal overflow; H1 readable with JavaScript disabled |
 | Layout gate at 390, 768 and 1280 px | PASS; document width equals viewport |
@@ -81,7 +84,7 @@ The redesigned landing page was measured locally on 2026-10-19, against the prod
 | JavaScript bundle | 80.9 kB gzipped |
 | CSS | 8.22 kB gzipped, inlined on the landing page and shared by the static docs |
 
-The live URL is re-measured after each deploy. The numbers above are the local build that is deployed by the Pages workflow; they are not a claim about a different build.
+The live measurement is the deployed build, not a different one. Pages run [39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525) completed both jobs on 2026-10-19: the SEO gate passed (24 HTML routes, 23 sitemap URLs, 0 errors), the live monitor passed across 23 pages, and IndexNow accepted **23 URLs with HTTP 202**. A missing live path returned **HTTP 404**, not a soft 200.
 
 The layout gate found a real bug that Lighthouse missed: the install `<pre>` blocks were grid items with default `min-width: auto`, forcing a 578 px document on a 390 px phone. The fix was `min-w-0 overflow-hidden`. The accessibility gate found a real bug too: horizontally scrollable code regions were not keyboard-reachable. They are now labelled, focusable regions.
 

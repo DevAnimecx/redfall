@@ -43,7 +43,7 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | Installers (`scripts/install.sh`, `scripts/install.ps1`) | **Built and verified** — the PowerShell installer was executed end to end on this host into a throwaway home; the POSIX script is syntax-checked against a real shell here and both are executed by the CI package matrix on Ubuntu/Windows/macOS |
 | Release supply chain (Sigstore attestations, SHA256SUMS, weekly dependency audit) | **Built** — releases are constructed and attested by CI from the tagged source; `pip-audit` runs weekly |
 | SARIF 2.1.0 export (`redfall report --format sarif`) | **Built and verified** — every result carries `properties.redfall.verified`; unproven candidates stay visible |
-| Landing page + documentation (`site/`, React + Tailwind landing, static Markdown docs) | **Live** — <https://devanimecx.github.io/redfall/> and 22 docs/trust pages, deployed by the `pages` workflow. Local production build (2026-10-19): Lighthouse 100/100/100/100 desktop, 98–100 mobile performance with 100 accessibility/best-practices/SEO. Live CDN results are recorded after deployment in `BLOCKED.md`/`CHANGELOG.md` |
+| Landing page + documentation (`site/`, React + Tailwind landing, static Markdown docs) | **Live and measured** — <https://devanimecx.github.io/redfall/> and 22 docs/trust pages, deployed by the Pages workflow on 2026-10-19. Live Lighthouse: landing 100/100/100/100 desktop, 98 performance with 100 elsewhere mobile; docs 100/100/100/100 desktop, 99 performance with 100 elsewhere mobile. IndexNow accepted 23 URLs with HTTP 202; live monitor passed 23 pages |
 | Sandbox (Docker + gVisor) | **Built, refuses on this host** — no container runtime |
 | LLM (LiteLLM BYOK) | **Built, refuses without a key** — live calls only |
 | Scale-out (Firecracker microVMs, Rust orchestrator, NATS) | **Not started** — see [`BLOCKED.md`](BLOCKED.md) |
@@ -328,8 +328,15 @@ Recorded 2026-10-19 on the local production build: SEO gate PASS (24 HTML
 routes, 23 sitemap URLs, 0 errors), axe 0 violations on all docs routes at 390
 and 1280 px, Lighthouse 100/100/100/100 desktop, and 98–100 mobile performance
 with 100 accessibility/best-practices/SEO (every category above the 95 gate).
-Live results are recorded after the Pages deployment in [`BLOCKED.md`](BLOCKED.md)
-and [`CHANGELOG.md`](CHANGELOG.md). The weekly
+
+The same build is live. Pages run
+[39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525)
+passed build and deploy, the live monitor passed all 23 pages, IndexNow accepted
+23 URLs with HTTP 202, and a missing path returned HTTP 404. Live Lighthouse:
+landing 100/100/100/100 desktop, 98 performance with 100 elsewhere mobile; docs
+100/100/100/100 desktop, 99 performance with 100 elsewhere mobile. Full evidence
+is in [`BLOCKED.md`](BLOCKED.md) and
+[`CHANGELOG.md`](CHANGELOG.md); the weekly
 [`seo-monitor`](.github/workflows/seo-monitor.yml) workflow re-checks the live
 site.
 

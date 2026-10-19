@@ -87,6 +87,9 @@ A lot of the system does not need those two prerequisites. The repository's meas
 | Landing page Lighthouse (local production build) | 100/100/100/100 desktop; 98–100 mobile performance with 100 accessibility/best-practices/SEO; docs page 100 desktop, 99–100 mobile performance, 100 elsewhere |
 | SEO gate (`npm run check:seo`) | PASS — 24 HTML routes, 23 sitemap URLs, 0 errors |
 | axe-core on 22 docs/trust routes (390 and 1280 px) | 0 violations; zero client JavaScript |
+| Live Pages deploy ([run 39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525)) | build + deploy succeeded; live SEO monitor PASS on 23 pages; IndexNow accepted 23 URLs with HTTP 202 |
+| Live Lighthouse (deployed landing) | 100/100/100/100 desktop; 98 performance, 100 accessibility/best-practices/SEO mobile |
+| Live 404 check | missing path returned HTTP 404 with the custom page |
 
 The 254 passed / 5 skipped result was measured with a real PostgreSQL. The host currently used for site work has no PostgreSQL either, so the database-backed subset cannot be re-run here without provisioning one. The [evidence page](/evidence/) records that caveat.
 

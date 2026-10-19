@@ -28,6 +28,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`llms.txt`** — machine-readable project summary for answer engines, generated
   from the same page manifest as the sitemap and copied byte-for-byte to the repo
   root; the build fails if the two drift.
+- **Live deployment verified** — Pages run
+  [39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525)
+  completed build and deploy on 2026-10-19. The SEO gate passed, the live monitor
+  passed all 23 pages, IndexNow accepted 23 URLs with **HTTP 202**, and a missing
+  path returned **HTTP 404**. Live Lighthouse: landing **100/100/100/100**
+  desktop and **98 performance / 100 accessibility / 100 best-practices / 100
+  SEO** mobile; docs **100/100/100/100** desktop and **99 / 100 / 100 / 100**
+  mobile. No ranking, backlink or AI-citation outcome is claimed.
 
 ### Fixed
 
