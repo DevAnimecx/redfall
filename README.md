@@ -18,7 +18,7 @@
 
 **RedFall is an autonomous vulnerability scanner that proves every finding by executing it.** It reads a target's real source with tree-sitter (TypeScript, JavaScript and Python), tracks attacker-controlled data from request surface to sink — including across function boundaries — generates a candidate exploit for every lead, runs it inside a sandbox (Docker + gVisor) against the real application, and reports only what reproduced. It then attempts a repair and calls a fix verified only when the target's own tests still pass *and* the original PoC stops working.
 
-<https://devanimecx.github.io/redfall/> · [Install](#install) · [How a finding becomes real](#how-a-finding-becomes-real) · [FAQ](#faq) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [BLOCKED.md](BLOCKED.md)
+<https://devanimecx.github.io/redfall/> · [Install](#install) · [How a finding becomes real](#how-a-finding-becomes-real) · [FAQ](#faq) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [BLOCKED.md](BLOCKED.md)
 
 The governing constraint is the no-mock contract (§1, extended by §2): a finding
 exists only if it was executed against a real running target, and every number in
