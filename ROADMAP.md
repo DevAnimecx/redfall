@@ -11,9 +11,11 @@
 > and a single HTTP/OpenAPI + A2A v1.0 gateway over the same tool registry.
 > Local Windows verification: compile clean, no-mock **80 files PASS**, orphan
 > **78 modules PASS**, and **53 focused Phase 3 tests passed**, including real
-> sockets, SSE and two gateway subprocess contracts. The Phase 2 Postgres-backed
-> suite remains the CI baseline (run 39286891463: 304 passed, 5 gVisor-dependent
-> environment skips); Phase 3 CI verification is pending.
+> sockets, SSE and two gateway subprocess contracts. CI run
+> [39310704310](https://github.com/DevAnimecx/redfall/actions/runs/39310704310)
+> passed every job: the Postgres 17 / Python 3.12 `check` job ran **357 passed,
+> 5 skipped in 62.97s** (the five skips are the live gVisor tests) and all six
+> wheel/installer package jobs passed.
 >
 > Still unimplemented: A2A push notifications and multi-turn continuation,
 > environment recipes/synthesis, multi-role campaigns, sanitizer-node synthesis,
@@ -21,7 +23,7 @@
 > self-learning, external-agent certification beyond the shipped surfaces, and
 > the four-hour campaign. See [`CHANGELOG.md`](CHANGELOG.md).
 >
-> Baseline: RedFall `0.1.0`, commit `4db5982`, 2026-10-19.
+> Baseline: RedFall `0.1.0`, commit `5abde62`, 2026-10-20.
 >
 > The plan deliberately avoids promising “all vulnerabilities”, “any language”,
 > “self-evolving” or “best” as facts. It defines how those claims would be

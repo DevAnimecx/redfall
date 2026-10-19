@@ -39,10 +39,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   (78 reachable modules). A further 192 pre-existing tests passed in focused
   chunks covering the subsystems the new registry and tables touch; six
   environment tests skipped and one Postgres-only SARIF store test could not
-  connect locally. The full suite is not completed on this host because the
-  pre-existing ingestion-heavy tests exceed the local harness limit; CI remains
-  authoritative and its result is recorded in the follow-up docs commit after
-  the run.
+  connect locally. The local full suite is not authoritative because the
+  pre-existing ingestion-heavy tests exceed the local harness limit.
+- **Phase 3 CI verification** — run
+  [39310704310](https://github.com/DevAnimecx/redfall/actions/runs/39310704310)
+  passed every job on 2026-10-19: the `check` job ran **357 passed, 5 skipped
+  in 62.97s** against Postgres 17 and Python 3.12 (the five skips are the live
+  gVisor tests, because the runner has no `runsc`), and all six
+  wheel/installer package jobs passed. The 362 collected tests are therefore
+  357 passes plus 5 environment skips.
 - **Phase 2 execution layer** — a persisted, provenance-aware code graph v1
   (`graph_snapshots`, `graph_nodes`, `graph_edges`) built from real ingestion,
   with bounded search/traversal/paths/inventory and snapshot diff; a resumable

@@ -41,9 +41,9 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | Evidence ledger (E0–E4, SHA-256 hash chain, report gate) | **Built and tested** — tamper detection, replayability validation and a required E3/E4 gate |
 | Code graph v1 (persisted, provenance-aware) | **Built and tested** — real ingestion into `graph_snapshots`, `graph_nodes` and `graph_edges`; bounded search, traversal, paths, inventory and snapshot diff. Covers the currently ingested TypeScript/JavaScript/Python source; not a completeness or all-language claim |
 | Agent tools / MCP stdio (44 tools) | **Built and tested** — real subprocess JSON-RPC session; campaign/runner, graph, scan, finding, reproduction, evidence and report tools |
-| HTTP/OpenAPI gateway | **Built and tested locally** — `POST /v1/tools/{name}` executes the same 44-tool registry; OpenAPI 3.1 is generated from that registry; bearer tokens, scopes, quotas, audit and signed artifact URLs |
-| A2A v1.0 agent | **Built and tested locally** — Agent Card, `SendMessage`/`SendStreamingMessage`/`GetTask`/`ListTasks`/`CancelTask`/`SubscribeToTask`, SSE task/status/artifact envelopes, cooperative cancellation and HMAC-signed artifacts; push notifications are explicitly not implemented |
-| Executable adapter contracts | **Built and tested locally** — `redfall mcp certify` (stdio), `redfall interop certify --protocol http` (10 checks) and `--protocol a2a` (11 checks) launch a fresh server/client against a real socket and a temporary database; certification covers the shipped surfaces only |
+| HTTP/OpenAPI gateway | **Built and tested** — `POST /v1/tools/{name}` executes the same 44-tool registry; OpenAPI 3.1 is generated from that registry; bearer tokens, scopes, quotas, audit and signed artifact URLs |
+| A2A v1.0 agent | **Built and tested** — Agent Card, `SendMessage`/`SendStreamingMessage`/`GetTask`/`ListTasks`/`CancelTask`/`SubscribeToTask`, SSE task/status/artifact envelopes, cooperative cancellation and HMAC-signed artifacts; push notifications are explicitly not implemented |
+| Executable adapter contracts | **Built and tested** — `redfall mcp certify` (stdio), `redfall interop certify --protocol http` (10 checks) and `--protocol a2a` (11 checks) launch a fresh server/client against a real socket and a temporary database; certification covers the shipped surfaces only. CI run [39310704310](https://github.com/DevAnimecx/redfall/actions/runs/39310704310): **357 passed, 5 skipped** (live gVisor), all package jobs passed |
 | No-mock enforcement | **Passing** (`NO-MOCK CONTRACT: PASS`, 80 files) |
 | Data layer (Postgres 17 + Redis) | **Built and verified** |
 | Packaging (any platform Python 3.12 runs on) | **Built and verified** — the wheel ships the harness, prompts and Dockerfile; installed into a fresh venv and driven from outside the checkout (`WHEEL VERIFY: PASS`); CI matrix on Ubuntu/Windows/macOS |
@@ -160,7 +160,7 @@ redfall/
 ├── assets/                     logo lockups and mark (SVG, dark/light)
 ├── scripts/                    the four contract checkers, verify_wheel.py, install.sh / install.ps1, build_release.py, generate_brand_assets.py
 ├── .github/workflows/          ci (checks + 3-OS packaging and installers), release (attested artifacts), security (weekly pip-audit), pages (landing deploy)
-├── tests/                      362 collected tests; 53 Phase 3 focused tests pass locally; CI baseline: 304 passed, 5 skipped (live gVisor), Postgres 17
+├── tests/                      362 collected tests; CI: 357 passed, 5 skipped (live gVisor), Postgres 17; 53 Phase 3 focused tests pass locally
 ├── llms.txt                    machine-readable project summary for answer engines (byte-identical to site/dist/llms.txt)
 ├── site/SEO.md                 technical SEO/GEO operating manual and 90-day calendar
 ├── CONTRIBUTING.md             the no-mock rule, where each stage lives, PR contract
@@ -594,11 +594,11 @@ the transcripts go to a human. Nothing is committed or pushed for you.
 
 ### Why some skipped tests?
 
-The five skips in the Phase 2 CI baseline are the live sandbox-execution
-tests: GitHub's runner has Docker but no `runsc` gVisor runtime, so they skip
-rather than pretend. The same five skip on this host for the same reason. The
-no-mock contract forbids simulating them, so a skip is never counted as a pass;
-the sandbox's refusal path is covered by tests that do run.
+The five skips in CI run 39310704310 are the live sandbox-execution tests:
+GitHub's runner has Docker but no `runsc` gVisor runtime, so they skip rather
+than pretend. The same five skip on this host for the same reason. The no-mock
+contract forbids simulating them, so a skip is never counted as a pass; the
+sandbox's refusal path is covered by tests that do run.
 
 ### Where is the source and are releases verifiable?
 
