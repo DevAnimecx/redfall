@@ -11,8 +11,9 @@
 > stdio tools, and an executable MCP adapter contract. Local Windows
 > verification: compile clean, no-mock **73 files PASS**, orphan **71 modules
 > PASS**, and **35 focused SQLite/CLI/MCP tests passed**, including a real stdio
-> subprocess. The full Postgres-backed suite passed in CI (run 39282920591,
-> `check` job with Postgres 17); it remains CI-authoritative.
+> subprocess. The full Postgres-backed suite passed in CI (run 39286891463,
+> `check` job with Postgres 17: 304 passed, 5 gVisor-dependent environment
+> skips); it remains CI-authoritative.
 >
 > Still unimplemented: A2A/HTTP adapters, environment recipes/synthesis,
 > multi-role campaigns, sanitizer-node synthesis, languages outside the current

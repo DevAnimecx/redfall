@@ -34,12 +34,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **Phase 2 verification on Windows** — compile clean; no-mock **PASS** across
   73 files; orphan check **PASS** (71 reachable modules, 3 entrypoints); 35
   focused SQLite/CLI/MCP tests pass, including a real stdio contract subprocess.
-  The full suite ran in CI: run 39282920591's `check` job executed against
-  Postgres 17 on ubuntu-latest Python 3.12 and every step passed, including the
-  `tests` step; the wheel/installer matrix jobs that reported also passed.
-  GitHub Actions was partially degraded during this window, so the job-level
-  API lagged the run-level conclusion, and this host still has no local
-  Postgres, Docker/gVisor runtime or LLM key.
+  The full suite ran in CI: run 39286891463's `check` job executed against
+  Postgres 17 on ubuntu-latest Python 3.12 and passed every step, with
+  **304 passed and 5 skipped** (the gVisor-dependent environment tests) in
+  45.6s; all six wheel/installer package jobs passed. GitHub Actions was
+  partially degraded during the earlier Phase 2 runs, so the job-level API
+  lagged the run-level conclusion, and this host still has no local Postgres,
+  Docker/gVisor runtime or LLM key.
   Graph v1 covers the currently ingested TypeScript/JavaScript/Python source and
   does not yet synthesize sanitizer nodes; A2A/HTTP adapters, environment
   synthesis, multi-role campaigns, self-learning and the four-hour campaign are
