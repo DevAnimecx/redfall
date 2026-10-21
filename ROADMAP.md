@@ -13,9 +13,9 @@
 > **78 modules PASS**, **53 focused Phase 3 tests passed** (real sockets, SSE
 > and two gateway subprocess contracts), and a complete no-PostgreSQL run
 > reported **337 passed, 30 skipped, 0 failed**. CI run
-> [39313598416](https://github.com/DevAnimecx/redfall/actions/runs/39313598416)
-> passed every job: the Postgres 17 / Python 3.12 `check` job ran **357 passed,
-> 5 skipped in 63.08s** (the five skips are the live gVisor tests) and all six
+> [39612206950](https://github.com/DevAnimecx/redfall/actions/runs/39612206950)
+> passed every job: the Postgres 17 / Python 3.12 `check` job ran **362 passed,
+> 5 skipped in 73.96s** (the five skips are the live gVisor tests) and all six
 > wheel/installer package jobs passed. The `0.1.1` release record is in
 > [`RELEASE.md`](RELEASE.md).
 >

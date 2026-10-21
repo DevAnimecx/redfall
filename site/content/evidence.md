@@ -15,7 +15,7 @@ related: ranges, blocked, output
 
 **Every number on this page came from a command that ran, and every gap is named.** The evidence is dated, tied to the repository and separated into what was measured locally, what was measured in CI, and what remains blocked. There is no estimate standing in for a measurement.
 
-The 0.1.1 tree collects **367 tests**. On the development host used for the release, which has no PostgreSQL service and no container runtime, the full suite reported **337 passed, 30 skipped, 0 failed** on 2026-10-21. The 30 skips are 25 PostgreSQL-backed tests plus the five live gVisor tests. The latest completed CI run before the release commit, [39313598416](https://github.com/DevAnimecx/redfall/actions/runs/39313598416), reported **357 passed, 5 skipped** against PostgreSQL 17 on Python 3.12. The 0.1.1 release-commit run is appended to [`RELEASE.md`](https://github.com/DevAnimecx/redfall/blob/main/RELEASE.md) after publication.
+The 0.1.1 tree collects **367 tests**. On the development host used for the release, which has no PostgreSQL service and no container runtime, the full suite reported **337 passed, 30 skipped, 0 failed** on 2026-10-21. The 30 skips are 25 PostgreSQL-backed tests plus the five live gVisor tests. The CI run on the 0.1.1 release code, [39612206950](https://github.com/DevAnimecx/redfall/actions/runs/39612206950), reported **362 passed, 5 skipped in 73.96s** against PostgreSQL 17 on Python 3.12. The six-job package matrix completed successfully. Neither skips nor package jobs are counted as test passes.
 
 ## What passed the contract checkers?
 
@@ -34,8 +34,8 @@ The no-mock checker is the one that matters most here: it prevents a demo mode o
 
 | Suite | Result | Environment |
 | --- | --- | --- |
-| `python -m pytest tests/ -q` | 337 passed, 30 skipped in 196.67s | Local Windows, no PostgreSQL or gVisor, 2026-10-21 |
-| `python -m pytest tests/ -q` | 357 passed, 5 skipped in 63.08s | CI PostgreSQL 17 / Python 3.12, run 39313598416, 2026-10-19 |
+| `python -m pytest tests/ -q` | 337 passed, 30 skipped in 221.23s | Local Windows, no PostgreSQL or gVisor, 2026-10-21 |
+| `python -m pytest tests/ -q` | 362 passed, 5 skipped in 73.96s | CI PostgreSQL 17 / Python 3.12, run 39612206950, 2026-10-21 |
 | `range/pythonbank` pytest | 18 passed | No database, no container |
 | `range/vulnbank` tests | 76 passed | Node + PostgreSQL |
 | `range/vulnbank-adaptive` tests | 91 passed | Node + PostgreSQL |
@@ -63,13 +63,13 @@ The ranges are real applications with real tests. The [range targets page](/docs
 | Windows installer with a throwaway `REDFALL_HOME` | `Redfall 0.1.1 installed.`; `install.sh` parses clean with Git Bash |
 | `redfall doctor` on the release host | Postgres and Redis MISSING (bounded probe), `runsc` MISSING, LLM provider MISSING; Node/npm OK; exits 1 |
 | `gh attestation verify redfall-0.1.1-py3-none-any.whl --repo DevAnimecx/redfall` | Pending publication; the 0.1.0 artifact was verified against `release.yml@refs/tags/v0.1.0` |
-| CI package matrix (Ubuntu, Windows, macOS; Python 3.12, 3.13) | Green on the previous commit; the 0.1.1 release-commit matrix is recorded after publication |
+| CI package matrix (Ubuntu, Windows, macOS; Python 3.12, 3.13) | Green on the 0.1.1 release code: all six wheel/installer package jobs' steps completed successfully |
 
 The release checks are about provenance and behaviour. They do not claim the software is free of vulnerabilities. The [release verification page](/docs/release-verification/) gives the commands and the limits.
 
 ## What did the site measure?
 
-The 0.1.1 site was built and measured locally on 2026-10-21 against the production bundle with real Chrome. The live 0.1.1 deployment follows the release commit; the last live deployment was the 0.1.0 build on 2026-10-19.
+The 0.1.1 site was built and measured locally on 2026-10-21 against the production bundle with real Chrome. It is deployed at <https://devanimecx.github.io/redfall/> by Pages run [39612206947](https://github.com/DevAnimecx/redfall/actions/runs/39612206947).
 
 | Check | 0.1.1 local result |
 | --- | --- |
@@ -82,7 +82,15 @@ The 0.1.1 site was built and measured locally on 2026-10-21 against the producti
 | JavaScript bundle | 80.97 kB gzipped |
 | CSS | 8.27 kB gzipped, inlined on the landing page and shared by the static docs |
 
-The last live measurement remains useful as a deployment check but is not evidence for the 0.1.1 bytes. Pages run [39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525) completed both jobs on 2026-10-19: the 0.1.0 build passed the SEO gate (24 HTML routes, 23 sitemap URLs, 0 errors), the live monitor passed across 23 pages, IndexNow accepted **23 URLs with HTTP 202**, and a missing path returned **HTTP 404**. The 0.1.1 site has one more documentation page; its deployment and IndexNow submission are recorded in [`RELEASE.md`](https://github.com/DevAnimecx/redfall/blob/main/RELEASE.md) after publication.
+The live 0.1.1 deployment is Pages run [39612206947](https://github.com/DevAnimecx/redfall/actions/runs/39612206947) on 2026-10-21. Its build passed the SEO gate (25 HTML routes, 24 sitemap URLs, 0 errors); the deploy job verified the IndexNow key, submitted 24 URLs and received **HTTP 200**, and the live SEO monitor passed 24 sitemap pages. A missing path returned **HTTP 404**. Two Lighthouse runs against the live landing measured desktop **97–98** and mobile **93–99** performance, with 100 for accessibility, best-practices and SEO; the 93 run fell below the 95 performance gate. Live performance is therefore variable and is recorded as a measured range, not certified at 100. The local production build above remains the build gate.
+
+| Live check | Recorded result |
+| --- | --- |
+| Pages build + deploy, run 39612206947 | PASS; live SEO monitor PASS on 24 sitemap pages |
+| IndexNow | 24 URLs submitted, HTTP 200 |
+| Live Lighthouse, landing desktop (two runs) | 97 and 98 performance; 100 accessibility / best-practices / SEO |
+| Live Lighthouse, landing mobile (two runs) | 93 and 99 performance; 100 accessibility / best-practices / SEO; one run below the 95 performance gate |
+| Missing path | HTTP 404 |
 
 The layout gate found a real bug that Lighthouse missed: install `<pre>` blocks were grid items with default `min-width: auto`, forcing a 578 px document on a 390 px phone. The fix was `min-w-0 overflow-hidden`. The accessibility gate found a real bug too: horizontally scrollable code regions were not keyboard-reachable. They are now labelled, focusable regions.
 
@@ -98,7 +106,8 @@ The evidence page is only useful if the gaps are as visible as the results.
 | Firecracker microVM path | No `/dev/kvm` on this host |
 | Rust orchestrator parity | No Rust implementation to compare |
 | Recall and precision on an arbitrary codebase | The ranges are the measured ground truth |
-| Live 0.1.1 Lighthouse, IndexNow and monitor results | The deployment happens after the release commit; the last live run was 0.1.0 |
+| Stable live mobile Lighthouse performance | Two runs measured 93 and 99; the lower run missed the 95 gate. GitHub Pages and runner variance are outside the local build gate |
+| Real-user field performance (CrUX) | The site has no traffic volume yet; synthetic Lighthouse is the only measured performance signal |
 | Backlinks, organic rankings or AI citations | Cannot be manufactured or guaranteed; not a product measurement |
 
 The [blocked page](/docs/blocked/) explains each prerequisite and the smallest real unblock. The [no-mock contract](/docs/no-mock-contract/) explains why a missing measurement is not replaced with a guess.
@@ -150,7 +159,7 @@ A scan that misses a threshold is a miss, not a rounding error. The [range targe
 
 ### Is 337 passed / 30 skipped a current run?
 
-Yes. It is the complete local run on 2026-10-21 without PostgreSQL or a container runtime. The latest CI run before the release commit was 357 passed / 5 skipped; the release-commit CI result is appended after publication. Neither run counts a skip as a pass.
+Yes. It is the complete local run on 2026-10-21 without PostgreSQL or a container runtime. The CI run on the 0.1.1 release code was 362 passed / 5 skipped. Neither run counts a skip as a pass.
 
 ### Why are tests skipped?
 

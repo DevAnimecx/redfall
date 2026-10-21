@@ -9,7 +9,7 @@ dashboard look complete.
 Canonical site: <https://devanimecx.github.io/redfall/>
 Repository: <https://github.com/DevAnimecx/redfall>
 Public author identity: `DevAnimecx` (<https://github.com/DevAnimecx>)
-Last technical review: 2026-10-19
+Last technical review: 2026-10-21
 
 ---
 
@@ -40,23 +40,25 @@ node scripts/docs_check.mjs
 Lighthouse desktop   100 performance / 100 accessibility / 100 best-practices / 100 SEO
 Lighthouse mobile    100 performance / 100 accessibility / 100 best-practices / 100 SEO
 Lighthouse docs      100 / 100 / 100 / 100 desktop
-Live deploy          last was 0.1.0: build + deploy PASS; live monitor PASS (23 pages)
-IndexNow             0.1.0: HTTP 202 Accepted, 23 URLs; 0.1.1 after publication
-Live landing (0.1.0) 100/100/100/100 desktop; 98 performance, 100 elsewhere mobile
-Live docs (0.1.0)    100/100/100/100 desktop; 99 performance, 100 elsewhere mobile
-Live 404             HTTP 404 with the custom page
+Live deploy          0.1.1: build + deploy PASS; live monitor PASS (24 pages)
+IndexNow             0.1.1: HTTP 200, 24 URLs
+Live landing (0.1.1) desktop 97–98 performance; mobile 93–99; 100 accessibility/best-practices/SEO in both runs
+Live docs (0.1.0)    100/100/100/100 desktop; 99 performance, 100 elsewhere mobile (not re-run for 0.1.1)
+Live 404             HTTP 404
 ```
 
 The local and live numbers are kept separate; a local measurement is never
 presented as a live one. The last live deploy run is
-[39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525),
-and the full evidence is in `BLOCKED.md` and `RELEASE.md`.
+[39612206947](https://github.com/DevAnimecx/redfall/actions/runs/39612206947),
+and the full evidence is in `BLOCKED.md` and `RELEASE.md`. One of the two live
+mobile Lighthouse runs scored 93, below the 95 performance gate; that miss is
+recorded rather than averaged into a pass.
 
 ---
 
 ## 2. Content architecture: pillars and clusters
 
-The site is intentionally small. It is one landing page plus 22 documentation and
+The site is intentionally small. It is one landing page plus 23 documentation and
 trust pages, not a programme of filler pages. Every page answers a real question
 that the repository can support with code, a command or a recorded result.
 
@@ -388,8 +390,9 @@ npm run check:lighthouse -- http://localhost:4173/redfall/
 ```
 
 CI runs the same commands with a real Chrome on Ubuntu. The Lighthouse threshold
-is 95 for each category; the current local 0.1.1 result is 100/100/100/100
-desktop and 96 mobile performance with 100 accessibility/best-practices/SEO.
+is 95 for each category; the current local 0.1.1 build scores 100/100/100/100 on
+both desktop and mobile. The live deployment is more variable: two mobile runs
+scored 93 and 99, so the live score is not certified at 100.
 
 ### Weekly live monitor
 
@@ -469,7 +472,7 @@ goal; the dates are a cadence, not a promise of results.
 - [ ] Check Search Console “Page indexing” and “Sitemaps”; resolve real errors.
 - [ ] Crawl the site with a human browser and a crawler (Screaming Frog free tier
       is optional) to spot orphan pages, duplicate titles and redirect chains.
-- [ ] Review all 23 URLs in the sitemap: is each page still accurate, dated and
+- [ ] Review all 24 URLs in the sitemap: is each page still accurate, dated and
       linked from at least one other page?
 - [ ] Check mobile rendering at 390 px and keyboard navigation through the docs
       sidebar, code blocks and tables.

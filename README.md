@@ -37,20 +37,20 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | Adaptive branching (recursive tree, 7 spawn triggers) | **Built and verified** — all 7 triggers fire on real source |
 | Cross-branch chaining (attack graph, compound CVSS, narrative) | **Built and verified** — 6/6 chains reproduce on `chainbank`; the LLM-proposed chain stage is wired end to end and structurally reviewed |
 | Range-runner gate (matcher, 5 metrics + 3 chain metrics) | **Built and verified** |
-| Campaign kernel + resumable runner (durable state, leases, budgets, retries) | **Built and tested** — state machine, dependency tasks, heartbeat leases, preflight reservations and settlement, retry/blocked semantics, and real graph/scan/reproduce/report handlers; the Postgres-backed suite passed in CI (357 passed, 5 environment skips; run 39313598416) |
+| Campaign kernel + resumable runner (durable state, leases, budgets, retries) | **Built and tested** — state machine, dependency tasks, heartbeat leases, preflight reservations and settlement, retry/blocked semantics, and real graph/scan/reproduce/report handlers; the Postgres-backed suite passed in CI (362 passed, 5 environment skips; run 39612206950) |
 | Evidence ledger (E0–E4, SHA-256 hash chain, report gate) | **Built and tested** — tamper detection, replayability validation and a required E3/E4 gate |
 | Code graph v1 (persisted, provenance-aware) | **Built and tested** — real ingestion into `graph_snapshots`, `graph_nodes` and `graph_edges`; bounded search, traversal, paths, inventory and snapshot diff. Covers the currently ingested TypeScript/JavaScript/Python source; not a completeness or all-language claim |
 | Agent tools / MCP stdio (44 tools) | **Built and tested** — real subprocess JSON-RPC session; campaign/runner, graph, scan, finding, reproduction, evidence and report tools |
 | HTTP/OpenAPI gateway | **Built and tested** — `POST /v1/tools/{name}` executes the same 44-tool registry; OpenAPI 3.1 is generated from that registry; bearer tokens, scopes, quotas, audit and signed artifact URLs |
 | A2A v1.0 agent | **Built and tested** — Agent Card, `SendMessage`/`SendStreamingMessage`/`GetTask`/`ListTasks`/`CancelTask`/`SubscribeToTask`, SSE task/status/artifact envelopes, cooperative cancellation and HMAC-signed artifacts; push notifications are explicitly not implemented |
-| Executable adapter contracts | **Built and tested** — `redfall mcp certify` (stdio), `redfall interop certify --protocol http` (10 checks) and `--protocol a2a` (11 checks) launch a fresh server/client against a real socket and a temporary database; certification covers the shipped surfaces only. CI run [39313598416](https://github.com/DevAnimecx/redfall/actions/runs/39313598416): **357 passed, 5 skipped** (live gVisor), all package jobs passed |
+| Executable adapter contracts | **Built and tested** — `redfall mcp certify` (stdio), `redfall interop certify --protocol http` (10 checks) and `--protocol a2a` (11 checks) launch a fresh server/client against a real socket and a temporary database; certification covers the shipped surfaces only. CI run [39612206950](https://github.com/DevAnimecx/redfall/actions/runs/39612206950): **362 passed, 5 skipped** (live gVisor), all package jobs passed |
 | No-mock enforcement | **Passing** (`NO-MOCK CONTRACT: PASS`, 80 files) |
 | Data layer (Postgres 17 + Redis) | **Built and verified** |
 | Packaging (any platform Python 3.12 runs on) | **Built and verified** — the wheel ships the harness, prompts and Dockerfile; installed into a fresh venv and driven from outside the checkout (`WHEEL VERIFY: PASS`); CI matrix on Ubuntu/Windows/macOS |
 | Installers (`scripts/install.sh`, `scripts/install.ps1`) | **Built and verified** — the PowerShell installer was executed end to end on this host into a throwaway home; the POSIX script is syntax-checked against a real shell here and both are executed by the CI package matrix on Ubuntu/Windows/macOS |
 | Release supply chain (Sigstore attestations, SHA256SUMS, weekly dependency audit) | **Built** — releases are constructed and attested by CI from the tagged source; `pip-audit` runs weekly |
 | SARIF 2.1.0 export (`redfall report --format sarif`) | **Built and verified** — every result carries `properties.redfall.verified`; unproven candidates stay visible |
-| Landing page + documentation (`site/`, React + Tailwind landing, static Markdown docs) | **Built and measured** — <https://devanimecx.github.io/redfall/> and 23 docs/trust pages; the 0.1.1 build has 25 HTML routes and 24 sitemap URLs. Local Lighthouse: landing and docs 100/100/100/100 on desktop and mobile. The last live deployment (0.1.0, run [39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525)) passed the live monitor on 23 pages and IndexNow accepted 23 URLs with HTTP 202; the 0.1.1 deployment is recorded after publication |
+| Landing page + documentation (`site/`, React + Tailwind landing, static Markdown docs) | **Built and measured** — <https://devanimecx.github.io/redfall/> and 23 docs/trust pages; the 0.1.1 build has 25 HTML routes and 24 sitemap URLs. Local Lighthouse: landing and docs 100/100/100/100 on desktop and mobile. The 0.1.1 deployment (Pages run [39612206947](https://github.com/DevAnimecx/redfall/actions/runs/39612206947)) passed the build/SEO gate, the live monitor on 24 pages, and IndexNow accepted 24 URLs with HTTP 200. Two live Lighthouse runs measured desktop 97–98 and mobile 93–99; one mobile run was below the 95 performance gate, which is recorded as a live limit rather than hidden |
 | Sandbox (Docker + gVisor) | **Built, refuses on this host** — no container runtime |
 | LLM (LiteLLM BYOK) | **Built, refuses without a key** — live calls only |
 | Scale-out (Firecracker microVMs, Rust orchestrator, NATS) | **Not started** — see [`BLOCKED.md`](BLOCKED.md) |
@@ -160,7 +160,7 @@ redfall/
 ├── assets/                     logo lockups and mark (SVG, dark/light)
 ├── scripts/                    the four contract checkers, verify_wheel.py, install.sh / install.ps1, build_release.py, generate_brand_assets.py
 ├── .github/workflows/          ci (checks + 3-OS packaging and installers), release (attested artifacts), security (weekly pip-audit), pages (landing deploy)
-├── tests/                      367 collected; local: 337 passed, 30 skipped (no Postgres); latest CI: 357 passed, 5 skipped (live gVisor)
+├── tests/                      367 collected; local: 337 passed, 30 skipped (no Postgres); latest CI: 362 passed, 5 skipped (live gVisor)
 ├── llms.txt                    machine-readable project summary for answer engines (byte-identical to site/dist/llms.txt)
 ├── site/SEO.md                 technical SEO/GEO operating manual and 90-day calendar
 ├── CONTRIBUTING.md             the no-mock rule, where each stage lives, PR contract
@@ -411,10 +411,10 @@ The public surface is deliberately small and static:
 - **Landing page** (`/redfall/`): React + Tailwind, prerendered to HTML, with
   inlined CSS, a self-hosted Inter subset (SIL OFL 1.1, licence beside the
   font), JSON-LD and a hash-based meta CSP.
-- **22 documentation and trust pages** under `/docs/`, `/compare/`, `/evidence/`,
+- **23 documentation and trust pages** under `/docs/`, `/compare/`, `/evidence/`,
   `/about/` and `/privacy/`: generated from Markdown with **zero client
   JavaScript**, shared cached CSS, breadcrumbs, related links and visible dates.
-- **Discovery files**: `sitemap.xml` (23 URLs), `robots.txt`, `llms.txt` at the
+- **Discovery files**: `sitemap.xml` (24 URLs), `robots.txt`, `llms.txt` at the
   repo root and site root, a public IndexNow key, per-page 1200×630 OG cards and
   a real custom 404 that returns HTTP 404.
 
@@ -444,12 +444,15 @@ routes at 390 and 1280 px, layout PASS at 390/768/1280, Lighthouse
 100/100/100/100 desktop and mobile (mobile LCP 1.5 s, TBT 0 ms, CLS 0; every
 category above the 95 gate).
 
-The last live deployment was the 0.1.0 build: Pages run
-[39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525)
-passed build and deploy, the live monitor passed all 23 pages, IndexNow accepted
-23 URLs with HTTP 202, and a missing path returned HTTP 404. The 0.1.1 build is
-deployed by the same workflow on push; its release evidence is recorded in
-[`RELEASE.md`](RELEASE.md). Full evidence is in [`BLOCKED.md`](BLOCKED.md) and
+The 0.1.1 site is live. Pages run
+[39612206947](https://github.com/DevAnimecx/redfall/actions/runs/39612206947)
+passed build and deploy: the SEO gate checked 25 HTML routes and 24 sitemap URLs
+with 0 errors, the live monitor passed all 24 sitemap pages, IndexNow accepted 24
+URLs with HTTP 200, and a missing path returned HTTP 404. Two Lighthouse runs
+against the live landing measured desktop 97–98 and mobile 93–99 performance,
+with 100 accessibility/best-practices/SEO; the 93 mobile run is below the 95
+performance gate and is recorded as a live limit. Full evidence is in
+[`RELEASE.md`](RELEASE.md), [`BLOCKED.md`](BLOCKED.md) and
 [`CHANGELOG.md`](CHANGELOG.md); the weekly
 [`seo-monitor`](.github/workflows/seo-monitor.yml) workflow re-checks the live
 site.
@@ -595,7 +598,7 @@ the transcripts go to a human. Nothing is committed or pushed for you.
 
 ### Why some skipped tests?
 
-The five skips in CI run 39313598416 are the live sandbox-execution tests:
+The five skips in CI run 39612206950 are the live sandbox-execution tests:
 GitHub's runner has Docker but no `runsc` gVisor runtime, so they skip rather
 than pretend. The same five skip on this host for the same reason. The no-mock
 contract forbids simulating them, so a skip is never counted as a pass; the

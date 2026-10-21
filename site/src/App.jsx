@@ -517,7 +517,7 @@ export default function App() {
             </div>
             <div className="mt-8 grid divide-y divide-line border-t border-line sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4">
               <div className="sm:border-b sm:border-line lg:border-b-0 lg:border-r">
-                <Counter value={357} label="tests passed in CI" />
+                <Counter value={362} label="tests passed in CI" />
               </div>
               <div className="sm:border-b sm:border-line lg:border-b-0 lg:border-r">
                 <Counter value={6} suffix="/6" label="chains reproduce" />

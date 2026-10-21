@@ -105,11 +105,14 @@ check, not a pass.
 | 2026-10-21 | No-mock contract | `NO-MOCK CONTRACT: PASS` — 80 files |
 | 2026-10-21 | Orphan check | `ORPHAN CHECK: PASS` — 78 reachable modules |
 | 2026-10-21 | Clean-tree check | `CLEAN TREE: PASS` — no stray files |
-| 2026-10-21 | Full local suite | **337 passed, 30 skipped** in 196.67s (25 PostgreSQL, 5 gVisor); 367 collected |
+| 2026-10-21 | Full local suite | **337 passed, 30 skipped** in 221.23s (25 PostgreSQL, 5 gVisor); 367 collected |
 | 2026-10-21 | Site build + SEO | 25 HTML routes, 24 sitemap URLs, 0 errors; axe 0 violations on 23 docs routes; layout clean at 390/768/1280; Lighthouse 100/100/100/100 desktop and mobile (mobile LCP 1.5 s) |
 | 2026-10-21 | Release build + wheel verification | wheel/sdist built with `SHA256SUMS`; `WHEEL VERIFY: PASS` outside the checkout; installed distribution reports 0.1.1 |
 | 2026-10-21 | Windows installer | throwaway `REDFALL_HOME` installed 0.1.1; `install.sh` parsed with Git Bash |
 | 2026-10-21 | `redfall doctor` on release host | Postgres and Redis MISSING after bounded probes; `runsc` and LLM provider MISSING; Node/npm OK; exits 1 |
-| 2026-10-21 | CI on release commit | pending |
+| 2026-10-21 | CI on release code (`7e1695f`) | run [39612206950](https://github.com/DevAnimecx/redfall/actions/runs/39612206950): **362 passed, 5 skipped in 73.96s**; all six package jobs' steps completed successfully |
+| 2026-10-21 | CI on tag commit | pending |
+| 2026-10-21 | Pages deployment | run [39612206947](https://github.com/DevAnimecx/redfall/actions/runs/39612206947): 25 HTML routes / 24 sitemap URLs; live monitor 24 pages; IndexNow 24 URLs, HTTP 200; missing path 404 |
+| 2026-10-21 | Live Lighthouse (two runs) | desktop 97–98; mobile 93–99; 100 accessibility/best-practices/SEO; one mobile run below the 95 performance gate |
 | 2026-10-21 | `v0.1.1` publication | pending |
 | 2026-10-21 | Downloaded artifact + attestation verification | pending |

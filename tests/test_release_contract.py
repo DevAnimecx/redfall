@@ -84,6 +84,10 @@ def test_current_release_docs_use_current_artifacts():
     assert sdist in read("site/content/docs/release-verification.md")
     assert f"releases/tag/v{VERSION}" in read("llms.txt")
 
+    workflow = read(".github/workflows/release.yml")
+    assert "SHA256SUMS" in workflow
+    assert "SHA256SUMS.txt" not in workflow
+
 
 def test_version_contract_checker_passes():
     result = subprocess.run(

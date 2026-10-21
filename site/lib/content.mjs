@@ -66,7 +66,7 @@ export const EVIDENCE = [
   [
     "Test suite",
     "pytest against real artefacts, local + CI",
-    "367 collected; 337 local passed, 30 skipped; 357 CI passed, 5 skipped",
+    "367 collected; 337 local passed, 30 skipped; 362 CI passed, 5 skipped",
   ],
   ["range/vulnbank", "76 tests, candidate exploits executed over real HTTP", "30/32 PoCs, 32/32 patches verified"],
   ["range/vulnbank-adaptive", "vulnbank plus 7 adaptive surfaces", "7/7 PoCs"],

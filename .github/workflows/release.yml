@@ -25,7 +25,7 @@ jobs:
           python -m build
 
       - name: checksums
-        run: cd dist && sha256sum redfall-* > SHA256SUMS.txt
+        run: cd dist && sha256sum redfall-* > SHA256SUMS
 
       - name: prove the wheel works outside the checkout
         run: |
@@ -40,7 +40,7 @@ jobs:
           subject-path: |
             dist/redfall-*.whl
             dist/redfall-*.tar.gz
-            dist/SHA256SUMS.txt
+            dist/SHA256SUMS
 
       - name: publish the release
         env:
@@ -48,9 +48,9 @@ jobs:
         run: |
           tag="${GITHUB_REF_NAME}"
           if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" dist/redfall-*.whl dist/redfall-*.tar.gz dist/SHA256SUMS.txt --clobber
+            gh release upload "$tag" dist/redfall-*.whl dist/redfall-*.tar.gz dist/SHA256SUMS --clobber
           else
             gh release create "$tag" \
-              dist/redfall-*.whl dist/redfall-*.tar.gz dist/SHA256SUMS.txt \
+              dist/redfall-*.whl dist/redfall-*.tar.gz dist/SHA256SUMS \
               --title "Redfall $tag" --generate-notes
           fi

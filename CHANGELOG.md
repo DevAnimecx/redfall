@@ -140,25 +140,30 @@ tree.
   contracts and CLI. The real-subprocess HTTP contract passes 10 checks and the
   A2A contract passes 11, with `certified=True`.
 - **CI:** run
-  [39313598416](https://github.com/DevAnimecx/redfall/actions/runs/39313598416)
-  completed green on 2026-10-19 after the test-harness fix: the Postgres 17 /
-  Python 3.12 `check` job ran **357 passed, 5 skipped in 63.08s**, and all six
-  wheel/installer package jobs passed. The five skips are live gVisor tests; the
-  runner has no `runsc`.
-- **Local no-PostgreSQL run:** **337 passed, 30 skipped, 0 failed** in 196.67s.
+  [39612206950](https://github.com/DevAnimecx/redfall/actions/runs/39612206950)
+  completed green on 2026-10-21: the Postgres 17 / Python 3.12 `check` job ran
+  **362 passed, 5 skipped in 73.96s**, and all six wheel/installer package jobs
+  completed successfully. The five skips are live gVisor tests; the runner has
+  no `runsc`.
+- **Local no-PostgreSQL run:** **337 passed, 30 skipped, 0 failed** in 221.23s.
   The 30 skips are 25 PostgreSQL-backed tests plus the five live gVisor tests.
   Neither category is counted as a pass.
 - **Site:** the 0.1.1 production build passed the SEO gate (25 HTML routes, 24
   sitemap URLs), axe (23 docs/trust routes, 0 violations), layout and Lighthouse
   (100/100/100/100 on desktop and mobile; mobile LCP 1.5s) as recorded in
-  [`site/content/evidence.md`](site/content/evidence.md). The live deployment
-  follows publication. The 0.1.1 build and wheel verification are recorded in
-  [`RELEASE.md`](RELEASE.md); published-artifact verification is added after the
-  release workflow completes.
+  [`site/content/evidence.md`](site/content/evidence.md). Pages run
+  [39612206947](https://github.com/DevAnimecx/redfall/actions/runs/39612206947)
+  deployed it, the live monitor passed 24 sitemap pages and IndexNow accepted 24
+  URLs with HTTP 200. Two live Lighthouse runs measured desktop 97–98 and mobile
+  93–99; one mobile run missed the 95 performance gate, so live performance is
+  recorded as a range rather than certified at 100. The 0.1.1 build and wheel
+  verification are recorded in [`RELEASE.md`](RELEASE.md); published-artifact
+  verification is added after the release workflow completes.
 - **Known limits:** no local PostgreSQL, Docker/gVisor runtime or LLM key; A2A
   push notifications and multi-turn continuation are not implemented; the
   gateway has no built-in TLS or multi-tenancy; adapter certification covers the
-  shipped surfaces only. See [`BLOCKED.md`](BLOCKED.md).
+  shipped surfaces only; the live mobile Lighthouse score is not stable above the
+  95 performance gate. See [`BLOCKED.md`](BLOCKED.md).
 
 ## [0.1.0] — 2026-10-19
 

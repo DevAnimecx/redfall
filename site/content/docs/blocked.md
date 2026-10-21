@@ -73,8 +73,8 @@ A lot of the system does not need those two prerequisites. The repository's meas
 | `python scripts/check_version.py` | PASS (11 declarations, 5 lockfile roots) |
 | `python scripts/check_orphans.py` | PASS (78 modules) |
 | `python scripts/check_clean_tree.py` | PASS |
-| `python -m pytest tests/ -q` on this host | 337 passed, 30 skipped in 196.67s (25 PostgreSQL, 5 gVisor) |
-| `python -m pytest tests/ -q` in CI (latest pre-release run 39313598416) | 357 passed, 5 skipped in 63.08s, PostgreSQL 17 / Python 3.12 |
+| `python -m pytest tests/ -q` on this host | 337 passed, 30 skipped in 221.23s (25 PostgreSQL, 5 gVisor) |
+| `python -m pytest tests/ -q` in CI (release-code run 39612206950) | 362 passed, 5 skipped in 73.96s, PostgreSQL 17 / Python 3.12 |
 | `range/pythonbank` pytest | 18 passed |
 | `range/pythonbank` replay | 17/17 PoCs over real HTTP |
 | `range/vulnbank` tests | 76 passed |
@@ -89,11 +89,11 @@ A lot of the system does not need those two prerequisites. The repository's meas
 | Landing page Lighthouse (local 0.1.1 production build) | 100/100/100/100 desktop and mobile; mobile LCP 1.5 s, TBT 0 ms, CLS 0 |
 | SEO gate (`npm run check:seo`) | PASS — 25 HTML routes, 24 sitemap URLs, 0 errors |
 | axe-core on 23 docs/trust routes (390 and 1280 px) | 0 violations; zero client JavaScript |
-| Live Pages deploy (last was 0.1.0, [run 39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525)) | build + deploy succeeded; live SEO monitor PASS on 23 pages; IndexNow accepted 23 URLs with HTTP 202 |
-| Live Lighthouse (0.1.0 deployed landing) | 100/100/100/100 desktop; 98 performance, 100 accessibility/best-practices/SEO mobile |
-| Live 404 check | missing path returned HTTP 404 with the custom page |
+| Live Pages deploy (0.1.1, [run 39612206947](https://github.com/DevAnimecx/redfall/actions/runs/39612206947)) | build + deploy succeeded; SEO gate PASS (25 HTML routes, 24 sitemap URLs); live monitor PASS on 24 pages; IndexNow accepted 24 URLs with HTTP 200 |
+| Live Lighthouse (0.1.1 deployed landing, two runs) | desktop 97–98 performance; mobile 93–99; 100 accessibility/best-practices/SEO; one mobile run below the 95 performance gate |
+| Live 404 check | missing path returned HTTP 404 |
 
-The 337 passed / 30 skipped result is the complete local run on 2026-10-21 without PostgreSQL or a container runtime. The 25 database-backed skips run in CI, where `REDFALL_TEST_DATABASE_URL` is set explicitly; the 5 gVisor skips remain skips because the runner has no `runsc`. The [evidence page](/evidence/) records both environments.
+The 337 passed / 30 skipped result is the complete local run on 2026-10-21 without PostgreSQL or a container runtime. The 25 database-backed skips run in CI, where `REDFALL_TEST_DATABASE_URL` is set explicitly; the 5 gVisor skips remain skips because the runner has no `runsc`. The [evidence page](/evidence/) records both environments. The live mobile Lighthouse score varied between 93 and 99 across two runs; the lower run is recorded as a miss against the 95 performance gate, not averaged away.
 
 ## What does a skipped test mean?
 
