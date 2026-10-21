@@ -35,7 +35,7 @@ jobs:
           python -c "import importlib.metadata, importlib.resources as r; print('installed redfall', importlib.metadata.version('redfall')); assert (r.files('redfall.validation') / 'harness.mjs').is_file()"
 
       - name: attest build provenance (Sigstore)
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist/redfall-*.whl
