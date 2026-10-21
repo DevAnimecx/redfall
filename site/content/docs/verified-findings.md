@@ -7,7 +7,7 @@ group: Start here
 kind: pillar
 pillar: verified-findings
 order: 1
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: execution-verified vulnerability scanner, verify vulnerability findings, vulnerability scanner false positives
 sources: https://github.com/DevAnimecx/redfall, https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md, https://gvisor.dev/docs/
 related: no-mock-contract, sandbox, taint-analysis

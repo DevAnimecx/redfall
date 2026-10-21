@@ -5,11 +5,11 @@
 Key facts:
 - Site: https://devanimecx.github.io/redfall/
 - Source: https://github.com/DevAnimecx/redfall
-- Release: https://github.com/DevAnimecx/redfall/releases/tag/v0.1.0
+- Release: https://github.com/DevAnimecx/redfall/releases/tag/v0.1.1
 - Maintainer: DevAnimecx (https://github.com/DevAnimecx)
-- Version: 0.1.0; Python 3.12+; Windows, Linux and macOS
+- Version: 0.1.1; Python 3.12+; Windows, Linux and macOS
 - Full scans require Docker with a gVisor runtime and one LLM provider key through LiteLLM.
-- Last updated: 2026-10-19
+- Last updated: 2026-10-21
 
 ## Start here
 
@@ -30,7 +30,7 @@ Key facts:
 
 ## Trust and evidence
 
-- [RedFall evidence](https://devanimecx.github.io/redfall/evidence/): The dated evidence ledger: contract checks, 254 tests, 17/17 pythonbank PoCs, 7/7 adaptive PoCs, 6/6 chains, 32/32 patches, Lighthouse/axe results and unmeasured limits.
+- [RedFall evidence](https://devanimecx.github.io/redfall/evidence/): The dated evidence ledger: the 367-test suite, contract checks, range replays, 0.1.1 packaging and site gates, plus unmeasured limits.
 - [Ground-truth range targets](https://devanimecx.github.io/redfall/docs/ranges/): The four RedFall ranges: vulnbank, vulnbank-adaptive, chainbank and pythonbank. Seeded vulnerabilities, test counts, replay results and the gate thresholds.
 - [SARIF output and verified findings](https://devanimecx.github.io/redfall/docs/output/): RedFall exports SARIF 2.1.0 for code scanning. Every result carries properties.redfall.verified, so consumers can filter executed proofs from unproven candidates.
 - [Verify a RedFall release](https://devanimecx.github.io/redfall/docs/release-verification/): Check the SHA256SUMS file, verify the Sigstore build attestation with gh, and prove an installed wheel behaves. What the checks show and what they do not.
@@ -40,7 +40,8 @@ Key facts:
 ## Reference
 
 - [Execution-verified scanning vs static analysis](https://devanimecx.github.io/redfall/compare/static-analysis/): A fair comparison of static analysis, DAST and execution-verified scanning: what each proves, where each fits, and when RedFall's narrower execution gate is worth it.
-- [RedFall CLI reference](https://devanimecx.github.io/redfall/docs/cli/): Every RedFall 0.1.0 command and option: scan, fix, findings, report, doctor and environment, with the exact flags and what each command refuses to do.
+- [RedFall CLI reference](https://devanimecx.github.io/redfall/docs/cli/): The RedFall 0.1.1 CLI: scan, fix, findings, report, doctor, environment, campaign, graph, reproduce, policy-check, mcp, interop and adapters.
+- [Agent interoperability](https://devanimecx.github.io/redfall/docs/interop/): How RedFall exposes the same 44-tool registry over MCP, HTTP/OpenAPI and A2A v1.0, with bearer scopes, trust labels, audit and signed artifacts.
 - [Vulnerability scanning glossary](https://devanimecx.github.io/redfall/docs/glossary/): Definitions of execution verification, taint, source, sink, predicate, gVisor, SARIF, verified finding, no-mock contract, adaptive branch and compound score.
 
 ## Project
@@ -51,14 +52,14 @@ Key facts:
 ## Source and verification
 
 - [README](https://github.com/DevAnimecx/redfall): full description, status table and the source for every claim.
-- [CHANGELOG](https://github.com/DevAnimecx/redfall/blob/main/CHANGELOG.md): what shipped in 0.1.0, with measured numbers.
+- [CHANGELOG](https://github.com/DevAnimecx/redfall/blob/main/CHANGELOG.md): what shipped in 0.1.1, with measured numbers.
 - [BLOCKED.md](https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md): what cannot run on the release host, with the smallest real unblock for each item.
 - [SECURITY.md](https://github.com/DevAnimecx/redfall/blob/main/SECURITY.md): vulnerability reporting, supply-chain verification and the range-target warning.
 - [CONTRIBUTING.md](https://github.com/DevAnimecx/redfall/blob/main/CONTRIBUTING.md): the no-mock rule, stage ownership and the PR contract.
 
 Verification commands:
 
-- `gh attestation verify redfall-0.1.0-py3-none-any.whl --repo DevAnimecx/redfall` proves the release wheel was built by this repository's release workflow from the tagged commit.
+- `gh attestation verify redfall-0.1.1-py3-none-any.whl --repo DevAnimecx/redfall` proves the release wheel was built by this repository's release workflow from the tagged commit.
 - `redfall doctor` prints exactly what the current host can and cannot run.
 - `python scripts/check_no_mock.py` is the mechanical part of the no-mock contract.
 

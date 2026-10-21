@@ -81,8 +81,17 @@ else
     esac
 fi
 
+INSTALLED_VERSION=""
+if [ -n "$DOCTOR" ]; then
+    INSTALLED_VERSION=$("$DOCTOR" --version 2>/dev/null | sed -n 's/.*version //p' | head -n 1)
+fi
+
 echo
-echo "Redfall 0.1.0 installed."
+if [ -n "$INSTALLED_VERSION" ]; then
+    echo "Redfall $INSTALLED_VERSION installed."
+else
+    echo "Redfall installed."
+fi
 if [ "${REDFALL_NO_DOCTOR:-0}" != "1" ]; then
     if [ -n "$DOCTOR" ]; then
         echo "running: $DOCTOR doctor"

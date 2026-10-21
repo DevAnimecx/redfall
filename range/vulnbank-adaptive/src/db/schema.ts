@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS audit_log (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Redfall 0.1.0: routes that exist only because a row says so. The application never
+-- Redfall 0.1.1: routes that exist only because a row says so. The application never
 -- names these paths in source, so static analysis alone cannot see them.
 CREATE TABLE IF NOT EXISTS route_config (
   name        TEXT PRIMARY KEY,
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS route_config (
   enabled     BOOLEAN NOT NULL DEFAULT true
 );
 
--- Redfall 0.1.0: SQL text that lives in the database and is executed later. A
+-- Redfall 0.1.1: SQL text that lives in the database and is executed later. A
 -- second-order sink: whoever can write this table controls what runs.
 CREATE TABLE IF NOT EXISTS query_config (
   key        TEXT PRIMARY KEY,
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS query_config (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Redfall 0.1.0: webhook subscriptions registered at runtime.
+-- Redfall 0.1.1: webhook subscriptions registered at runtime.
 CREATE TABLE IF NOT EXISTS webhook_subscriptions (
   id         SERIAL PRIMARY KEY,
   url        TEXT NOT NULL,

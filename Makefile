@@ -10,7 +10,7 @@ PY ?= python3
         doctor dashboard web-install web-build up
 
 help:
-	@echo "Redfall 0.1.0"
+	@echo "Redfall 0.1.1"
 	@echo
 	@echo "  make install          install redfall + range-runner (editable, with dev deps)"
 	@echo "  make check            every contract checker plus the test suite"
@@ -18,7 +18,7 @@ help:
 	@echo "  make check-version    scripts/check_version.py (rule 21)"
 	@echo "  make check-orphans    scripts/check_orphans.py (rule 24)"
 	@echo "  make check-clean-tree scripts/check_clean_tree.py (rule 22)"
-	@echo "  make test             pytest suite (362 tests)"
+	@echo "  make test             pytest suite (367 tests)"
 	@echo "  make doctor           prerequisite report"
 	@echo
 	@echo "  make range-up         start $(TARGET)"

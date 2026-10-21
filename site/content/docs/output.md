@@ -7,7 +7,7 @@ group: Trust and evidence
 kind: cluster
 pillar: evidence
 order: 3
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: SARIF verified findings, GitHub code scanning SARIF, vulnerability scanner SARIF output
 sources: https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html, https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/sarif-support-for-code-scanning, https://github.com/DevAnimecx/redfall/blob/main/src/redfall/sarif.py
 related: verified-findings, verified-fixes, evidence

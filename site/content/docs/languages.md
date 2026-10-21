@@ -7,13 +7,13 @@ group: How it works
 kind: cluster
 pillar: architecture
 order: 7
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: TypeScript vulnerability scanner, Python security scanner, Express security, Flask security scanner
 sources: https://tree-sitter.github.io/tree-sitter/, https://github.com/DevAnimecx/redfall/blob/main/src/redfall/agent/categories.py
 related: taint-analysis, ranges, architecture
 ---
 
-**RedFall 0.1.0 reads TypeScript, JavaScript and Python.** It parses the source with tree-sitter, extracts routes, handlers, calls and dependencies, and runs taint analysis for both language families. It does not claim Java, Go, Rust, C# or PHP coverage.
+**RedFall 0.1.1 reads TypeScript, JavaScript and Python.** It parses the source with tree-sitter, extracts routes, handlers, calls and dependencies, and runs taint analysis for both language families. It does not claim Java, Go, Rust, C# or PHP coverage.
 
 The language boundary is deliberate. A parser that half-understands a language produces routes and taint paths that look plausible and fail at execution. RedFall would rather name the supported set than advertise a language it cannot parse.
 
@@ -68,7 +68,7 @@ Ingestion records installed dependency versions and package metadata, and the an
 
 ## What is not supported?
 
-RedFall 0.1.0 does not parse:
+RedFall 0.1.1 does not parse:
 
 - Java, Kotlin or Scala
 - Go

@@ -51,9 +51,16 @@ def session_scope() -> Iterator[Session]:
 
 
 def ping(database_url: str) -> tuple[bool, str]:
-    """Check connectivity without touching the global engine."""
+    """Check connectivity without touching the global engine.
+
+    A diagnostic probe must not inherit libpq's indefinite wait. Without a
+    connect timeout a host whose database address silently drops packets hangs
+    `redfall doctor` for the operating system's TCP timeout (minutes), which
+    makes a missing prerequisite look like a frozen command.
+    """
+    connect_args = {"connect_timeout": 3} if database_url.startswith("postgresql") else {}
     try:
-        engine = create_engine(database_url, future=True)
+        engine = create_engine(database_url, future=True, connect_args=connect_args)
         with engine.connect() as conn:
             version = conn.execute(text("SELECT version()")).scalar_one()
         engine.dispose()

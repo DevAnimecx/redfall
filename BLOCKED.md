@@ -150,16 +150,17 @@ against the real target:
 
 | Command | Result |
 | --- | --- |
-| `python scripts/check_no_mock.py` | `NO-MOCK CONTRACT: PASS` (51 files) |
-| `python scripts/check_version.py` | `VERSION CONTRACT: PASS` |
-| `python scripts/check_orphans.py` | `ORPHAN CHECK: PASS` (49 modules) |
+| `python scripts/check_no_mock.py` | `NO-MOCK CONTRACT: PASS` (80 files) |
+| `python scripts/check_version.py` | `VERSION CONTRACT: PASS` (11 declarations, 5 lockfile roots) |
+| `python scripts/check_orphans.py` | `ORPHAN CHECK: PASS` (78 modules) |
 | `python scripts/check_clean_tree.py` | `CLEAN TREE: PASS` |
-| `python -m pytest tests/ -q` | `254 passed, 5 skipped` with a real Postgres |
+| `python -m pytest tests/ -q` on this host | `337 passed, 30 skipped` in 196.67s (25 PostgreSQL, 5 gVisor) |
+| `python -m pytest tests/ -q` in CI (latest pre-release run 39313598416) | `357 passed, 5 skipped` in 63.08s, PostgreSQL 17 / Python 3.12 |
 | `python -m pip wheel . --no-deps -w dist` + `scripts/verify_wheel.py` in a fresh venv, run from outside the checkout | `WHEEL VERIFY: PASS` — the installed wheel ships the harness and finds the interprocedural taint |
-| `python scripts/build_release.py` | builds `redfall-0.1.0-py3-none-any.whl` + `redfall-0.1.0.tar.gz`, writes `SHA256SUMS`, and proves the harness, every prompt and the Dockerfile are inside both archives |
-| `powershell -File scripts/install.ps1 -NoPath` with a throwaway `REDFALL_HOME` | `Redfall 0.1.0 installed.` and the host's real doctor report — executed end to end on Windows; `bash -n scripts/install.sh` parses clean with a real POSIX shell here, and CI executes both installers on Ubuntu, Windows and macOS |
-| GitHub CI on `main` (`check` + 6-job package matrix) | green — the first run failed exactly two tests for environment reasons (no `node_modules`, no build backend) and both were fixed by making CI real, not by weakening the tests |
-| `gh attestation verify redfall-0.1.0-py3-none-any.whl --repo DevAnimecx/redfall` on the downloaded release | verified — signed by `release.yml@refs/tags/v0.1.0`; `SHA256SUMS` checked OK for both artifacts |
+| `python scripts/build_release.py` | builds `redfall-0.1.1-py3-none-any.whl` + `redfall-0.1.1.tar.gz`, writes `SHA256SUMS`, and proves the harness, every prompt and the Dockerfile are inside both archives |
+| `powershell -File scripts/install.ps1 -NoPath` with a throwaway `REDFALL_HOME` | `Redfall 0.1.1 installed.` and the host's real doctor report — executed end to end on Windows; `bash -n scripts/install.sh` parses clean with a real POSIX shell here, and CI executes both installers on Ubuntu, Windows and macOS |
+| GitHub CI on `main` (`check` + 6-job package matrix) | green on the latest pre-release run 39313598416; the 0.1.1 release-commit run is recorded after publication |
+| `gh attestation verify redfall-0.1.1-py3-none-any.whl --repo DevAnimecx/redfall` on the downloaded release | pending publication; the 0.1.0 artifact was verified against `release.yml@refs/tags/v0.1.0` |
 | `node tests/harness/verify_harness.mjs --poc <poc>` | `ALL HARNESS CHECKS PASSED` |
 | `node tests/harness/verify_python_target.mjs` | `ALL PYTHON TARGET CHECKS PASSED` |
 | `node tests/harness/verify_chain_steps.mjs` | `ALL CHAIN HARNESS CHECKS PASSED` |
@@ -172,21 +173,21 @@ against the real target:
 | `npm test` (chainbank) | `8 passed` |
 | `npx ts-node scripts/replay_chain_poc.ts` (chainbank) | `6/6 chain(s) reproduced end to end` |
 | `redfall scan range/vulnbank` | refuses with both blockers named |
-| `cd site && npm ci && npm run build` | prerenders the landing page into `dist/index.html` (full rendered markup plus JSON-LD), generates 22 static docs/trust pages, a 23-URL sitemap, `robots.txt`, `llms.txt`, a real 404 and 23 per-page OG cards; the `pages` workflow re-asserts the content and runs `npm run check:seo` before upload |
-| Pages deploy ([run 39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525), 2026-10-19) | **build + deploy both succeeded**. The build ran `check:seo` (`PASS`, 24 HTML routes / 23 sitemap URLs / 0 errors). The deploy job verified the live key, POSTed 23 URLs to IndexNow and received **HTTP 202 Accepted**, then the live SEO monitor passed all 23 pages. A missing live path returned **HTTP 404**, not a soft 200 |
+| `cd site && npm ci && npm run build` | prerenders the landing page into `dist/index.html` (full rendered markup plus JSON-LD), generates 23 static docs/trust pages, a 24-URL sitemap, `robots.txt`, `llms.txt`, a real 404 and 24 OG cards; the `pages` workflow re-asserts the content and runs `npm run check:seo` before upload |
+| Pages deploy (last was 0.1.0, [run 39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525), 2026-10-19) | **build + deploy both succeeded** for 0.1.0. The build ran `check:seo` (`PASS`, 24 HTML routes / 23 sitemap URLs / 0 errors). The deploy job verified the live key, POSTed 23 URLs to IndexNow and received **HTTP 202 Accepted**, then the live SEO monitor passed all 23 pages. A missing live path returned **HTTP 404**, not a soft 200. The 0.1.1 deployment is recorded after publication |
 | Live site `https://devanimecx.github.io/redfall/` after that deploy | landing and docs `200`; canonical/hreflang/title/OG present; `sitemap.xml`, `robots.txt`, `llms.txt`, IndexNow key and OG card all `200` |
 | Lighthouse, live deployed landing, desktop preset | **100 / 100 / 100 / 100**; LCP 0.6 s, TBT 0 ms, CLS 0 |
-| Lighthouse, live deployed landing, mobile preset | **98 performance**, with **100 / 100 / 100** accessibility, best-practices and SEO; LCP 1.7 s, TBT 60 ms, CLS 0. Above the 95 gate |
+| Lighthouse, live deployed landing, mobile preset (0.1.0) | **98 performance**, with **100 / 100 / 100** accessibility, best-practices and SEO; LCP 1.7 s, TBT 60 ms, CLS 0. Above the 95 gate |
 | Lighthouse, live deployed docs page | **100 / 100 / 100 / 100** desktop; **99 performance**, 100 accessibility/best-practices/SEO mobile; zero client JavaScript |
-| Lighthouse, local production build, redesigned landing mobile preset | **98–100 performance**, with **100 / 100 / 100** accessibility, best-practices and SEO on every run; LCP 1.5–1.7 s, TBT 0–10 ms, CLS 0 under simulated Slow-4G. Every category stays above the 95 gate |
+| Lighthouse, local 0.1.1 production build, landing mobile preset | **100 / 100 / 100 / 100**; LCP 1.5 s, TBT 0 ms, CLS 0 under simulated Slow-4G. Every category stays above the 95 gate |
 | Lighthouse, local production build, redesigned landing desktop preset | **100 / 100 / 100 / 100**; LCP 0.4 s, CLS 0 |
 | Lighthouse, local production build, docs page mobile | **99–100 performance**, with **100 / 100 / 100** accessibility, best-practices and SEO; the docs ship zero client JavaScript, so `robots-txt` only passes once `connect-src 'self'` is allowed (it was `'none'`, which blocked Lighthouse's own `robots.txt` probe) |
 | `node site/scripts/a11y_check.mjs` (axe-core in real Chrome) at 390, 768 and 1280 px | `PASS` — **0 violations** at every width on the landing page. This caught a real bug: the horizontally scrollable install code blocks were not keyboard-reachable; they are now labelled, focusable regions |
-| `node site/scripts/docs_check.mjs` (axe-core + layout + zero-JS on every docs route) | `PASS` — 22 routes × 390/1280 px, **0 axe violations**, **0 px horizontal overflow**, exactly one H1, no client scripts, and the H1 is readable with JavaScript disabled. This found and fixed two real bugs: duplicate `role="region"` landmark names in Markdown tables/code, and a long inline `pipx install git+https://…` token that widened the mobile document by 9 px until `overflow-wrap: anywhere` was applied |
-| `node site/scripts/seo_check.mjs` | `SEO GATE: PASS` — 24 HTML routes, 23 sitemap URLs, 0 errors; canonical/H1/schema/internal-link/OG/robots/llms/IndexNow checks included |
-| `node site/scripts/indexnow.mjs --dry-run` | prints the 23 sitemap URLs and the public key location, sends nothing. Production submission ran in the Pages deploy workflow: **HTTP 202 Accepted, 23 URLs** |
+| `node site/scripts/docs_check.mjs` (axe-core + layout + zero-JS on every docs route) | `PASS` — 23 routes × 390/1280 px, **0 axe violations**, **0 px horizontal overflow**, exactly one H1, no client scripts, and the H1 is readable with JavaScript disabled. This found and fixed two real bugs: duplicate `role="region"` landmark names in Markdown tables/code, and a long inline `pipx install git+https://…` token that widened the mobile document by 9 px until `overflow-wrap: anywhere` was applied |
+| `node site/scripts/seo_check.mjs` | `SEO GATE: PASS` — 25 HTML routes, 24 sitemap URLs, 0 errors; canonical/H1/schema/internal-link/OG/robots/llms/IndexNow checks included |
+| `node site/scripts/indexnow.mjs --dry-run` | prints the 24 sitemap URLs and the public key location, sends nothing. The 0.1.1 production submission runs in the Pages deploy workflow after publication; the last recorded submission was 23 URLs (0.1.0) with **HTTP 202 Accepted** |
 | `python -m pytest tests/test_brand_assets.py -q` | `4 passed` — the SVG shield geometry is pinned to the raster generator's point list; the committed social card is 1200×630 and every icon matches the size its link advertises |
-| `python scripts/check_no_mock.py` / `check_version.py` / `check_orphans.py` / `check_clean_tree.py` | `PASS` (51 files scanned, 9 version declarations, 49/49 modules reachable, no stray files) |
+| `python scripts/check_no_mock.py` / `check_version.py` / `check_orphans.py` / `check_clean_tree.py` | `PASS` (80 files scanned, 11 version declarations, 78/78 modules reachable, no stray files) |
 
 The ingestion engine, run against the real `vulnbank` tree:
 
@@ -389,7 +390,7 @@ path works would mean comparing two things that both fail.
 | Bing Webmaster Tools | Same account-bound verification | The owner verifies the property and confirms the IndexNow submissions in the dashboard |
 | GitHub social preview upload | GitHub exposes this through the web UI, not the API used here | Upload `site/public/og.png` (1200×630) in repository settings |
 | Backlinks, organic rankings, AI citations | Depend on external sites, search engines and assistants; they cannot be manufactured or guaranteed | Earn them by publishing and submitting real work; record only observed referrals/citations with a date and source |
-| Full `python -m pytest tests/ -q` on this host | The database-backed tests default to PostgreSQL on `127.0.0.1:5432`; this host has no PostgreSQL service or binaries, so the run hangs before producing a result. The last recorded full run (254 passed / 5 skipped, 2026-10-18) used a real PostgreSQL | Provision PostgreSQL and set `REDFALL_TEST_DATABASE_URL`, then re-run the full suite |
+| Full `python -m pytest tests/ -q` on this host | The database-backed tests require an explicit `REDFALL_TEST_DATABASE_URL`; this host has no PostgreSQL service or binaries, so 25 database tests skip. The five gVisor tests also skip. The complete local run was 337 passed / 30 skipped on 2026-10-21 | Provision PostgreSQL and set `REDFALL_TEST_DATABASE_URL`, then re-run the full suite |
 | License choice | Choosing a licence is a legal decision for the project owner, not an SEO or engineering default | The owner adds the chosen `LICENSE` file; until then the repository is source-available, and no licence is claimed |
 | Dependabot pull requests | Need human review before merge; merging unreviewed dependency bumps would weaken the supply-chain claim | Review and merge or close them, one at a time, with CI evidence |
 

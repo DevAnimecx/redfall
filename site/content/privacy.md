@@ -6,7 +6,7 @@ path: privacy/
 group: Project
 kind: page
 order: 2
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: RedFall privacy policy, no analytics, no cookies
 sources: https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement, https://docs.github.com/en/pages
 related: about, security

@@ -4,7 +4,7 @@
 This file is the only place the v2 ground truth is written. Never hand-edit
 manifest.yaml — edit this script and re-run it.
 
-The seven Redfall 0.1.0 entries carry an `adaptive:` block naming the trigger type
+The seven Redfall 0.1.1 entries carry an `adaptive:` block naming the trigger type
 they exist to exercise, how a scanner can discover the surface at runtime, and
 why that discovery has to happen mid-scan rather than at planning time.
 """

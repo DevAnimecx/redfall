@@ -7,15 +7,15 @@ group: How it works
 kind: pillar
 pillar: architecture
 order: 1
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: vulnerability scanner architecture, taint analysis pipeline, gVisor vulnerability scanner
 sources: https://github.com/DevAnimecx/redfall, https://tree-sitter.github.io/tree-sitter/, https://gvisor.dev/docs/
-related: taint-analysis, sandbox, adaptive-scanning
+related: taint-analysis, sandbox, interop
 ---
 
 **RedFall is an orchestrated pipeline: ingest the real source, find tainted routes, split the work into branches, generate candidate findings, execute each candidate in a gVisor sandbox, chain only what reproduced, and verify a repair against the target's own tests.** Each stage writes evidence the next stage reads; no stage is allowed to skip the execution gate.
 
-This page describes the architecture as it exists in the 0.1.0 source. Component names match the repository layout so a reviewer can follow a claim into the code. Capabilities that are written but cannot run on the development host are separated from capabilities that were measured.
+This page describes the architecture as it exists in the 0.1.1 source. Component names match the repository layout so a reviewer can follow a claim into the code. Capabilities that are written but cannot run on the development host are separated from capabilities that were measured.
 
 ## What is the scan pipeline?
 
@@ -77,6 +77,29 @@ The data layer is SQLAlchemy over PostgreSQL, with Redis for runtime state. The 
 
 The chain graph is rebuilt from persisted rows, never from the stage's in-memory state. That makes the graph auditable after the process exits and prevents a model narrative from becoming the source of truth. The SARIF exporter reads the same store, so the log a reviewer downloads is derived from the same rows the scanner used. See [SARIF output](/docs/output/).
 
+## Where do campaigns, graph snapshots and agents fit?
+
+The stages above are the scan pipeline. Around it, the 0.1.1 source adds three
+persistence and control layers:
+
+- **Campaign kernel** — `campaigns`, dependency-aware `campaign_tasks`,
+  `campaign_events`, worker leases, budget reservations and an explicit state
+  machine. A campaign can pause, resume or block without losing its place, and a
+  task cannot spend budget without a reservation. See the
+  [CLI reference](/docs/cli/).
+- **Evidence ledger** — append-only records with a per-campaign SHA-256 hash
+  chain. Only E3/E4 records with an execution id, observable, reproduction
+  command and environment digest are reportable. `campaign evidence verify`
+  recomputes the chain and names the first broken link.
+- **Graph v1 and protocols** — `graph_snapshots`, `graph_nodes` and
+  `graph_edges` persist provenance-aware source facts; the same 44-tool registry
+  is exposed over MCP stdio, HTTP/OpenAPI and A2A v1.0. The gateway adds bearer
+  scopes, quotas, audit and signed artifacts without duplicating tool handlers.
+  See [agent interoperability](/docs/interop/).
+
+These layers do not turn a blocked capability into a working one. A campaign
+task that needs gVisor or an LLM still fails closed on a host without them.
+
 ## What fails closed?
 
 The architecture is built so that missing prerequisites produce a visible failure rather than a fallback. `config.py` asserts prerequisites instead of assuming them. `redfall doctor` reports which prerequisites the host satisfies; `redfall environment` prints the capability report as JSON.
@@ -90,11 +113,11 @@ The failure points that matter most:
 | Target boot contract | The sandbox cannot boot the app; the candidate does not reproduce |
 | Postgres | The store cannot persist the scan; the pipeline stops |
 
-The development host used for 0.1.0 has no container runtime and no provider key, so a full `redfall scan` cannot run here. That is recorded in [BLOCKED.md](https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md) and summarised on the [blocked page](/docs/blocked/). The code paths that can run — ingestion, taint analysis, route extraction, range replays and the unit/contract suite — were measured.
+The development host used for 0.1.1 has no container runtime and no provider key, so a full `redfall scan` cannot run here. That is recorded in [BLOCKED.md](https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md) and summarised on the [blocked page](/docs/blocked/). The code paths that can run — ingestion, taint analysis, route extraction, range replays and the unit/contract suite — were measured.
 
 ## What is built, and what is not?
 
-The 0.1.0 repository is explicit about the boundary. Built and verified components include ingestion for TypeScript/JavaScript and Python, intra- and interprocedural taint with return flow, the seven adaptive detectors, the branch tree, the chain planner/executor/graph, the fix loop, SARIF export, the gVisor executor and its harness, the store, the CLI, the four range targets and the scorer.
+The 0.1.1 repository is explicit about the boundary. Built and verified components include ingestion for TypeScript/JavaScript and Python, intra- and interprocedural taint with return flow, the seven adaptive detectors, the branch tree, the chain planner/executor/graph, the fix loop, SARIF export, the gVisor executor and its harness, the store, the campaign kernel and evidence ledger, the graph and resumable runner, the 44-tool MCP/HTTP/A2A surfaces, the CLI, the four range targets and the scorer.
 
 The [README status table](https://github.com/DevAnimecx/redfall#status-right-now) is the authoritative summary. The [blocked page](/docs/blocked/) records the infrastructure that is written but unexercised on this host, including the sandbox and live LLM calls. Nothing in this documentation converts an unexercised path into a measured capability.
 

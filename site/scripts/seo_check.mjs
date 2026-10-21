@@ -17,7 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parse } from "node-html-parser";
 
-import { BASE, INDEXNOW_KEY, SITE_URL, abs } from "../lib/site.mjs";
+import { BASE, INDEXNOW_KEY, SITE_URL, VERSION, abs } from "../lib/site.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SITE_ROOT = path.resolve(HERE, "..");
@@ -160,7 +160,7 @@ function checkStructuredData(graph, route, isLanding, is404) {
     }
     const software = graph.find((node) => node["@type"] === "SoftwareApplication");
     if (software) {
-      if (software.softwareVersion !== "0.1.0") fail(`${route}: SoftwareApplication version is not 0.1.0`);
+      if (software.softwareVersion !== VERSION) fail(`${route}: SoftwareApplication version is not ${VERSION}`);
       if (!software.codeRepository) fail(`${route}: SoftwareApplication has no codeRepository`);
       if (!software.author) fail(`${route}: SoftwareApplication has no author`);
       if (!software.dateModified) fail(`${route}: SoftwareApplication has no dateModified`);
@@ -427,6 +427,14 @@ function checkIndexNow() {
   return { key: INDEXNOW_KEY };
 }
 
+function countMarkdown(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).reduce((total, entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) return total + countMarkdown(full);
+    return total + (entry.name.endsWith(".md") ? 1 : 0);
+  }, 0);
+}
+
 function checkManifest() {
   const file = path.join(BUILD, "docs-manifest.json");
   if (!fs.existsSync(file)) {
@@ -434,7 +442,10 @@ function checkManifest() {
     return {};
   }
   const manifest = JSON.parse(fs.readFileSync(file, "utf8"));
-  if (manifest.length !== 22) fail(`docs manifest has ${manifest.length} pages, expected 22`);
+  const expected = countMarkdown(path.join(SITE_ROOT, "content"));
+  if (manifest.length !== expected) {
+    fail(`docs manifest has ${manifest.length} pages, expected ${expected} Markdown sources`);
+  }
   const ids = new Set(manifest.map((page) => page.id));
   if (ids.size !== manifest.length) fail("docs manifest contains duplicate IDs");
   return { pages: manifest.length };

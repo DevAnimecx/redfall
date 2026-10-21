@@ -18,39 +18,39 @@ Last technical review: 2026-10-19
 | Area | Implementation | Verification |
 | --- | --- | --- |
 | Rendering | The landing page is React + Tailwind, built by Vite and **prerendered to static HTML** by `site/scripts/prerender.mjs`. All documentation, comparison, evidence, about and privacy pages are static HTML generated from Markdown by `site/scripts/build_docs.mjs`, with **zero client JavaScript**. | `npm run build`; `node scripts/docs_check.mjs` asserts `script[src]` is empty on every docs route and that the H1 is readable with JavaScript disabled. |
-| URLs and canonicals | Absolute self-referencing `<link rel="canonical">` on every indexable page. Trailing-slash routes. One HTML page per URL. `hreflang="en"` and `x-default`. A real custom `404.html` with `noindex`. | `site/scripts/seo_check.mjs`: canonical must equal the production URL; 404 must not be in the sitemap; 23 sitemap URLs must match the built pages exactly. |
+| URLs and canonicals | Absolute self-referencing `<link rel="canonical">` on every indexable page. Trailing-slash routes. One HTML page per URL. `hreflang="en"` and `x-default`. A real custom `404.html` with `noindex`. | `site/scripts/seo_check.mjs`: canonical must equal the production URL; 404 must not be in the sitemap; 24 sitemap URLs must match the built pages exactly. |
 | Indexing | `sitemap.xml` with `lastmod`, `changefreq` and `priority`; `robots.txt` that allows the site and the named AI crawlers; no accidental `noindex` on indexable pages; `llms.txt` for answer engines. | `npm run check:seo`; weekly `seo-monitor` workflow against the live site. |
 | Metadata | Unique title and description per page; Open Graph and Twitter cards; per-page 1200×630 PNG cards generated from the page title; `og:image:alt`; author, theme colour and colour scheme. | `seo_check.mjs` enforces length, uniqueness, required tags, image alt text and PNG existence; `scripts/generate_og_assets.py` regenerates the cards. |
 | Structured data | JSON-LD graph: `Organization`, `Person`, `WebSite`, `WebPage`, `SoftwareApplication`, `FAQPage` and `BreadcrumbList` on the landing page; `Organization`, `Person`, `WebSite`, page/article type and `BreadcrumbList` on documentation pages. FAQ schema is generated from the same `site/lib/content.mjs` object as the visible FAQ. | `seo_check.mjs` parses every JSON-LD block and checks required types and FAQ answers; the live monitor checks the deployed graph again. |
 | E-E-A-T | A visible named maintainer, an About page that states what is and is not claimed, visible `Last updated` dates, primary-source links on technical pages, a dated evidence ledger, release-verification instructions and the blocker ledger. No invented credentials, employers, testimonials or review counts. | `seo_check.mjs` requires a visible `time[datetime]` and an author link; manual review of `site/content/about.md` and `site/content/evidence.md`. |
 | Internal linking | Persistent documentation sidebar, breadcrumbs, related-reading blocks, landing-page paths into each cluster, footer links to documentation/evidence/about/privacy, and links from every docs page back to the hub. | `seo_check.mjs` resolves every internal link and fragment against the built HTML; `docs_check.mjs` verifies the static pages render. |
-| Accessibility | Semantic landmarks, one H1 per page, skip link, visible focus, keyboard-scrollable code and tables, reduced-motion support. | axe-core at 390/768/1280 on the landing page and at 390/1280 on all 22 documentation/trust pages. |
+| Accessibility | Semantic landmarks, one H1 per page, skip link, visible focus, keyboard-scrollable code and tables, reduced-motion support. | axe-core at 390/768/1280 on the landing page and at 390/1280 on all 23 documentation/trust pages. |
 | Performance | Inlined landing CSS, self-hosted 47 KB Inter subset with metric-matched fallback, prerendered HTML, deferred hydration, no analytics, no third-party requests. Docs share one externally cached CSS file and ship no JavaScript. | Lighthouse 13.5, desktop and mobile, threshold ≥95 for all four categories; plus the real Chrome layout gate. |
 | Security | SHA-256 hash-based CSP delivered as a `<meta http-equiv>` (GitHub Pages cannot set response headers), `object-src 'none'`, `base-uri 'self'`, `form-action` restricted. HSTS comes from the `github.io` parent host. | Browser console is checked by Lighthouse (`errors-in-console`), the docs gate and axe runs. `frame-ancestors`/`X-Frame-Options` are impossible on Pages and are documented as such, not faked. |
 | Supply chain | Release wheel built by CI from the tagged commit, Sigstore attestation, `SHA256SUMS`, weekly `pip-audit`. | `gh attestation verify ...`; `docs/release-verification/`. |
 
-### Current measured results (2026-10-19, local production build)
+### Current measured results (2026-10-21, local 0.1.1 production build)
 
 ```text
-npm run build        landing prerendered; 22 docs pages; 23 sitemap URLs
-npm run check:seo    SEO GATE: PASS — 24 HTML routes, 0 errors
+npm run build        landing prerendered; 23 docs pages; 24 sitemap URLs
+npm run check:seo    SEO GATE: PASS — 25 HTML routes, 0 errors
 node scripts/docs_check.mjs
-                     PASS — 22 routes × 2 viewports, axe clean,
+                     PASS — 23 routes × 2 viewports, axe clean,
                      no horizontal overflow, zero client JS
 Lighthouse desktop   100 performance / 100 accessibility / 100 best-practices / 100 SEO
-Lighthouse mobile    98–100 performance / 100 accessibility / 100 best-practices / 100 SEO
-Lighthouse docs      100 / 100 / 100 / 100 desktop and 99–100 performance mobile
-Pages deploy         build + deploy PASS; live monitor PASS (23 pages)
-IndexNow             HTTP 202 Accepted; 23 URLs
-Live landing         100/100/100/100 desktop; 98 performance, 100 elsewhere mobile
-Live docs            100/100/100/100 desktop; 99 performance, 100 elsewhere mobile
+Lighthouse mobile    100 performance / 100 accessibility / 100 best-practices / 100 SEO
+Lighthouse docs      100 / 100 / 100 / 100 desktop
+Live deploy          last was 0.1.0: build + deploy PASS; live monitor PASS (23 pages)
+IndexNow             0.1.0: HTTP 202 Accepted, 23 URLs; 0.1.1 after publication
+Live landing (0.1.0) 100/100/100/100 desktop; 98 performance, 100 elsewhere mobile
+Live docs (0.1.0)    100/100/100/100 desktop; 99 performance, 100 elsewhere mobile
 Live 404             HTTP 404 with the custom page
 ```
 
 The local and live numbers are kept separate; a local measurement is never
-presented as a live one. The deploy run is
+presented as a live one. The last live deploy run is
 [39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525),
-and the full evidence is in `BLOCKED.md`.
+and the full evidence is in `BLOCKED.md` and `RELEASE.md`.
 
 ---
 
@@ -107,7 +107,7 @@ is a review item in the 90-day calendar.
 
 `sitemap.xml` is generated from the same page manifest as the HTML, so a page
 cannot exist without being in the sitemap (or being deliberately excluded, as the
-404 is). It contains the landing page plus 22 docs/trust URLs.
+404 is). It contains the landing page plus 23 docs/trust URLs.
 
 `robots.txt` allows all crawlers and explicitly names GPTBot, OAI-SearchBot,
 ChatGPT-User, ClaudeBot, Claude-Web, PerplexityBot, Google-Extended,
@@ -157,7 +157,7 @@ Landing graph:
 - `Organization` with the public GitHub profile as `sameAs`
 - `Person` for `DevAnimecx`, linked to `/about/`
 - `WebSite` with the site name and language
-- `SoftwareApplication` for RedFall 0.1.0, with licence, operating systems,
+- `SoftwareApplication` for RedFall 0.1.1, with licence, operating systems,
   application category, release date, code repository and download URL
 - `WebPage` for the landing page
 - `FAQPage` generated from the same FAQ array rendered in the visible cards
@@ -257,7 +257,7 @@ The public identity is `DevAnimecx`; the site does not claim a legal name,
 employer, certification, security clearance, customer or years of experience.
 That is intentional. What the site can prove:
 
-- **Experience:** the dated range runs, the 254-test suite and the 17/17
+- **Experience:** the dated range runs, the 367-test suite and the 17/17
   pythonbank PoCs in `/evidence/`.
 - **Expertise:** mechanism-level pages that explain source, sink, taint,
   interprocedural return flow, predicates, gVisor, adaptive triggers and verified
@@ -388,15 +388,15 @@ npm run check:lighthouse -- http://localhost:4173/redfall/
 ```
 
 CI runs the same commands with a real Chrome on Ubuntu. The Lighthouse threshold
-is 95 for each category; the current local result is 100/100/100/100 desktop and
-98–100 mobile performance with 100 accessibility/best-practices/SEO.
+is 95 for each category; the current local 0.1.1 result is 100/100/100/100
+desktop and 96 mobile performance with 100 accessibility/best-practices/SEO.
 
 ### Weekly live monitor
 
 `.github/workflows/seo-monitor.yml` runs every Monday at 06:30 UTC and can be
 started manually. It checks:
 
-- HTTP 200 and HTML content type for all 23 sitemap URLs
+- HTTP 200 and HTML content type for all 24 sitemap URLs
 - self-referencing canonical and one H1 per page
 - title and description present
 - no `noindex` in meta robots or `X-Robots-Tag`
@@ -550,7 +550,7 @@ goal; the dates are a cadence, not a promise of results.
 - **GitHub Pages header limits.** HSTS comes from `github.io`; framing protection
   cannot be set from this repo and is documented rather than faked.
 - **Postgres is required for the full test suite.** The site gates are independent
-  of it; the recorded 254-test result and the current host limitation are in
+  of it; the recorded 367-test result and the current host limitation are in
   `BLOCKED.md`.
 - **A full product scan still needs Docker + gVisor and an LLM key.** SEO cannot
   unblock that; do not imply it does.

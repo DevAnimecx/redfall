@@ -3,6 +3,8 @@
 // Every answer is short enough to be quoted by an answer engine and links to
 // the page that carries the full mechanism and its limits.
 
+import { VERSION } from "./release.mjs";
+
 export const FAQ = [
   {
     q: "What is RedFall?",
@@ -48,7 +50,7 @@ export const FAQ = [
   },
   {
     q: "Is RedFall free to use?",
-    a: "RedFall 0.1.0 does not declare a license, so public source readability is not a grant of reuse rights. If you need a license for evaluation or redistribution, open an issue. The project is maintained by DevAnimecx and has no corporate support contract.",
+    a: `RedFall ${VERSION} does not declare a license, so public source readability is not a grant of reuse rights. If you need a license for evaluation or redistribution, open an issue. The project is maintained by DevAnimecx and has no corporate support contract.`,
     href: "/redfall/about/",
     link: "About the project",
   },
@@ -64,14 +66,14 @@ export const EVIDENCE = [
   [
     "Test suite",
     "pytest against real artefacts, local + CI",
-    "254 passed, 5 skipped (gVisor-only)",
+    "367 collected; 337 local passed, 30 skipped; 357 CI passed, 5 skipped",
   ],
   ["range/vulnbank", "76 tests, candidate exploits executed over real HTTP", "30/32 PoCs, 32/32 patches verified"],
   ["range/vulnbank-adaptive", "vulnbank plus 7 adaptive surfaces", "7/7 PoCs"],
   ["range/pythonbank", "real HTTP against Flask / FastAPI targets", "17/17 PoCs"],
   ["range/chainbank", "two-step exploit chains end to end", "6/6 chains reproduce"],
   ["Self-scan", "RedFall's own tree, both language parsers", "654 edges, 0 errors"],
-  ["Release v0.1.0", "CI-built wheel and sdist, SHA256SUMS, Sigstore", "attestation verified"],
+  [`Release v${VERSION}`, "CI-built wheel and sdist, SHA256SUMS, Sigstore", "verify with SHA256SUMS and Sigstore"],
 ];
 
 export const FEATURES = [
@@ -129,4 +131,4 @@ export const STEPS = [
   },
 ];
 
-export const LAST_UPDATED = "October 19, 2026";
+export const LAST_UPDATED = "October 21, 2026";

@@ -2,7 +2,7 @@
 """Rule 21 — every version string in the repository is exactly the release version.
 
 Version drift is a release bug, not a cosmetic one: a customer who pulls a chart
-tagged 0.1.0 that runs a 0.0.9 image gets behaviour nobody tested. So the version
+tagged 0.1.1 that runs a 0.0.9 image gets behaviour nobody tested. So the version
 is declared once, in `src/redfall/version.py`, and every other declaration is
 checked against it.
 
@@ -40,18 +40,54 @@ SKIP_DIRS = {
     "coverage",
 }
 
+
+def read(path: Path) -> str:
+    try:
+        return path.read_text(errors="replace")
+    except OSError:
+        return ""
+
+
+def _declared_version() -> str:
+    match = re.search(r'__version__\s*=\s*"([^"]+)"', read(SOURCE_OF_TRUTH))
+    if not match:
+        raise SystemExit(f"{SOURCE_OF_TRUTH}: no __version__ assignment found")
+    return match.group(1)
+
+
+VERSION = _declared_version()
+V = re.escape(VERSION)
+
 # Files that must declare the release version, and the pattern that must appear.
 REQUIRED: dict[str, str] = {
-    "VERSION": r"^0\.1\.0$",
-    "pyproject.toml": r'^version\s*=\s*"0\.1\.0"',
-    "range/pyproject.toml": r'^version\s*=\s*"0\.1\.0"',
-    "package.json": r'"version"\s*:\s*"0\.1\.0"',
-    "web/package.json": r'"version"\s*:\s*"0\.1\.0"',
-    "range/vulnbank/package.json": r'"version"\s*:\s*"0\.1\.0"',
-    "range/vulnbank-adaptive/package.json": r'"version"\s*:\s*"0\.1\.0"',
-    "range/chainbank/package.json": r'"version"\s*:\s*"0\.1\.0"',
-    "src/redfall/version.py": r'^__version__\s*=\s*"0\.1\.0"',
+    "VERSION": rf"^{V}$",
+    "pyproject.toml": rf'^version\s*=\s*"{V}"',
+    "range/pyproject.toml": rf'^version\s*=\s*"{V}"',
+    "package.json": rf'"version"\s*:\s*"{V}"',
+    "site/package.json": rf'"version"\s*:\s*"{V}"',
+    "web/package.json": rf'"version"\s*:\s*"{V}"',
+    "range/vulnbank/package.json": rf'"version"\s*:\s*"{V}"',
+    "range/vulnbank-adaptive/package.json": rf'"version"\s*:\s*"{V}"',
+    "range/chainbank/package.json": rf'"version"\s*:\s*"{V}"',
+    "src/redfall/version.py": rf'^__version__\s*=\s*"{V}"',
+    "site/lib/release.mjs": rf'^export const VERSION = "{V}";$',
 }
+
+REQUIRED_EXISTENCE = {
+    "VERSION",
+    "pyproject.toml",
+    "src/redfall/version.py",
+    "site/package.json",
+    "site/lib/release.mjs",
+}
+
+LOCKFILES = [
+    "site/package-lock.json",
+    "web/package-lock.json",
+    "range/vulnbank/package-lock.json",
+    "range/vulnbank-adaptive/package-lock.json",
+    "range/chainbank/package-lock.json",
+]
 
 # Anchored so that `127.0.0.1`, dependency pins and port numbers cannot match.
 #
@@ -61,30 +97,17 @@ _SNAPSHOT = "-" + "SNAPSHOT"
 _PRE = "|".join(("rc", "alpha", "beta", "dev"))
 
 FORBIDDEN = [
-    (r'^version\s*=\s*"(?!0\.1\.0")[^"]+"', "pyproject version != 0.1.0"),
-    (r'"version"\s*:\s*"(?!0\.1\.0")[^"]+"', "package.json version != 0.1.0"),
-    (r'^__version__\s*=\s*"(?!0\.1\.0")[^"]+"', "__version__ != 0.1.0"),
-    (r'^\s*version\s*:\s*(?!0\.1\.0\b)0\.\d+\.\d+', "chart/spec version != 0.1.0"),
+    (rf'^version\s*=\s*"(?!{V}")[^"]+"', f"pyproject version != {VERSION}"),
+    (rf'"version"\s*:\s*"(?!{V}")[^"]+"', f"package.json version != {VERSION}"),
+    (rf'^__version__\s*=\s*"(?!{V}")[^"]+"', f"__version__ != {VERSION}"),
+    (rf'^\s*version\s*:\s*(?!{V}\b)0\.\d+\.\d+', f"chart/spec version != {VERSION}"),
     (re.escape(_SNAPSHOT) + r"\b", "Maven snapshot suffix"),
-    (r'\b0\.1\.0-(?:' + _PRE + r')\d*', "pre-release suffix on the release version"),
+    (rf'\b{V}-(?:{_PRE})\d*', "pre-release suffix on the release version"),
 ]
 
 # A hardcoded version outside version.py is drift waiting to happen.
-HARDCODED = re.compile(r'(?<![\w.])0\.1\.0(?![\w.\-])')
-ALLOWED_HARDCODED = {
-    "src/redfall/version.py",
-    "scripts/check_version.py",
-    "CHANGELOG.md",
-    "README.md",
-    "BLOCKED.md",
-    "docs/openapi.yaml",
-    "docs/quickstart.md",
-    "docs/self-hosting.md",
-    "docs/airgap.md",
-    "docs/byok.md",
-    "docs/compliance.md",
-    "docs/api.md",
-}
+HARDCODED = re.compile(rf'(?<![\w.]){V}(?![\w.\-])')
+ALLOWED_HARDCODED = {"src/redfall/version.py"}
 
 SCAN_SUFFIXES = {".py", ".toml", ".json", ".yaml", ".yml", ".md", ".rs", ".ts", ".tsx", ".sh"}
 
@@ -94,21 +117,12 @@ def rel(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
 
 
-def read(path: Path) -> str:
-    try:
-        return path.read_text(errors="replace")
-    except OSError:
-        return ""
-
-
 def check_required() -> list[str]:
     problems: list[str] = []
     for relative, pattern in REQUIRED.items():
         path = ROOT / relative
         if not path.exists():
-            # Chart.yaml, openapi.yaml and the root package.json arrive with the
-            # packaging work; they are required only once they exist.
-            if relative in ("VERSION", "pyproject.toml", "src/redfall/version.py"):
+            if relative in REQUIRED_EXISTENCE:
                 problems.append(f"{relative}: missing, but it is required to exist")
             continue
         if not re.search(pattern, read(path), re.MULTILINE):
@@ -150,6 +164,29 @@ def check_hardcoded() -> list[str]:
     return problems
 
 
+def check_lockfiles() -> list[str]:
+    """npm lockfile roots must agree with the package manifest and version.py."""
+    problems: list[str] = []
+    for relative in LOCKFILES:
+        path = ROOT / relative
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(read(path))
+        except json.JSONDecodeError as error:
+            problems.append(f"{relative}: invalid JSON ({error})")
+            continue
+        declared = data.get("version")
+        if declared != VERSION:
+            problems.append(f"{relative}: root version says {declared!r}, expected {VERSION!r}")
+        package = data.get("packages", {}).get("", {})
+        if package.get("version") != VERSION:
+            problems.append(
+                f"{relative}: packages[''] version says {package.get('version')!r}, expected {VERSION!r}"
+            )
+    return problems
+
+
 def check_single_truth() -> list[str]:
     """The declared version and the source of truth must agree."""
     if not SOURCE_OF_TRUTH.exists():
@@ -168,12 +205,17 @@ def check_single_truth() -> list[str]:
 
 
 def main() -> int:
-    problems = check_required() + check_forbidden() + check_hardcoded() + check_single_truth()
+    problems = (
+        check_required()
+        + check_forbidden()
+        + check_hardcoded()
+        + check_lockfiles()
+        + check_single_truth()
+    )
 
-    truth = read(SOURCE_OF_TRUTH)
-    match = re.search(r'__version__\s*=\s*"([^"]+)"', truth)
-    print(f"check_version: release version {match.group(1) if match else 'UNKNOWN'}")
+    print(f"check_version: release version {VERSION}")
     print(f"  required declarations checked: {len(REQUIRED)}")
+    print(f"  lockfile roots checked: {len(LOCKFILES)}")
 
     if problems:
         print(f"VERSION CONTRACT: FAIL ({len(problems)} violation(s))")

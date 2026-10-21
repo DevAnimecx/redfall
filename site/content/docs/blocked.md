@@ -7,13 +7,13 @@ group: Trust and evidence
 kind: cluster
 pillar: evidence
 order: 5
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: RedFall blockers, gVisor unavailable, vulnerability scanner limitations, security tool transparency
 sources: https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md, https://gvisor.dev/docs/
 related: evidence, sandbox, install
 ---
 
-**A full RedFall scan cannot run on the development host used for 0.1.0: there is no container runtime for the gVisor sandbox and no LLM provider credential for analysis.** Both are infrastructure gaps, not design gaps. The code paths are written and the failure is loud; nothing falls back to a demo, a fixture or a host-execution escape hatch.
+**A full RedFall scan cannot run on the development host used for 0.1.1: there is no container runtime for the gVisor sandbox and no LLM provider credential for analysis.** Both are infrastructure gaps, not design gaps. The code paths are written and the failure is loud; nothing falls back to a demo, a fixture or a host-execution escape hatch.
 
 This page is a summary of [BLOCKED.md](https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md), which contains the full commands, dates and measured state. It exists so a reader can see what the scanner did not do before trusting what it did.
 
@@ -69,11 +69,12 @@ A lot of the system does not need those two prerequisites. The repository's meas
 
 | Command | Recorded result |
 | --- | --- |
-| `python scripts/check_no_mock.py` | PASS (51 files) |
-| `python scripts/check_version.py` | PASS |
-| `python scripts/check_orphans.py` | PASS (49 modules) |
+| `python scripts/check_no_mock.py` | PASS (80 files) |
+| `python scripts/check_version.py` | PASS (11 declarations, 5 lockfile roots) |
+| `python scripts/check_orphans.py` | PASS (78 modules) |
 | `python scripts/check_clean_tree.py` | PASS |
-| `python -m pytest tests/ -q` with a real Postgres | 254 passed, 5 skipped |
+| `python -m pytest tests/ -q` on this host | 337 passed, 30 skipped in 196.67s (25 PostgreSQL, 5 gVisor) |
+| `python -m pytest tests/ -q` in CI (latest pre-release run 39313598416) | 357 passed, 5 skipped in 63.08s, PostgreSQL 17 / Python 3.12 |
 | `range/pythonbank` pytest | 18 passed |
 | `range/pythonbank` replay | 17/17 PoCs over real HTTP |
 | `range/vulnbank` tests | 76 passed |
@@ -82,20 +83,21 @@ A lot of the system does not need those two prerequisites. The repository's meas
 | `range/vulnbank-adaptive` replay | 7/7 PoCs |
 | `range/chainbank` tests | 8 passed |
 | `range/chainbank` replay | 6/6 chains end to end |
-| `gh attestation verify` on the released wheel | verified |
-| Wheel verification in a fresh venv | PASS |
-| Landing page Lighthouse (local production build) | 100/100/100/100 desktop; 98–100 mobile performance with 100 accessibility/best-practices/SEO; docs page 100 desktop, 99–100 mobile performance, 100 elsewhere |
-| SEO gate (`npm run check:seo`) | PASS — 24 HTML routes, 23 sitemap URLs, 0 errors |
-| axe-core on 22 docs/trust routes (390 and 1280 px) | 0 violations; zero client JavaScript |
-| Live Pages deploy ([run 39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525)) | build + deploy succeeded; live SEO monitor PASS on 23 pages; IndexNow accepted 23 URLs with HTTP 202 |
-| Live Lighthouse (deployed landing) | 100/100/100/100 desktop; 98 performance, 100 accessibility/best-practices/SEO mobile |
+| `gh attestation verify` on the released wheel | pending for 0.1.1; the 0.1.0 artifact verified |
+| Wheel verification in a fresh venv | PASS (0.1.1) |
+| Windows installer with a throwaway `REDFALL_HOME` | `Redfall 0.1.1 installed.` |
+| Landing page Lighthouse (local 0.1.1 production build) | 100/100/100/100 desktop and mobile; mobile LCP 1.5 s, TBT 0 ms, CLS 0 |
+| SEO gate (`npm run check:seo`) | PASS — 25 HTML routes, 24 sitemap URLs, 0 errors |
+| axe-core on 23 docs/trust routes (390 and 1280 px) | 0 violations; zero client JavaScript |
+| Live Pages deploy (last was 0.1.0, [run 39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525)) | build + deploy succeeded; live SEO monitor PASS on 23 pages; IndexNow accepted 23 URLs with HTTP 202 |
+| Live Lighthouse (0.1.0 deployed landing) | 100/100/100/100 desktop; 98 performance, 100 accessibility/best-practices/SEO mobile |
 | Live 404 check | missing path returned HTTP 404 with the custom page |
 
-The 254 passed / 5 skipped result was measured with a real PostgreSQL. The host currently used for site work has no PostgreSQL either, so the database-backed subset cannot be re-run here without provisioning one. The [evidence page](/evidence/) records that caveat.
+The 337 passed / 30 skipped result is the complete local run on 2026-10-21 without PostgreSQL or a container runtime. The 25 database-backed skips run in CI, where `REDFALL_TEST_DATABASE_URL` is set explicitly; the 5 gVisor skips remain skips because the runner has no `runsc`. The [evidence page](/evidence/) records both environments.
 
 ## What does a skipped test mean?
 
-The five skips are the gVisor-dependent sandbox tests. They skip because the runtime is absent, and the skip reason says so. They are not counted as passes, and they are not removed from the suite to make the number look cleaner.
+The five CI skips are the gVisor-dependent sandbox tests. They skip because the runtime is absent, and the skip reason says so. On this host, 25 PostgreSQL-backed tests also skip because `REDFALL_TEST_DATABASE_URL` is not set. Neither group is counted as a pass, and neither is removed from the suite to make the number look cleaner.
 
 The same rule applies to the full scan: `redfall scan` refuses and names both prerequisites. That refusal is the implemented behaviour, not an error page standing in for a result.
 

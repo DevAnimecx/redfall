@@ -6,13 +6,13 @@ path: about/
 group: Project
 kind: page
 order: 1
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: about RedFall, RedFall maintainer, DevAnimecx
 sources: https://github.com/DevAnimecx/redfall, https://github.com/DevAnimecx/redfall/releases, https://github.com/DevAnimecx/redfall/actions
 related: evidence, security, privacy
 ---
 
-**RedFall is maintained in public by DevAnimecx, the GitHub identity behind the repository.** The project is a working 0.1.0 release, not a company, a support contract or a research demo. Its claims are meant to be checked against the source, the tests and the blocker ledger rather than accepted from a byline.
+**RedFall is maintained in public by DevAnimecx, the GitHub identity behind the repository.** The project is a working 0.1.1 release, not a company, a support contract or a research demo. Its claims are meant to be checked against the source, the tests and the blocker ledger rather than accepted from a byline.
 
 This page explains who is responsible for the work, how to verify it, and what the project does not claim.
 
@@ -42,7 +42,7 @@ Use the public artefacts:
 | Tests | `tests/` and the CI workflows |
 | Range targets | `range/` with their own test suites and replay scripts |
 | Measured results | [Evidence](/evidence/) and [BLOCKED.md](https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md) |
-| Release artefacts | [v0.1.0 release](https://github.com/DevAnimecx/redfall/releases/tag/v0.1.0) |
+| Release artefacts | [v0.1.1 release](https://github.com/DevAnimecx/redfall/releases/tag/v0.1.1) |
 | Build provenance | Sigstore attestation and `SHA256SUMS` |
 | Security policy | [SECURITY.md](https://github.com/DevAnimecx/redfall/blob/main/SECURITY.md) |
 
@@ -50,13 +50,13 @@ If a page or a README claim cannot be reproduced, open an issue with the command
 
 ## What is the project status?
 
-0.1.0 is a public release. It targets Windows, Linux and macOS, runs on Python 3.12+, and ships as a pure-Python wheel. The non-execution paths — ingestion, taint analysis, route extraction, SARIF export, the contract suite and the range replays — were measured. A full `redfall scan` needs Docker with gVisor, a provider key and PostgreSQL; the current development host has neither a container runtime nor a provider key. That is recorded on the [blocked page](/docs/blocked/).
+0.1.1 is a public release. It targets Windows, Linux and macOS, runs on Python 3.12+, and ships as a pure-Python wheel. The non-execution paths — ingestion, taint analysis, route extraction, SARIF export, the contract suite and the range replays — were measured. A full `redfall scan` needs Docker with gVisor, a provider key and PostgreSQL; the current development host has neither a container runtime nor a provider key. That is recorded on the [blocked page](/docs/blocked/).
 
-The project does not claim production support, an SLA, a security certification or a guaranteed detection rate. It claims a working 0.1.0 with a specific evidence trail.
+The project does not claim production support, an SLA, a security certification or a guaranteed detection rate. It claims a working 0.1.1 with a specific evidence trail.
 
 ## What is the license?
 
-0.1.0 does not declare a license file. The source is publicly readable on GitHub, but public readability is not a grant of reuse rights. A license decision is pending; until one is declared, do not assume that you may redistribute or incorporate the code. If you need a license to evaluate RedFall, open an issue and say so.
+0.1.1 does not declare a license file. The source is publicly readable on GitHub, but public readability is not a grant of reuse rights. A license decision is pending; until one is declared, do not assume that you may redistribute or incorporate the code. If you need a license to evaluate RedFall, open an issue and say so.
 
 The font and brand assets have their own provenance; the repository's third-party notices, where present, apply.
 
@@ -82,7 +82,7 @@ No. It is the public GitHub identity used to maintain the project. There is no c
 
 ### Can I use RedFall commercially?
 
-The repository does not declare a license for 0.1.0, so do not assume commercial reuse rights. Open an issue if you need a license decision for evaluation.
+The repository does not declare a license for 0.1.1, so do not assume commercial reuse rights. Open an issue if you need a license decision for evaluation.
 
 ### How do I know the maintainer is real?
 

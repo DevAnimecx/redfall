@@ -40,7 +40,7 @@ def test_console_entry_point_is_declared():
 
 
 def test_version_is_single_sourced_from_metadata():
-    assert importlib.metadata.version("redfall") == redfall.__version__ == "0.1.0"
+    assert importlib.metadata.version("redfall") == redfall.__version__
 
 
 def test_runtime_files_ship_with_the_package():

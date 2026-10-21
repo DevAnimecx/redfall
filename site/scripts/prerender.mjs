@@ -35,6 +35,7 @@ import {
   SITE_NAME,
   SITE_URL,
   UPDATED,
+  VERSION,
   abs,
 } from "../lib/site.mjs";
 
@@ -116,7 +117,7 @@ function siteGraph() {
     applicationCategory: "SecurityApplication",
     applicationSubCategory: "Vulnerability scanner",
     operatingSystem: "Windows, Linux, macOS",
-    softwareVersion: "0.1.0",
+    softwareVersion: VERSION,
     programmingLanguage: "Python",
     codeRepository: REPO_URL,
     downloadUrl: RELEASE_URL,
@@ -134,11 +135,12 @@ function siteGraph() {
       "Exploit chaining over reproduced findings",
       "Verified repair against the target's own tests",
       "SARIF 2.1.0 with a verified flag on every result",
+      "HTTP/OpenAPI and A2A v1.0 gateway over the same 44-tool registry",
     ],
     softwareRequirements:
       "Python 3.12+; Docker with the gVisor runsc runtime, PostgreSQL and an LLM provider key for a full scan",
     datePublished: "2026-10-18",
-    dateModified: "2026-10-18",
+    dateModified: UPDATED,
   };
   const webpage = {
     "@type": "WebPage",

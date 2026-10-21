@@ -7,9 +7,9 @@ group: Start here
 kind: pillar
 pillar: install
 order: 2
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: install RedFall, vulnerability scanner install, pipx security tool, gVisor scanner setup
-sources: https://github.com/DevAnimecx/redfall, https://github.com/DevAnimecx/redfall/releases/tag/v0.1.0, https://gvisor.dev/docs/user_guide/install/
+sources: https://github.com/DevAnimecx/redfall, https://github.com/DevAnimecx/redfall/releases/tag/v0.1.1, https://gvisor.dev/docs/user_guide/install/
 related: cli, release-verification, blocked
 ---
 
@@ -62,17 +62,17 @@ pipx install git+https://github.com/DevAnimecx/redfall
 # or, inside a uv virtualenv:
 uv pip install git+https://github.com/DevAnimecx/redfall
 # or install a verified release wheel:
-pip install redfall-0.1.0-py3-none-any.whl
+pip install redfall-0.1.1-py3-none-any.whl
 ```
 
 The release wheel is built by CI from the tagged source. It carries the sandbox harness (`redfall.validation`), the agent prompts and the sandbox Dockerfile, so the runtime does not depend on files that happen to be in your checkout. `scripts/verify_wheel.py` installs the wheel into a fresh virtualenv, runs it from a directory outside the checkout, and requires it to parse, taint and find the interprocedural flow.
 
 ## How do you verify a release before running it?
 
-A download should be verifiable, not trusted. The v0.1.0 release publishes `SHA256SUMS` and a Sigstore attestation:
+A download should be verifiable, not trusted. The v0.1.1 release publishes `SHA256SUMS` and a Sigstore attestation:
 
 ```bash
-gh attestation verify redfall-0.1.0-py3-none-any.whl --repo DevAnimecx/redfall
+gh attestation verify redfall-0.1.1-py3-none-any.whl --repo DevAnimecx/redfall
 ```
 
 The attestation proves the wheel came from the repository's release workflow and the tagged commit. The checksum proves the file you downloaded is the file that was published. The [release verification page](/docs/release-verification/) explains what each check does and what it cannot prove. There is no claim here that the software is "virus free"; the claim is that the artifact and its build provenance can be checked.
@@ -95,11 +95,11 @@ python -m range_runner.run --target range/chainbank \
   --scan scan.json --fixes fixes.json --out range/report.json
 ```
 
-`redfall fix --out` appends one record per finding: `finding_id`, `verified`, `status`, and the test and PoC outcomes. Re-running it for the same finding replaces that record instead of duplicating it. The [CLI reference](/docs/cli/) covers every command and option.
+`redfall fix --out` appends one record per finding: `finding_id`, `verified`, `status`, and the test and PoC outcomes. Re-running it for the same finding replaces that record instead of duplicating it. The [CLI reference](/docs/cli/) covers every command and the common options; `redfall <command> --help` is authoritative for the installed build.
 
 ## What can you run without Docker?
 
-The development host used for 0.1.0 has no container runtime, so the repository separates what can be exercised from what cannot.
+The development host used for 0.1.1 has no container runtime, so the repository separates what can be exercised from what cannot.
 
 | Workload | Docker needed? | Database needed? | What it demonstrates |
 | --- | --- | --- | --- |
@@ -128,7 +128,7 @@ The database-backed tests need a reachable PostgreSQL. Point them at a throwaway
 export REDFALL_TEST_DATABASE_URL=postgresql+psycopg://vulnbank:Sup3rS3cretBankPwd!@127.0.0.1:5432/redfall_test
 ```
 
-The full suite was last measured at **254 passed, 5 skipped**. The five skips are the gVisor-dependent sandbox tests, which cannot run on a host without a container runtime. They are reported as skips, not passes. See [the evidence page](/evidence/) for the date and the exact command.
+The full 0.1.1 suite collects **367 tests**. On the release host, without PostgreSQL or a container runtime, it reported **337 passed, 30 skipped**; the 30 skips are 25 PostgreSQL tests and five gVisor tests. The latest CI run before the release commit reported **357 passed, 5 skipped** against PostgreSQL. Skips are reported as skips, not passes. See [the evidence page](/evidence/) for the date and exact command.
 
 ## What should you do when the scan cannot start?
 

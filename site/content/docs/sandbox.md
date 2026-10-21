@@ -7,7 +7,7 @@ group: How it works
 kind: cluster
 pillar: architecture
 order: 3
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: gVisor sandbox vulnerability scanner, docker runsc security testing, proof of concept execution
 sources: https://gvisor.dev/docs/, https://docs.docker.com/engine/security/, https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md
 related: verified-findings, blocked, architecture
@@ -114,4 +114,4 @@ The target app needs its real dependencies to boot. A real PostgreSQL is part of
 
 ### Why do five tests skip on the development host?
 
-They require a container runtime and gVisor. The host used for 0.1.0 has neither, so the tests skip with a reason rather than passing. They run in CI where the runtime exists.
+They require a container runtime and gVisor. The host used for 0.1.1 has neither, so the tests skip with a reason rather than passing. They run in CI where the runtime exists.

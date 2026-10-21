@@ -7,7 +7,7 @@ group: Trust and evidence
 kind: cluster
 pillar: evidence
 order: 2
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: vulnerability scanner benchmark, vulnerability range targets, PoC replay results, security scanner precision recall
 sources: https://github.com/DevAnimecx/redfall, https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md
 related: evidence, verified-findings, exploit-chaining

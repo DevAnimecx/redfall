@@ -4,7 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.1] - 2026-10-21
+
+Patch-level consolidation of everything landed after the `v0.1.0` tag. It ships
+the campaign/evidence layer (Phase 1), the persisted graph and resumable runner
+(Phase 2), the HTTP/OpenAPI + A2A v1.0 gateway (Phase 3), and the site,
+documentation, SEO and release-hardening changes built on top of them. `0.1.0`
+remains the first release; this entry records the measured state of the current
+tree.
 
 ### Added
 
@@ -28,27 +35,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   enqueue, at most three attempts, no redirects, and loopback/link-local URL
   policy. Tool results are labelled `untrusted-repository-data` in the JSON
   envelope, the `X-Redfall-Trust` header and A2A artifact metadata.
-- **Phase 3 executable contracts** — `redfall interop certify --protocol http`
+- **Executable interop contracts** — `redfall interop certify --protocol http`
   launches a fresh gateway subprocess against a temporary database and
   repository and runs 10 checks; `--protocol a2a` runs 11. Both report
   `certified=True` locally. The checks use a real socket, real tool execution,
   SSE streaming and signed artifacts.
-- **Phase 3 verification on Windows** — 53 Phase 3 tests pass (18 auth/HTTP,
-  14 A2A, 11 webhooks, 2 contracts, 8 CLI), and 362 tests are collected. A
-  complete local run without a PostgreSQL service reports **332 passed, 30
-  skipped, 0 failed in 197.44s**: 25 PostgreSQL-backed tests skip until
-  `REDFALL_TEST_DATABASE_URL` is supplied (they no longer fall back to a
-  hardcoded database and wait on connection timeouts), and the five live
-  gVisor tests skip because `runsc` is absent. Compile clean; no-mock **PASS**
-  across 80 files; orphan **PASS** (78 reachable modules). CI remains the
-  authoritative database-backed run.
-- **Phase 3 CI verification** — run
-  [39310704310](https://github.com/DevAnimecx/redfall/actions/runs/39310704310)
-  passed every job on 2026-10-19: the `check` job ran **357 passed, 5 skipped
-  in 62.97s** against Postgres 17 and Python 3.12 (the five skips are the live
-  gVisor tests, because the runner has no `runsc`), and all six
-  wheel/installer package jobs passed. The 362 collected tests are therefore
-  357 passes plus 5 environment skips.
 - **Phase 2 execution layer** — a persisted, provenance-aware code graph v1
   (`graph_snapshots`, `graph_nodes`, `graph_edges`) built from real ingestion,
   with bounded search/traversal/paths/inventory and snapshot diff; a resumable
@@ -63,29 +54,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   out-of-scope path and returns a protocol-visible error for an unknown tool.
   The result is stored as a timestamped `AdapterCertification`; it certifies the
   shipped server, not arbitrary third-party agents.
-- **Phase 2 CLI** — `redfall graph` (index/latest/stats/search/routes/sources/
-  sinks/neighbors/paths/inventory/diff), `campaign run`, reservations,
-  readiness/export, `reproduce`, `policy-check`, `mcp certify` and adapter
-  listings. The new graph and reproduction path-taking commands enforce
-  campaign roots or `REDFALL_ALLOWED_ROOTS`; unscoped graph and reproduction
-  operations are no longer exempt. `REDFALL_ALLOWED_ROOTS` is a hard outer
-  boundary: when it is set, a campaign root that falls outside it is ignored,
-  so an MCP client cannot widen the operator allowlist by creating a campaign
-  with a broader scope.
-- **Phase 2 verification on Windows** — compile clean; no-mock **PASS** across
-  73 files; orphan check **PASS** (71 reachable modules, 3 entrypoints); 35
-  focused SQLite/CLI/MCP tests pass, including a real stdio contract subprocess.
-  The full suite ran in CI: run 39286891463's `check` job executed against
-  Postgres 17 on ubuntu-latest Python 3.12 and passed every step, with
-  **304 passed and 5 skipped** (the gVisor-dependent environment tests) in
-  45.6s; all six wheel/installer package jobs passed. GitHub Actions was
-  partially degraded during the earlier Phase 2 runs, so the job-level API
-  lagged the run-level conclusion, and this host still has no local Postgres,
-  Docker/gVisor runtime or LLM key.
-  Graph v1 covers the currently ingested TypeScript/JavaScript/Python source and
-  does not yet synthesize sanitizer nodes; A2A/HTTP adapters, environment
-  synthesis, multi-role campaigns, self-learning and the four-hour campaign are
-  not implemented.
+- **Phase 2 CLI and scope hardening** — `redfall graph` (index/latest/stats/
+  search/routes/sources/sinks/neighbors/paths/inventory/diff), `campaign run`,
+  reservations, readiness/export, `reproduce`, `policy-check`, `mcp certify` and
+  adapter listings. Graph and reproduction path-taking commands enforce campaign
+  roots or `REDFALL_ALLOWED_ROOTS`; when the allowlist is set, a broader campaign
+  root is ignored, so an MCP client cannot widen the operator boundary.
 - **Phase 1 campaign kernel** — durable `campaigns`, `campaign_tasks` and
   `campaign_events` tables; an explicit state machine from `draft` through
   `reported` (with `paused`/`blocked` resume semantics); dependency-aware task
@@ -99,93 +73,92 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   execution id, observable, reproduction command and environment digest.
   `redfall campaign evidence verify` and the report-readiness tool recompute the
   chain and name the first broken link.
-- **Agent tool surface and MCP stdio** — 22 tools for campaign lifecycle, scoped
-  tasks, leases, evidence and report readiness, exposed by `redfall mcp serve`
-  over newline-delimited JSON-RPC. The transport-neutral `ToolRegistry` is the
-  same implementation used by the CLI and can back later HTTP/A2A adapters.
-- **Campaign CLI** — `redfall campaign` supports `create`, `scope`, `start`,
-  `status`, `transition`, `pause`, `resume`, `cancel`, `report` and `spend`, plus
-  `campaign task` and `campaign evidence` subcommands. New focused tests use
-  SQLite and a real stdio subprocess: **14 passed** locally, plus a Postgres
-  integration test in CI. CI run
-  [39265074808](https://github.com/DevAnimecx/redfall/actions/runs/39265074808)
-  completed **269 passed, 5 skipped** on 2026-10-19; the five skips are the
-  gVisor tests that need a container runtime.
-- **Landing page + documentation** (`site/`) — a one-page React + Tailwind
-  landing page, statically prerendered at build time, plus **22 docs/trust
-  pages** generated from Markdown with zero client JavaScript. Deployed to
+- **Campaign CLI and agent tools** — `redfall campaign` supports `create`,
+  `scope`, `start`, `status`, `transition`, `pause`, `resume`, `cancel`,
+  `report`, `spend`, reservations, `run`, `task` and `evidence`, plus
+  `readiness`/`export`. The transport-neutral `ToolRegistry` is the same
+  implementation behind the CLI, MCP, HTTP and A2A surfaces.
+- **Landing page, documentation and evidence** — a one-page React + Tailwind
+  landing page, statically prerendered at build time, plus generated Markdown
+  docs/trust pages with zero client JavaScript, deployed to
   <https://devanimecx.github.io/redfall/> by `.github/workflows/pages.yml`.
 - **Technical SEO + GEO/AEO system** — one canonical per page, unique titles and
-  descriptions, hreflang, a real 404, `sitemap.xml` (23 URLs), `robots.txt` with
-  named AI crawlers, a byte-identical `llms.txt` at repo and site root,
-  23 generated 1200×630 OG cards, JSON-LD graphs (Organization, Person, WebSite,
-  SoftwareApplication, WebPage, FAQPage, BreadcrumbList, TechArticle), IndexNow
-  key plus submission script, a weekly live SEO monitor workflow, and the
-  operating manual in [`site/SEO.md`](site/SEO.md). Build gates:
+  descriptions, hreflang, a real 404, `sitemap.xml`, `robots.txt` with named AI
+  crawlers, a byte-identical `llms.txt` at repo and site root, generated
+  1200×630 OG cards, JSON-LD graphs (Organization, Person, WebSite,
+  SoftwareApplication, WebPage, FAQPage, BreadcrumbList, TechArticle), an
+  IndexNow key plus submission script, a weekly live SEO monitor workflow, and
+  the operating manual in [`site/SEO.md`](site/SEO.md). Build gates:
   `check:seo`, `check:docs`, `check:layout`, `check:a11y`, `check:lighthouse`.
-- **Brand assets** — `assets/` carries the vector lockups (dark, light, mark);
-  `scripts/generate_brand_assets.py` renders the base social card and touch
-  icons, and `scripts/generate_og_assets.py` renders a per-page 1200×630 card.
-  `tests/test_brand_assets.py` pins the SVG path to the generator so the two
-  cannot drift.
-- **`llms.txt`** — machine-readable project summary for answer engines, generated
-  from the same page manifest as the sitemap and copied byte-for-byte to the repo
-  root; the build fails if the two drift.
-- **Live deployment verified** — Pages run
-  [39253506525](https://github.com/DevAnimecx/redfall/actions/runs/39253506525)
-  completed build and deploy on 2026-10-19. The SEO gate passed, the live monitor
-  passed all 23 pages, IndexNow accepted 23 URLs with **HTTP 202**, and a missing
-  path returned **HTTP 404**. Live Lighthouse: landing **100/100/100/100**
-  desktop and **98 performance / 100 accessibility / 100 best-practices / 100
-  SEO** mobile; docs **100/100/100/100** desktop and **99 / 100 / 100 / 100**
-  mobile. No ranking, backlink or AI-citation outcome is claimed.
-
-### Fixed
-
-- **Mobile layout overflow on the landing page** — the install code blocks are
-  CSS-grid children, and grid items default to `min-width: auto`, so each
-  `<pre>` forced its track to 554 px and the document was 578 px wide on a
-  390 px phone (188 px of sideways scroll). Lighthouse's viewport audit only
-  reads the meta tag, so it did not catch this; `site/scripts/mobile_check.mjs`
-  now drives real Chrome at 390/768/1280 px and CI fails on any unclipped
-  overflow.
-- **Dark logo lockup** — the white "Fall" was invisible when the SVG was
-  rendered on a light background; the dark variant now carries an opaque plate.
+- **Brand assets** — vector lockups (dark, light, mark), a generated social card
+  and touch icons, and a path-geometry guard that keeps the SVG and generator
+  from drifting.
+- **Release contract** — `scripts/check_version.py` now derives the expected
+  version from `src/redfall/version.py`, checks the site release module, package
+  manifests and npm lockfile roots, and refuses drift. Release-contract tests
+  cover the metadata, changelog, site and `llms.txt` surfaces.
 
 ### Changed
 
 - **Landing page rebuilt as a dark design system** — exact token layer
   (`#050505` / `#0d0d0d` / `#ff0033`), Inter self-hosted from a single 47 kB
-  Latin variable font, SVG orbital hero with 20 s rotation and pointer
-  parallax, IntersectionObserver reveals and count-ups, full-screen mobile
-  menu, copy states, reduced-motion fallbacks, and a 1200 px content grid.
-  The JavaScript bundle is **80.9 kB gzipped**; CSS is **8.22 kB gzipped** and
-  inlined into the prerendered HTML with a font preload, while the static docs
-  share it as one cached file.
-- **Accessibility and layout are now CI contracts** — `axe-core` runs at 390,
-  768 and 1280 px and must report zero violations; `mobile_check.mjs` drives
-  real Chrome and fails on any unclipped horizontal overflow. Both found real
-  bugs during this change (an unfocusable scrollable code block and a grid-track
-  overflow), which are fixed.
-- **Measured after the rebuild** (2026-10-19, local production build) — landing
-  Lighthouse **100 / 100 / 100 / 100 desktop**, mobile **98–100 performance** with
-  100 accessibility, best-practices and SEO on every run; docs page 100/100/100/100
-  desktop and 99–100 performance mobile with 100 elsewhere. Landing mobile LCP
-  1.5–1.7 s, CLS 0, TBT 0–10 ms; every category stays above the 95 gate. axe-core
-  found 0 violations on the landing page at 390/768/1280 and on all 22 docs/trust
-  routes at 390/1280; the SEO gate found 0 errors across 24 HTML routes and 23
-  sitemap URLs.
-- **Brand assets follow the new palette** — the dark lockup plate is now
-  `#0d0d0d → #050505`, the red wordmark is `#ff0033`, and the OG card, touch
-  icons and favicon are regenerated from the same geometry.
-- Test suite: **269 passed, 5 skipped** (baseline plus Phase 1; the four new
-  brand-asset guard tests are included, and `pillow` was added to the dev extras
-  so CI runs them).
-- CI: the `check` job now builds the site from a clean lockfile, runs the SEO
-  gate, and drives real Chrome for layout, axe, docs and Lighthouse checks; site
-  builds use Node 22 (vite 8 requires `^20.19 || >=22.12`). The Pages workflow
-  runs `check:seo` before upload and submits the deployed sitemap to IndexNow,
-  then re-checks the live surface.
+  Latin variable font, SVG orbital hero with reduced-motion fallbacks, a
+  full-screen mobile menu, copy states and a 1200 px content grid. The
+  JavaScript bundle is **80.9 kB gzipped**; CSS is **8.22 kB gzipped** and
+  inlined into the prerendered HTML.
+- **Accessibility and layout are CI contracts** — `axe-core` runs at 390, 768
+  and 1280 px and must report zero violations; `mobile_check.mjs` drives real
+  Chrome and fails on any unclipped horizontal overflow. Both found real bugs
+  during the rebuild, which are fixed.
+- **PostgreSQL tests are explicit** — the suite now requires
+  `REDFALL_TEST_DATABASE_URL` and skips database-backed tests when it is absent,
+  instead of falling back to a hardcoded local database and waiting on
+  connection timeouts. CI supplies the URL, so database coverage is unchanged.
+- **Public surface documentation** — the CLI reference, architecture,
+  installation, release-verification and interoperability pages now describe the
+  shipped commands and transports, with the limits of each.
+
+### Fixed
+
+- **Mobile layout overflow on the landing page** — install code blocks are
+  CSS-grid children and `<pre>` forced the track to 554 px, producing 188 px of
+  sideways scroll on a 390 px phone. `mobile_check.mjs` now catches this class of
+  bug in CI.
+- **Dark logo lockup** — the white “Fall” was invisible on a light background;
+  the dark variant now carries an opaque plate.
+- **Stale test-harness fallback** — the suite no longer treats a connection
+  timeout as a test result. Missing database configuration is a skip with a
+  named reason.
+- **Bounded database probe** — `redfall doctor` now caps the PostgreSQL connect
+  attempt at three seconds, so an unreachable database is reported instead of
+  leaving the command waiting for the operating system's TCP timeout. A real
+  socket test asserts the probe fails within ten seconds.
+
+### Verified before publication
+
+- **Phase 3 focused tests:** **53 passed** across auth/HTTP, A2A, webhooks,
+  contracts and CLI. The real-subprocess HTTP contract passes 10 checks and the
+  A2A contract passes 11, with `certified=True`.
+- **CI:** run
+  [39313598416](https://github.com/DevAnimecx/redfall/actions/runs/39313598416)
+  completed green on 2026-10-19 after the test-harness fix: the Postgres 17 /
+  Python 3.12 `check` job ran **357 passed, 5 skipped in 63.08s**, and all six
+  wheel/installer package jobs passed. The five skips are live gVisor tests; the
+  runner has no `runsc`.
+- **Local no-PostgreSQL run:** **337 passed, 30 skipped, 0 failed** in 196.67s.
+  The 30 skips are 25 PostgreSQL-backed tests plus the five live gVisor tests.
+  Neither category is counted as a pass.
+- **Site:** the 0.1.1 production build passed the SEO gate (25 HTML routes, 24
+  sitemap URLs), axe (23 docs/trust routes, 0 violations), layout and Lighthouse
+  (100/100/100/100 on desktop and mobile; mobile LCP 1.5s) as recorded in
+  [`site/content/evidence.md`](site/content/evidence.md). The live deployment
+  follows publication. The 0.1.1 build and wheel verification are recorded in
+  [`RELEASE.md`](RELEASE.md); published-artifact verification is added after the
+  release workflow completes.
+- **Known limits:** no local PostgreSQL, Docker/gVisor runtime or LLM key; A2A
+  push notifications and multi-turn continuation are not implemented; the
+  gateway has no built-in TLS or multi-tenancy; adapter certification covers the
+  shipped surfaces only. See [`BLOCKED.md`](BLOCKED.md).
 
 ## [0.1.0] — 2026-10-19
 
@@ -247,4 +220,5 @@ execution, live LLM calls) refuses loudly and is listed in
 - vulnbank scan parity after the return-flow work: 27 routes, 20 taint paths,
   11 call edges, 0 over-claims; self-scan: 51 files, 0 parse errors.
 
+[0.1.1]: https://github.com/DevAnimecx/redfall/releases/tag/v0.1.1
 [0.1.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.1.0

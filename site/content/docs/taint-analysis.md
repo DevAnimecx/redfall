@@ -7,7 +7,7 @@ group: How it works
 kind: cluster
 pillar: architecture
 order: 2
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: taint analysis TypeScript, taint analysis Python, source sink vulnerability scanner, interprocedural taint analysis
 sources: https://tree-sitter.github.io/tree-sitter/, https://owasp.org/www-community/attacks/Code_Injection, https://github.com/DevAnimecx/redfall
 related: verified-findings, languages, architecture
@@ -15,7 +15,7 @@ related: verified-findings, languages, architecture
 
 **Taint analysis answers one question: can data an attacker controls reach a dangerous operation?** RedFall tracks request surfaces — body, query, params, headers and cookies — to sinks such as SQL queries, command execution, filesystem access, redirects and eval. It does this inside each function, then across function boundaries through resolved imports and a call graph. A taint path is a candidate, not a finding.
 
-This page describes the analysis as implemented in the 0.1.0 source. The important design choices are the ones that make the result auditable: sources and sinks are enumerated, sanitisers do not silently clear taint, interprocedural hops must be real call edges, and return flow is proved separately from argument flow.
+This page describes the analysis as implemented in the 0.1.1 source. The important design choices are the ones that make the result auditable: sources and sinks are enumerated, sanitisers do not silently clear taint, interprocedural hops must be real call edges, and return flow is proved separately from argument flow.
 
 ## What are sources and sinks?
 
@@ -108,7 +108,7 @@ The [languages page](/docs/languages/) lists the file extensions and the exclusi
 Taint analysis is a static approximation. It can miss:
 
 - **Dynamic dispatch.** A function selected at runtime through a map or dependency injection may not resolve to a static callee.
-- **Depth beyond one hop.** The 0.1.0 interprocedural pass is depth-one; longer chains may require multiple summaries that are not composed.
+- **Depth beyond one hop.** The 0.1.1 interprocedural pass is depth-one; longer chains may require multiple summaries that are not composed.
 - **Framework magic.** A custom middleware may rewrite the request object in a way the parser does not model.
 - **Sanitiser semantics.** As above, the scanner records but does not clear. That can produce candidates a human dismisses.
 - **Data validity.** A path may be unreachable because a validator rejects the input before the sink. Execution is how that gets settled.

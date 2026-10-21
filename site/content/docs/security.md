@@ -7,7 +7,7 @@ group: Trust and evidence
 kind: cluster
 pillar: evidence
 order: 6
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: RedFall security policy, vulnerability reporting, software supply chain security, Sigstore release
 sources: https://github.com/DevAnimecx/redfall/blob/main/SECURITY.md, https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing-information-about-vulnerabilities/privately-reporting-a-security-vulnerability
 related: release-verification, blocked, install

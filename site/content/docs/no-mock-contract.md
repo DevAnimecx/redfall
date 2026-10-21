@@ -7,7 +7,7 @@ group: Start here
 kind: cluster
 pillar: verified-findings
 order: 3
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: no-mock contract, security tool honesty, vulnerability scanner evidence
 sources: https://github.com/DevAnimecx/redfall/blob/main/CONTRIBUTING.md, https://github.com/DevAnimecx/redfall/blob/main/scripts/check_no_mock.py, https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md
 related: verified-findings, blocked, output

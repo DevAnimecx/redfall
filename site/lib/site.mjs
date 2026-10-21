@@ -1,16 +1,18 @@
 // Shared site identity. Every generated page, sitemap entry and JSON-LD node
 // reads from here so the canonical URL, base path and author cannot drift.
 
+import { RELEASE_DATE, RELEASE_URL, REPO_URL, VERSION } from "./release.mjs";
+
+export { RELEASE_DATE, RELEASE_URL, REPO_URL, VERSION };
+
 export const SITE_URL = (process.env.SITE_URL ?? "https://devanimecx.github.io/redfall").replace(/\/$/, "");
 export const BASE = process.env.SITE_BASE ?? "/redfall/";
-export const REPO_URL = "https://github.com/DevAnimecx/redfall";
-export const RELEASE_URL = `${REPO_URL}/releases/tag/v0.1.0`;
 export const GITHUB_USER_URL = "https://github.com/DevAnimecx";
 export const SITE_NAME = "RedFall";
 export const AUTHOR_NAME = "DevAnimecx";
 export const AUTHOR_PATH = "about/";
 export const AUTHOR_URL = `${SITE_URL}/${AUTHOR_PATH}`;
-export const UPDATED = "2026-10-19";
+export const UPDATED = RELEASE_DATE;
 // Public by design: IndexNow verifies ownership by fetching this key from the
 // site root. It is not a secret and must match site/public/<key>.txt.
 export const INDEXNOW_KEY = "465631c0f24944dcc1adf9325287a357";

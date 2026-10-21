@@ -71,7 +71,7 @@ export function createApp(): Express {
   app.use('/api/settings', settingsRoutes);
   app.use('/api/import', importRoutes);
 
-  // --- Redfall 0.1.0: surfaces that are not fixed at compile time -----------------
+  // --- Redfall 0.1.1: surfaces that are not fixed at compile time -----------------
   //
   // Each of these exists for a different reason, and none of them is a route a
   // source-only scan can enumerate. They are registered before the 404 handler

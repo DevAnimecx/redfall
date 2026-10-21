@@ -7,7 +7,7 @@ group: Reference
 kind: cluster
 pillar: evidence
 order: 1
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: static analysis vs dynamic analysis, execution-verified scanner, SAST vs DAST, vulnerability scanner comparison
 sources: https://semgrep.dev/docs/, https://codeql.github.com/docs/, https://owasp.org/www-community/Vulnerability_Scanning_Tools
 related: verified-findings, evidence, ranges

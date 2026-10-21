@@ -7,7 +7,7 @@ group: How it works
 kind: cluster
 pillar: architecture
 order: 4
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: adaptive vulnerability scanning, dynamic import security, plugin vulnerability scanner, feature flag security
 sources: https://github.com/DevAnimecx/redfall, https://github.com/DevAnimecx/redfall/blob/main/src/redfall/triggers.py
 related: architecture, exploit-chaining, ranges

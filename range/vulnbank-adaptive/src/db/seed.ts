@@ -58,7 +58,7 @@ export async function seed(): Promise<void> {
     ['system', 'seed', 'range seed completed'],
   );
 
-  // Redfall 0.1.0 configuration. These rows are the reason routes exist that no
+  // Redfall 0.1.1 configuration. These rows are the reason routes exist that no
   // source file names, and the reason a query can be changed without a deploy.
   await pool.query(
     `INSERT INTO route_config (name, method, path, handler_key, enabled) VALUES

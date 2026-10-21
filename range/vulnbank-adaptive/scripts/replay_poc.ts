@@ -244,7 +244,7 @@ function median(values: number[]): number {
  *
  * `static` is a reserved word under strict mode, so it is bound as a positional
  * parameter here rather than destructured inside a "use strict" body — the same
- * fix the Redfall 0.1.0 harness needed. Keeping the two lists aligned matters: a
+ * fix the Redfall 0.1.1 harness needed. Keeping the two lists aligned matters: a
  * predicate that passes here must also pass inside the sandbox.
  */
 const BINDING_NAMES = [

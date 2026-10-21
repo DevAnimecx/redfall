@@ -7,7 +7,7 @@ group: How it works
 kind: cluster
 pillar: architecture
 order: 6
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: verified vulnerability fix, automated patch verification, security fix testing
 sources: https://github.com/DevAnimecx/redfall, https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md
 related: verified-findings, output, release-verification

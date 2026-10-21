@@ -22,7 +22,7 @@ export JWT_SECRET="${JWT_SECRET:-test-only-jwt-secret-value}"
 export STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET:-whsec_test_only_value}"
 export UPLOAD_DIR="${UPLOAD_DIR:-/tmp/vulnbank-v2-uploads}"
 
-# The Redfall 0.1.0 surfaces are conditional. This script turns them on so the running
+# The Redfall 0.1.1 surfaces are conditional. This script turns them on so the running
 # application actually exposes what the manifest claims; the test suite exercises
 # the other combinations separately.
 export NODE_ENV="${NODE_ENV:-production}"

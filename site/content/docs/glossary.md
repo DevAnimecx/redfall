@@ -7,7 +7,7 @@ group: Reference
 kind: cluster
 pillar: evidence
 order: 3
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: vulnerability scanning glossary, taint analysis definition, verified finding, SARIF definition
 sources: https://github.com/DevAnimecx/redfall, https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html, https://gvisor.dev/docs/
 related: verified-findings, taint-analysis, output

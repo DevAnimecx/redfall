@@ -6,14 +6,14 @@ path: docs/
 group: Start here
 kind: hub
 order: 0
-updated: 2026-10-19
+updated: 2026-10-21
 keywords: RedFall documentation, execution-verified vulnerability scanner, vulnerability scanning guide
 sources: https://github.com/DevAnimecx/redfall, https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md
 ---
 
 RedFall is a vulnerability scanner that proves findings by executing them. It reads real TypeScript, JavaScript and Python source, tracks attacker-controlled data from a request surface to a sink, builds a candidate proof of concept, and runs it against the live application inside a Docker container on the gVisor `runsc` runtime. A candidate is reported only if it reproduces. Static analysis produces candidates; it never produces a finding on its own.
 
-This documentation covers the mechanism, the evidence, the operating instructions and the limits. It is written for engineers who need to decide whether a finding is real before they spend a day triaging it, and for reviewers who want to check the claims against the source.
+This documentation covers the mechanism, the evidence, the operating instructions and the limits. It is written for engineers who need to decide whether a finding is real before they spend a day triaging it, and for reviewers who want to check the claims against the source. The 0.1.1 release also exposes the same 44-tool registry to agents over MCP, HTTP/OpenAPI and A2A v1.0; the [interoperability page](/docs/interop/) documents those transports and their boundaries.
 
 [[DOCS_INDEX]]
 

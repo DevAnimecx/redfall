@@ -14,10 +14,9 @@ import {
 } from "lucide-react";
 
 import { EVIDENCE, FAQ, FEATURES, LAST_UPDATED, STEPS } from "../lib/content.mjs";
+import { RELEASE_URL, VERSION } from "../lib/release.mjs";
 
 const GITHUB = "https://github.com/DevAnimecx/redfall";
-const RELEASES = `${GITHUB}/releases`;
-const RELEASE = `${RELEASES}/tag/v0.1.0`;
 const DOCS = "/redfall/docs/";
 const EVIDENCE_PAGE = "/redfall/evidence/";
 const COMPARE = "/redfall/compare/static-analysis/";
@@ -428,7 +427,7 @@ export default function App() {
             <div className="mx-auto max-w-[800px] text-center">
               <p className="pill rise">
                 <span className="h-1.5 w-1.5 rounded-full bg-accent" aria-hidden="true" />
-                v0.1.0 · Windows · Linux · macOS
+                v{VERSION} · Windows · Linux · macOS
               </p>
 
               <h1 className="display-xl rise rise-1 mt-7 text-ink">
@@ -518,7 +517,7 @@ export default function App() {
             </div>
             <div className="mt-8 grid divide-y divide-line border-t border-line sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4">
               <div className="sm:border-b sm:border-line lg:border-b-0 lg:border-r">
-                <Counter value={254} label="tests passed" />
+                <Counter value={357} label="tests passed in CI" />
               </div>
               <div className="sm:border-b sm:border-line lg:border-b-0 lg:border-r">
                 <Counter value={6} suffix="/6" label="chains reproduce" />
@@ -754,7 +753,7 @@ export default function App() {
               <div className="min-w-0" data-reveal data-delay="1">
                 <CodeBlock
                   title="Verify a release"
-                  code={"gh attestation verify redfall-0.1.0-py3-none-any.whl \\\n  --repo DevAnimecx/redfall"}
+                  code={`gh attestation verify redfall-${VERSION}-py3-none-any.whl \\\n  --repo DevAnimecx/redfall`}
                 />
               </div>
             </div>
@@ -879,8 +878,8 @@ export default function App() {
             <a href={GITHUB} className="footer-link" rel="noopener">
               GitHub repository
             </a>
-            <a href={RELEASE} className="footer-link" rel="noopener">
-              Release v0.1.0
+            <a href={RELEASE_URL} className="footer-link" rel="noopener">
+              Release v{VERSION}
             </a>
             <a href={`${GITHUB}/blob/main/CHANGELOG.md`} className="footer-link" rel="noopener">
               Changelog
@@ -926,7 +925,7 @@ export default function App() {
             <a href={ABOUT} className="footer-link underline underline-offset-2">
               DevAnimecx
             </a>{" "}
-            · Last updated <time dateTime="2026-10-19">{LAST_UPDATED}</time> ·{" "}
+            · Last updated <time dateTime="2026-10-21">{LAST_UPDATED}</time> ·{" "}
             <a href={SITEMAP} className="footer-link underline underline-offset-2">
               sitemap
             </a>{" "}

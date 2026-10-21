@@ -22,7 +22,7 @@ export function createApp(): Express {
   app.use(express.urlencoded({ extended: true }));
 
   app.get('/health', (_req, res) => {
-    res.json({ status: 'ok', app: 'chainbank', version: '0.1.0' });
+    res.json({ status: 'ok', app: 'chainbank', version: '0.1.1' });
   });
 
   app.use('/api/accounts', accounts);
