@@ -155,12 +155,13 @@ against the real target:
 | `python scripts/check_orphans.py` | `ORPHAN CHECK: PASS` (78 modules) |
 | `python scripts/check_clean_tree.py` | `CLEAN TREE: PASS` |
 | `python -m pytest tests/ -q` on this host | `337 passed, 30 skipped` in 221.23s (25 PostgreSQL, 5 gVisor) |
-| `python -m pytest tests/ -q` in CI (release-code run 39612206950) | `362 passed, 5 skipped` in 73.96s, PostgreSQL 17 / Python 3.12 |
+| `python -m pytest tests/ -q` in CI (tag-commit run 39616295334) | `362 passed, 5 skipped` in 45.49s, PostgreSQL 17 / Python 3.12 |
 | `python -m pip wheel . --no-deps -w dist` + `scripts/verify_wheel.py` in a fresh venv, run from outside the checkout | `WHEEL VERIFY: PASS` — the installed wheel ships the harness and finds the interprocedural taint |
 | `python scripts/build_release.py` | builds `redfall-0.1.1-py3-none-any.whl` + `redfall-0.1.1.tar.gz`, writes `SHA256SUMS`, and proves the harness, every prompt and the Dockerfile are inside both archives |
 | `powershell -File scripts/install.ps1 -NoPath -NoDoctor` with a throwaway `REDFALL_HOME` | `Redfall 0.1.1 installed.`; `bash -n scripts/install.sh` parses clean with a real POSIX shell here, and CI executes both installers on Ubuntu, Windows and macOS |
-| GitHub CI on `main` (`check` + 6-job package matrix) | green on the 0.1.1 release code 39612206950; all six package jobs' steps completed successfully |
-| `gh attestation verify redfall-0.1.1-py3-none-any.whl --repo DevAnimecx/redfall` on the downloaded release | pending publication; the 0.1.0 artifact was verified against `release.yml@refs/tags/v0.1.0` |
+| GitHub CI on `main` (`check` + 6-job package matrix) | green on tag commit `ba8dbcc`, run 39616295334; the check job and all six package jobs completed successfully |
+| Published GitHub release `v0.1.1` | [release](https://github.com/DevAnimecx/redfall/releases/tag/v0.1.1) published by release run 39617991722 with the wheel, sdist and `SHA256SUMS`; downloaded hashes match the published file |
+| `gh attestation verify` on the downloaded wheel and sdist, restricted to `--signer-workflow DevAnimecx/redfall/.github/workflows/release.yml --source-ref refs/tags/v0.1.1` | **PASS for both**; signer `release.yml@refs/tags/v0.1.1`, source digest `ba8dbcc`; the downloaded wheel installed outside the checkout and `WHEEL VERIFY: PASS` |
 | `node tests/harness/verify_harness.mjs --poc <poc>` | `ALL HARNESS CHECKS PASSED` |
 | `node tests/harness/verify_python_target.mjs` | `ALL PYTHON TARGET CHECKS PASSED` |
 | `node tests/harness/verify_chain_steps.mjs` | `ALL CHAIN HARNESS CHECKS PASSED` |
@@ -174,7 +175,7 @@ against the real target:
 | `npx ts-node scripts/replay_chain_poc.ts` (chainbank) | `6/6 chain(s) reproduced end to end` |
 | `redfall scan range/vulnbank` | refuses with both blockers named |
 | `cd site && npm ci && npm run build` | prerenders the landing page into `dist/index.html` (full rendered markup plus JSON-LD), generates 23 static docs/trust pages, a 24-URL sitemap, `robots.txt`, `llms.txt`, a real 404 and 24 OG cards; the `pages` workflow re-asserts the content and runs `npm run check:seo` before upload |
-| Pages deploy (0.1.1, [run 39612206947](https://github.com/DevAnimecx/redfall/actions/runs/39612206947), 2026-10-21) | **build + deploy both succeeded** for 0.1.1. The build ran `check:seo` (`PASS`, 25 HTML routes / 24 sitemap URLs / 0 errors). The deploy job verified the live key, POSTed 24 URLs to IndexNow and received **HTTP 200**, then the live SEO monitor passed all 24 sitemap pages. A missing live path returned **HTTP 404**, not a soft 200 |
+| Pages deploy (0.1.1, [run 39616295475](https://github.com/DevAnimecx/redfall/actions/runs/39616295475), 2026-10-21) | **build + deploy both succeeded** for 0.1.1. The build ran `check:seo` (`PASS`, 25 HTML routes / 24 sitemap URLs / 0 errors). The deploy job verified the live key, POSTed 24 URLs to IndexNow and received **HTTP 200**, then the live SEO monitor passed all 24 sitemap pages. A missing live path returned **HTTP 404**, not a soft 200 |
 | Live site `https://devanimecx.github.io/redfall/` after that deploy | landing and docs `200`; canonical/hreflang/title/OG present; `sitemap.xml`, `robots.txt`, `llms.txt`, IndexNow key and OG card all `200` |
 | Lighthouse, live 0.1.0 landing, desktop preset | **100 / 100 / 100 / 100**; LCP 0.6 s, TBT 0 ms, CLS 0 |
 | Lighthouse, live 0.1.0 landing, mobile preset | **98 performance**, with **100 / 100 / 100** accessibility, best-practices and SEO; LCP 1.7 s, TBT 60 ms, CLS 0. Above the 95 gate |

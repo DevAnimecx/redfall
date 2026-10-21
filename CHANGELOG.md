@@ -134,17 +134,17 @@ tree.
   leaving the command waiting for the operating system's TCP timeout. A real
   socket test asserts the probe fails within ten seconds.
 
-### Verified before publication
+### Verification record
 
 - **Phase 3 focused tests:** **53 passed** across auth/HTTP, A2A, webhooks,
   contracts and CLI. The real-subprocess HTTP contract passes 10 checks and the
   A2A contract passes 11, with `certified=True`.
 - **CI:** run
-  [39612206950](https://github.com/DevAnimecx/redfall/actions/runs/39612206950)
-  completed green on 2026-10-21: the Postgres 17 / Python 3.12 `check` job ran
-  **362 passed, 5 skipped in 73.96s**, and all six wheel/installer package jobs
-  completed successfully. The five skips are live gVisor tests; the runner has
-  no `runsc`.
+  [39616295334](https://github.com/DevAnimecx/redfall/actions/runs/39616295334)
+  completed green on the tag commit: the Postgres 17 / Python 3.12 `check` job
+  ran **362 passed, 5 skipped in 45.49s**, and the six package jobs (Ubuntu,
+  Windows and macOS; Python 3.12 and 3.13) completed successfully. The five
+  skips are live gVisor tests; the runner has no `runsc`.
 - **Local no-PostgreSQL run:** **337 passed, 30 skipped, 0 failed** in 221.23s.
   The 30 skips are 25 PostgreSQL-backed tests plus the five live gVisor tests.
   Neither category is counted as a pass.
@@ -152,13 +152,21 @@ tree.
   sitemap URLs), axe (23 docs/trust routes, 0 violations), layout and Lighthouse
   (100/100/100/100 on desktop and mobile; mobile LCP 1.5s) as recorded in
   [`site/content/evidence.md`](site/content/evidence.md). Pages run
-  [39612206947](https://github.com/DevAnimecx/redfall/actions/runs/39612206947)
+  [39616295475](https://github.com/DevAnimecx/redfall/actions/runs/39616295475)
   deployed it, the live monitor passed 24 sitemap pages and IndexNow accepted 24
   URLs with HTTP 200. Two live Lighthouse runs measured desktop 97–98 and mobile
   93–99; one mobile run missed the 95 performance gate, so live performance is
-  recorded as a range rather than certified at 100. The 0.1.1 build and wheel
-  verification are recorded in [`RELEASE.md`](RELEASE.md); published-artifact
-  verification is added after the release workflow completes.
+  recorded as a range rather than certified at 100.
+- **Published release:** [v0.1.1](https://github.com/DevAnimecx/redfall/releases/tag/v0.1.1)
+  was published by release workflow run
+  [39617991722](https://github.com/DevAnimecx/redfall/actions/runs/39617991722)
+  with the wheel, sdist and `SHA256SUMS`. Downloaded-asset verification passed:
+  the wheel hash is `860510a73750c45f88e71c0fca876affe39ef4d9f11cf369673daf24d79e74fa`
+  and the sdist hash is
+  `14be7d3994139f4802d3a0ab8c8d82876dade51b430f0b135dc94fa4579a06c3`.
+  `gh attestation verify`, restricted to `release.yml@refs/tags/v0.1.1` and
+  source ref `refs/tags/v0.1.1`, passed for both artifacts, and the downloaded
+  wheel installed outside the checkout with `WHEEL VERIFY: PASS`.
 - **Known limits:** no local PostgreSQL, Docker/gVisor runtime or LLM key; A2A
   push notifications and multi-turn continuation are not implemented; the
   gateway has no built-in TLS or multi-tenancy; adapter certification covers the

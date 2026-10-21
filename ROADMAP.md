@@ -13,11 +13,12 @@
 > **78 modules PASS**, **53 focused Phase 3 tests passed** (real sockets, SSE
 > and two gateway subprocess contracts), and a complete no-PostgreSQL run
 > reported **337 passed, 30 skipped, 0 failed**. CI run
-> [39612206950](https://github.com/DevAnimecx/redfall/actions/runs/39612206950)
+> [39616295334](https://github.com/DevAnimecx/redfall/actions/runs/39616295334)
 > passed every job: the Postgres 17 / Python 3.12 `check` job ran **362 passed,
-> 5 skipped in 73.96s** (the five skips are the live gVisor tests) and all six
-> wheel/installer package jobs passed. The `0.1.1` release record is in
-> [`RELEASE.md`](RELEASE.md).
+> 5 skipped in 45.49s** (the five skips are the live gVisor tests) and all six
+> wheel/installer package jobs passed. The `0.1.1` release is published; its
+> downloaded artifacts passed `SHA256SUMS` and `gh attestation verify`. The
+> release record is in [`RELEASE.md`](RELEASE.md).
 >
 > Still unimplemented: A2A push notifications and multi-turn continuation,
 > environment recipes/synthesis, multi-role campaigns, sanitizer-node synthesis,

@@ -28,6 +28,15 @@ The v0.1.1 release publishes:
 
 The wheel has no compiled extensions, no post-install hooks and no vendored code. The runtime dependencies are declared in `pyproject.toml`.
 
+The published v0.1.1 assets were downloaded and verified on 2026-10-21:
+
+| Artifact | SHA-256 |
+| --- | --- |
+| `redfall-0.1.1-py3-none-any.whl` | `860510a73750c45f88e71c0fca876affe39ef4d9f11cf369673daf24d79e74fa` |
+| `redfall-0.1.1.tar.gz` | `14be7d3994139f4802d3a0ab8c8d82876dade51b430f0b135dc94fa4579a06c3` |
+
+The [release workflow run](https://github.com/DevAnimecx/redfall/actions/runs/39617991722) built them. `gh attestation verify` passed for both artifacts with the signer workflow `release.yml@refs/tags/v0.1.1` and source digest `ba8dbcc`.
+
 ## How do you check the hash?
 
 Download the artifacts and `SHA256SUMS` into the same directory, then run:

@@ -111,8 +111,8 @@ check, not a pass.
 | 2026-10-21 | Windows installer | throwaway `REDFALL_HOME` installed 0.1.1; `install.sh` parsed with Git Bash |
 | 2026-10-21 | `redfall doctor` on release host | Postgres and Redis MISSING after bounded probes; `runsc` and LLM provider MISSING; Node/npm OK; exits 1 |
 | 2026-10-21 | CI on release code (`7e1695f`) | run [39612206950](https://github.com/DevAnimecx/redfall/actions/runs/39612206950): **362 passed, 5 skipped in 73.96s**; all six package jobs' steps completed successfully |
-| 2026-10-21 | CI on tag commit | pending |
-| 2026-10-21 | Pages deployment | run [39612206947](https://github.com/DevAnimecx/redfall/actions/runs/39612206947): 25 HTML routes / 24 sitemap URLs; live monitor 24 pages; IndexNow 24 URLs, HTTP 200; missing path 404 |
+| 2026-10-21 | CI on tag commit (`ba8dbcc`) | run [39616295334](https://github.com/DevAnimecx/redfall/actions/runs/39616295334): **362 passed, 5 skipped in 45.49s**; `check` and all six package jobs (including macOS 3.12 and 3.13) completed successfully |
+| 2026-10-21 | Pages deployment | run [39616295475](https://github.com/DevAnimecx/redfall/actions/runs/39616295475): 25 HTML routes / 24 sitemap URLs; live monitor 24 pages; IndexNow 24 URLs, HTTP 200; missing path 404 |
 | 2026-10-21 | Live Lighthouse (two runs) | desktop 97–98; mobile 93–99; 100 accessibility/best-practices/SEO; one mobile run below the 95 performance gate |
-| 2026-10-21 | `v0.1.1` publication | pending |
-| 2026-10-21 | Downloaded artifact + attestation verification | pending |
+| 2026-10-21 | `v0.1.1` publication | [release v0.1.1](https://github.com/DevAnimecx/redfall/releases/tag/v0.1.1) published by release run [39617991722](https://github.com/DevAnimecx/redfall/actions/runs/39617991722); assets are the wheel, the sdist and `SHA256SUMS` |
+| 2026-10-21 | Downloaded artifact + attestation verification | downloaded the published assets and verified `SHA256SUMS`: wheel `860510a73750c45f88e71c0fca876affe39ef4d9f11cf369673daf24d79e74fa`, sdist `14be7d3994139f4802d3a0ab8c8d82876dade51b430f0b135dc94fa4579a06c3`. `gh attestation verify` passed for both with signer workflow `release.yml@refs/tags/v0.1.1` and source digest `ba8dbcc`. The downloaded wheel installed outside the checkout: `WHEEL VERIFY: PASS` and `redfall, version 0.1.1` |

@@ -128,7 +128,7 @@ The database-backed tests need a reachable PostgreSQL. Point them at a throwaway
 export REDFALL_TEST_DATABASE_URL=postgresql+psycopg://vulnbank:Sup3rS3cretBankPwd!@127.0.0.1:5432/redfall_test
 ```
 
-The full 0.1.1 suite collects **367 tests**. On the release host, without PostgreSQL or a container runtime, it reported **337 passed, 30 skipped**; the 30 skips are 25 PostgreSQL tests and five gVisor tests. The CI run on the 0.1.1 release code reported **362 passed, 5 skipped in 73.96s** against PostgreSQL 17. Skips are reported as skips, not passes. See [the evidence page](/evidence/) for the date and exact command.
+The full 0.1.1 suite collects **367 tests**. On the release host, without PostgreSQL or a container runtime, it reported **337 passed, 30 skipped**; the 30 skips are 25 PostgreSQL tests and five gVisor tests. The CI run on the tag commit ([39616295334](https://github.com/DevAnimecx/redfall/actions/runs/39616295334)) reported **362 passed, 5 skipped in 45.49s** against PostgreSQL 17. Skips are reported as skips, not passes. See [the evidence page](/evidence/) for the date and exact command.
 
 ## What should you do when the scan cannot start?
 

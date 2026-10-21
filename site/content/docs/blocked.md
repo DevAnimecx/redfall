@@ -74,7 +74,7 @@ A lot of the system does not need those two prerequisites. The repository's meas
 | `python scripts/check_orphans.py` | PASS (78 modules) |
 | `python scripts/check_clean_tree.py` | PASS |
 | `python -m pytest tests/ -q` on this host | 337 passed, 30 skipped in 221.23s (25 PostgreSQL, 5 gVisor) |
-| `python -m pytest tests/ -q` in CI (release-code run 39612206950) | 362 passed, 5 skipped in 73.96s, PostgreSQL 17 / Python 3.12 |
+| `python -m pytest tests/ -q` in CI (tag-commit run 39616295334) | 362 passed, 5 skipped in 45.49s, PostgreSQL 17 / Python 3.12 |
 | `range/pythonbank` pytest | 18 passed |
 | `range/pythonbank` replay | 17/17 PoCs over real HTTP |
 | `range/vulnbank` tests | 76 passed |
@@ -83,13 +83,15 @@ A lot of the system does not need those two prerequisites. The repository's meas
 | `range/vulnbank-adaptive` replay | 7/7 PoCs |
 | `range/chainbank` tests | 8 passed |
 | `range/chainbank` replay | 6/6 chains end to end |
-| `gh attestation verify` on the released wheel | pending for 0.1.1; the 0.1.0 artifact verified |
-| Wheel verification in a fresh venv | PASS (0.1.1) |
+| Published GitHub release `v0.1.1` | [release](https://github.com/DevAnimecx/redfall/releases/tag/v0.1.1), release run 39617991722; wheel, sdist and `SHA256SUMS` published |
+| `SHA256SUMS` check on the downloaded assets | PASS for the wheel and sdist |
+| `gh attestation verify` on the downloaded wheel and sdist, restricted to the release workflow and `refs/tags/v0.1.1` | PASS for both; signer `release.yml@refs/tags/v0.1.1`, source digest `ba8dbcc` |
+| Downloaded wheel installed in a fresh venv outside the checkout | PASS (0.1.1); `WHEEL VERIFY: PASS` |
 | Windows installer with a throwaway `REDFALL_HOME` | `Redfall 0.1.1 installed.` |
 | Landing page Lighthouse (local 0.1.1 production build) | 100/100/100/100 desktop and mobile; mobile LCP 1.5 s, TBT 0 ms, CLS 0 |
 | SEO gate (`npm run check:seo`) | PASS — 25 HTML routes, 24 sitemap URLs, 0 errors |
 | axe-core on 23 docs/trust routes (390 and 1280 px) | 0 violations; zero client JavaScript |
-| Live Pages deploy (0.1.1, [run 39612206947](https://github.com/DevAnimecx/redfall/actions/runs/39612206947)) | build + deploy succeeded; SEO gate PASS (25 HTML routes, 24 sitemap URLs); live monitor PASS on 24 pages; IndexNow accepted 24 URLs with HTTP 200 |
+| Live Pages deploy (0.1.1, [run 39616295475](https://github.com/DevAnimecx/redfall/actions/runs/39616295475)) | build + deploy succeeded; SEO gate PASS (25 HTML routes, 24 sitemap URLs); live monitor PASS on 24 pages; IndexNow accepted 24 URLs with HTTP 200 |
 | Live Lighthouse (0.1.1 deployed landing, two runs) | desktop 97–98 performance; mobile 93–99; 100 accessibility/best-practices/SEO; one mobile run below the 95 performance gate |
 | Live 404 check | missing path returned HTTP 404 |
 
