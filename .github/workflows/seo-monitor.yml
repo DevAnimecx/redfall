@@ -31,7 +31,7 @@ jobs:
       - name: check the live surface
         run: node site/scripts/seo_monitor.mjs
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: seo-monitor-report
