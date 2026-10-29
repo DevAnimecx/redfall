@@ -21,7 +21,7 @@ from .config import Config, check_prerequisites, describe_environment
 from .ingestion.dependencies import read_dependencies
 from .ingestion.ingest import ingest
 from .llm import BudgetExceeded, LLMError, new_budget
-from .reasoning import BackendError, load_backend_config, make_backend
+from .reasoning import load_backend_config, make_backend
 from .sandbox.docker_gvisor import SandboxUnavailable
 from .store.db import init_engine
 from .store.models import Branch, Finding, LLMCall, SandboxRun, Scan
