@@ -401,3 +401,24 @@ def _budget(max_tokens: int = 10_000):
     from redfall.llm import Budget
 
     return Budget(max_tokens=max_tokens, max_cost_usd=100.0)
+
+
+# ------------------------------------------------------------- config errors
+
+def test_invalid_toml_is_reported_not_silently_ignored(tmp_path):
+    """A broken config file must fail loudly, not fall through to env."""
+    from redfall.reasoning.config import ConfigError, load_backend_config
+
+    # A Windows path written into a TOML basic string has an invalid escape.
+    (tmp_path / "redfall.toml").write_text('command = "C:' + chr(92) + 'Users' + chr(92) + 'x"' + chr(10), encoding="utf-8")
+    with pytest.raises(ConfigError):
+        load_backend_config(tmp_path)
+
+
+def test_config_error_message_mentions_backslashes(tmp_path):
+    from redfall.reasoning.config import ConfigError, load_backend_config
+
+    (tmp_path / "redfall.toml").write_text('p = "C:' + chr(92) + 'Users' + chr(92) + 'india"' + chr(10), encoding="utf-8")
+    with pytest.raises(ConfigError) as caught:
+        load_backend_config(tmp_path)
+    assert "backslash" in str(caught.value).lower()

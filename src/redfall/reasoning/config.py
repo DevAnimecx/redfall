@@ -28,6 +28,10 @@ except ModuleNotFoundError:  # pragma: no cover - the project requires 3.12
 CONFIG_FILENAME = "redfall.toml"
 
 
+class ConfigError(RuntimeError):
+    """A config file exists but cannot be read or parsed."""
+
+
 @dataclass
 class BackendConfig:
     """A resolved description of the reasoning backend."""
@@ -74,17 +78,31 @@ def _candidate_paths(target: Path | None) -> list[Path]:
 
 
 def load_backend_config(target: Path | None = None) -> BackendConfig:
-    """Resolve a BackendConfig from the first config file found, else env."""
+    """Resolve a BackendConfig from the first config file found, else env.
+
+    A config file that exists but cannot be parsed is a hard error, not a
+    silent fall-through to the environment. Falling back would run a scan with
+    a different backend than the operator wrote down, which is exactly the
+    class of quiet divergence this project refuses.
+    """
     if tomllib is not None:
         for path in _candidate_paths(target):
-            if path.is_file():
-                try:
-                    data = tomllib.loads(path.read_text(encoding="utf-8"))
-                except (OSError, tomllib.TOMLDecodeError):
-                    continue
-                cfg = _from_toml(data)
-                cfg.source = str(path)
-                return cfg
+            if not path.is_file():
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except OSError as err:
+                raise ConfigError(f"cannot read config file {path}: {err}") from err
+            try:
+                data = tomllib.loads(text)
+            except tomllib.TOMLDecodeError as err:
+                raise ConfigError(
+                    f"config file {path} is not valid TOML: {err}. "
+                    r"On Windows, escape backslashes in paths (use C:\\path or forward slashes)."
+                ) from err
+            cfg = _from_toml(data)
+            cfg.source = str(path)
+            return cfg
     return _from_env()
 
 

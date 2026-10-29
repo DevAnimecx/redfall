@@ -90,6 +90,8 @@ class LiteLLMBackend(ReasoningBackend):
 
     # -- transcript store, unchanged from 0.1.x ----------------------------
     def _lookup(self, digest: str) -> BackendResult | None:
+        if self._session_factory is None:
+            return None
         with self._session_factory() as session:
             row = session.execute(
                 select(LLMResponse).where(LLMResponse.id == digest)
@@ -150,6 +152,8 @@ class LiteLLMBackend(ReasoningBackend):
         result: BackendResult,
         reuse_of: str | None = None,
     ) -> str:
+        if self._session_factory is None:
+            return digest
         import hashlib
 
         call_id = hashlib.sha256(
