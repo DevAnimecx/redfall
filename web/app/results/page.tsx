@@ -1,25 +1,66 @@
 'use client';
 
-import { useState } from 'react';
-import { api, bySeverity, type Finding } from '../../lib/api';
-import { useApi } from '../../lib/useApi';
-import { Card, Offline, SevPill, SeverityBar, Stat } from '../../components/ui';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { FileDown } from 'lucide-react';
+
+import { api, bySeverity, type Finding } from '@/lib/api';
+import { useApi } from '@/lib/useApi';
+import { PageShell } from '@/components/page-shell';
+import { ApiDown } from '@/components/api-down';
+import { SevBadge } from '@/components/sev-badge';
+import { SeverityBar } from '@/components/severity-bar';
+import { Stat } from '@/components/stat';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 export default function ResultsPage() {
+  return (
+    <Suspense fallback={<Skeleton className="h-40 w-full" />}>
+      <ResultsInner />
+    </Suspense>
+  );
+}
+
+function ResultsInner() {
+  const params = useSearchParams();
+  const initial = params.get('scan') || '';
+  return <ResultsBody initialScan={initial} />;
+}
+
+function ResultsBody({ initialScan }: { initialScan: string }) {
   const scans = useApi(() => api.scans(25));
-  const [selected, setSelected] = useState('');
-
   const campaigns = scans.data?.campaigns || [];
-  const active = selected || campaigns[0]?.id || '';
+  const [picked, setPicked] = useState(initialScan);
+  const active = picked || campaigns[0]?.id || '';
 
-  const report = useApi(
-    () => (active ? api.report(active) : Promise.resolve(null)),
-    [active],
-  );
-  const detail = useApi(
-    () => (active ? api.scan(active) : Promise.resolve(null)),
-    [active],
-  );
+  const report = useApi(() => (active ? api.report(active) : Promise.resolve(null)), [active]);
+  const detail = useApi(() => (active ? api.scan(active) : Promise.resolve(null)), [active]);
+
+  if (scans.error) {
+    return (
+      <PageShell title="Results">
+        <ApiDown error={scans.error} onRetry={scans.reload} />
+      </PageShell>
+    );
+  }
 
   const findings = (report.data?.findings || detail.data?.findings || []) as Finding[];
   const counts = bySeverity(findings);
@@ -27,135 +68,162 @@ export default function ResultsPage() {
   const rate = findings.length ? Math.round((reproduced / findings.length) * 100) : 0;
 
   return (
-    <>
-      <div className="page-head">
-        <div>
-          <h1>Results</h1>
-          <p className="subtitle">
-            The finished report for a scan, read live from the server rather than a file
-            written to disk.
-          </p>
-        </div>
-        {campaigns.length ? (
-          <select
+    <PageShell
+      title="Results"
+      subtitle="The finished report for a scan, read live from the server rather than a file written to disk."
+      actions={
+        campaigns.length ? (
+          <Select
             value={active}
-            onChange={(e) => setSelected(e.target.value)}
-            style={{ width: 'auto', minWidth: 220 }}
+            onValueChange={(v) => {
+              setPicked(v);
+            }}
           >
-            {campaigns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.id.slice(0, 8)} · {c.repo || c.objective || 'scan'}
-              </option>
-            ))}
-          </select>
-        ) : null}
-      </div>
-
-      {scans.error ? <Offline error={scans.error} /> : null}
-
+            <SelectTrigger className="w-[240px]">
+              <SelectValue placeholder="choose a scan" />
+            </SelectTrigger>
+            <SelectContent>
+              {campaigns.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  <span className="font-mono text-xs">{c.id.slice(0, 8)}</span>
+                  {' · '}
+                  {c.repo?.split(/[\\/]/).pop() || c.objective || 'scan'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null
+      }
+    >
       {!campaigns.length && !scans.loading ? (
-        <div className="empty">
-          <h3>No reports yet</h3>
-          <p>Run a scan, then come back — the report is generated from what it proved.</p>
+        <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed py-16 text-center">
+          <p className="text-sm font-semibold">No reports yet</p>
+          <p className="max-w-sm text-xs text-muted-foreground">
+            Run a scan, then come back — the report is generated from what the sandbox proved.
+          </p>
         </div>
       ) : null}
 
       {active ? (
         <>
-          <div className="grid grid-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <Stat label="Findings" value={findings.length} />
-            <Stat label="Reproduced" value={reproduced} tone="#2ecc71" />
-            <Stat label="Repro rate" value={`${rate}%`} tone="#4dabf7" />
+            <Stat label="Reproduced" value={reproduced} tone="var(--sev-ok)" />
+            <Stat label="Repro rate" value={`${rate}%`} tone="var(--sev-low)" />
             <Stat
               label="Scan state"
               value={detail.data?.status || detail.data?.state || '—'}
             />
           </div>
 
-          <div className="split mt-16">
-            <Card title="Findings in this report">
-              {report.loading || detail.loading ? (
-                <p className="dim">Loading report…</p>
-              ) : findings.length ? (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Severity</th>
-                      <th>Finding</th>
-                      <th>Location</th>
-                      <th>Proof</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {findings.map((f) => (
-                      <tr key={f.id}>
-                        <td>
-                          <SevPill severity={f.severity} />
-                        </td>
-                        <td style={{ fontWeight: 600 }}>{f.title || f.category}</td>
-                        <td className="mono" style={{ fontSize: 12 }}>
-                          {f.file || '—'}
-                          {f.line ? `:${f.line}` : ''}
-                        </td>
-                        <td>
-                          {f.reproduced ? (
-                            <span className="pill ok">
-                              <span className="pill-dot" />
-                              ran
-                            </span>
-                          ) : (
-                            <span className="pill">static</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="empty">
-                  <h3>Nothing was proven</h3>
-                  <p>
-                    This scan completed without a finding that survived execution. That is
-                    a result, not a failure.
-                  </p>
-                </div>
-              )}
+          <div className="grid gap-4 lg:grid-cols-5">
+            <Card className="lg:col-span-3">
+              <CardHeader>
+                <CardTitle>Findings in this report</CardTitle>
+                <CardDescription>
+                  Scan <span className="font-mono">{active.slice(0, 12)}</span>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {report.loading || detail.loading ? (
+                  <div className="space-y-2">
+                    <Skeleton className="h-9 w-full" />
+                    <Skeleton className="h-9 w-full" />
+                  </div>
+                ) : findings.length ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-28">Severity</TableHead>
+                        <TableHead>Finding</TableHead>
+                        <TableHead className="hidden md:table-cell">Location</TableHead>
+                        <TableHead className="w-20">Proof</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {findings.map((f) => (
+                        <TableRow key={f.id}>
+                          <TableCell>
+                            <SevBadge severity={f.severity} />
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {f.title || f.category}
+                          </TableCell>
+                          <TableCell className="hidden font-mono text-xs md:table-cell">
+                            {f.file || '—'}
+                            {f.line ? `:${f.line}` : ''}
+                          </TableCell>
+                          <TableCell>
+                            {f.reproduced ? (
+                              <Badge
+                                variant="outline"
+                                className="border-sev-ok/40 bg-sev-ok/10 text-sev-ok"
+                              >
+                                ran
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-[10px]">
+                                static
+                              </Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="flex flex-col items-center gap-1 rounded-xl border border-dashed py-10 text-center">
+                    <p className="text-sm font-semibold">Nothing was proven</p>
+                    <p className="max-w-xs text-xs text-muted-foreground">
+                      This scan completed without a finding that survived execution. That is a
+                      result, not a failure.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
             </Card>
 
-            <div>
-              <Card title="Severity mix">
-                <SeverityBar counts={counts} />
-                <div className="mt-16 grid grid-2" style={{ gap: 8 }}>
-                  {['critical', 'high', 'medium', 'low'].map((sev) => (
-                    <div
-                      key={sev}
-                      className="row"
-                      style={{ justifyContent: 'space-between' }}
-                    >
-                      <SevPill severity={sev} />
-                      <span className="mono">{counts[sev] || 0}</span>
-                    </div>
-                  ))}
-                </div>
+            <div className="space-y-4 lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Severity mix</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <SeverityBar counts={counts} />
+                  <div className="flex flex-wrap gap-1.5">
+                    {(['critical', 'high', 'medium', 'low'] as const).map((sev) => (
+                      <SevBadge key={sev} severity={`${sev} · ${counts[sev] || 0}`} />
+                    ))}
+                  </div>
+                </CardContent>
               </Card>
 
-              <Card title="Export">
-                <p className="dim" style={{ marginTop: 0 }}>
-                  The bundle is available over the API; wire it into CI with the same
-                  endpoint the console reads.
-                </p>
-                <pre className="code-block">
-                  {`curl -s ${typeof window === 'undefined' ? '' : window.location.origin ? '' : ''}/api/reports/${active}`}
-                </pre>
-                <p className="faint" style={{ fontSize: 12 }}>
-                  Replace the host with your dashboard address (default
-                  http://127.0.0.1:8787).
-                </p>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Export</CardTitle>
+                  <CardDescription>
+                    The same bundle CI reads — nothing is formatted for the console alone.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <pre className="overflow-x-auto rounded-lg bg-muted/40 p-3 font-mono text-[11px] leading-relaxed">
+{`curl -s http://127.0.0.1:8787/api/reports/${active}`}
+                  </pre>
+                  <Button variant="outline" size="sm" asChild>
+                    <a
+                      href={`${process.env.NEXT_PUBLIC_REDFALL_API || 'http://127.0.0.1:8787'}/api/reports/${active}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <FileDown /> Open report JSON
+                    </a>
+                  </Button>
+                </CardContent>
               </Card>
             </div>
           </div>
         </>
       ) : null}
-    </>
+    </PageShell>
   );
 }

@@ -225,11 +225,20 @@ export function streamScan(
 
 export const SEVERITY_ORDER = ['critical', 'high', 'medium', 'low'] as const;
 
+/** Raw hues for meters and bars; badges use the token classes in SEVERITY_COLOR. */
+export const SEVERITY_HEX: Record<string, string> = {
+  critical: 'var(--sev-critical)',
+  high: 'var(--sev-high)',
+  medium: 'var(--sev-medium)',
+  low: 'var(--sev-low)',
+};
+
+/** Badge classes per severity — kept next to the hues they echo. */
 export const SEVERITY_COLOR: Record<string, string> = {
-  critical: '#ff4d4f',
-  high: '#ff922b',
-  medium: '#f5c542',
-  low: '#4dabf7',
+  critical: 'text-sev-critical border-sev-critical/40 bg-sev-critical/10',
+  high: 'text-sev-high border-sev-high/40 bg-sev-high/10',
+  medium: 'text-sev-medium border-sev-medium/40 bg-sev-medium/10',
+  low: 'text-sev-low border-sev-low/40 bg-sev-low/10',
 };
 
 export function bySeverity(findings: Finding[]): Record<string, number> {

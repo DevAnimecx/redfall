@@ -1,6 +1,13 @@
 import type { ReactNode } from 'react';
+
 import './globals.css';
-import SiteHeader from '../components/SiteHeader';
+
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { Toaster } from '@/components/ui/sonner';
+import { AppSidebar } from '@/components/app-sidebar';
 
 export const metadata = {
   title: 'RedFall Console',
@@ -10,10 +17,15 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
-      <body>
-        <SiteHeader />
-        <main className="main">{children}</main>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} dark`}>
+      <body className="font-sans antialiased">
+        <TooltipProvider delayDuration={200}>
+          <SidebarProvider>
+            <AppSidebar />
+            <main className="flex-1 overflow-x-hidden">{children}</main>
+          </SidebarProvider>
+        </TooltipProvider>
+        <Toaster richColors position="bottom-right" />
       </body>
     </html>
   );
