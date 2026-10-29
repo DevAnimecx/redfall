@@ -714,6 +714,18 @@ class ToolRegistry:
             _object_schema({"limit": {"type": "integer", "minimum": 1}}),
             self._adapter_certifications,
         )
+        self._add(
+            "redfall_agents_list",
+            "List the agent drivers RedFall can borrow reasoning from, and which are installed on this host. Certification rows cover only the recorded run.",
+            _object_schema({}),
+            self._agents_list,
+        )
+        self._add(
+            "redfall_reasoning_describe",
+            "Describe the reasoning backend that would be built from the effective config: a provider key, an installed agent, an OpenAI-compatible endpoint, or a router.",
+            _object_schema({}),
+            self._reasoning_describe,
+        )
 
     def _add(
         self,
@@ -1352,3 +1364,28 @@ class ToolRegistry:
                 .limit(limit)
             ).all()
             return {"certifications": [row.to_wire() for row in rows]}
+
+    def _agents_list(self, args: dict[str, Any]) -> dict[str, Any]:
+        from ..agents import driver_registry
+
+        registry = driver_registry()
+        return {
+            "supported": len(registry.names()),
+            "installed": registry.detected(),
+            "agents": registry.describe_all(),
+        }
+
+    def _reasoning_describe(self, args: dict[str, Any]) -> dict[str, Any]:
+        from ..reasoning import load_backend_config
+        from ..reasoning.factory import make_backend
+
+        config = load_backend_config()
+        out: dict[str, Any] = {"config": config.as_dict()}
+        try:
+            backend = make_backend(config, session_factory=None, budget=None)
+            out["backend"] = backend.describe()
+        except Exception as exc:  # noqa: BLE001 - describe reports, it does not crash
+            out["backend"] = None
+            out["error"] = str(exc)
+        return out
+

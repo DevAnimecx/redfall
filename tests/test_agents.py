@@ -186,3 +186,31 @@ def test_agent_not_installed_is_reported_by_backend():
     backend = AgentBackend(Missing(), session_factory=None, budget=Budget(max_tokens=10, max_cost_usd=1))
     assert backend.available() is False
     assert backend.describe()["kind"] == "agent"
+
+
+def test_agent_tools_are_registered():
+    """An external agent can discover RedFall's reasoning layer over MCP/HTTP."""
+    from redfall.interop.tools import ToolRegistry
+
+    registry = ToolRegistry(lambda: None)
+    names = [spec["name"] for spec in registry.specs()]
+    assert "redfall_agents_list" in names
+    assert "redfall_reasoning_describe" in names
+
+
+def test_agents_list_tool_reports_supported_and_installed():
+    from redfall.interop.tools import ToolRegistry
+
+    out = ToolRegistry(lambda: None).call("redfall_agents_list", {})
+    assert out["supported"] == 12
+    assert isinstance(out["installed"], list)
+    assert len(out["agents"]) == 12
+
+
+def test_reasoning_describe_tool_reports_the_effective_backend():
+    from redfall.interop.tools import ToolRegistry
+
+    out = ToolRegistry(lambda: None).call("redfall_reasoning_describe", {})
+    assert "config" in out
+    # Either a backend resolved, or the reason it did not is stated.
+    assert out.get("backend") is not None or out.get("error")
