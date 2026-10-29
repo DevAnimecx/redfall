@@ -24,7 +24,6 @@ faking a reproduction.
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path
@@ -121,7 +120,6 @@ def test_analysis_stage_returns_findings_from_the_agent(agent_config):
 def test_transcript_tables_record_the_agent_call(agent_config):
     """A call through an agent lands in the same tables a provider call does."""
     from redfall.agent.agent import Agent
-    from redfall.reasoning import load_backend_config
     from redfall.reasoning.agent_backend import AgentBackend
 
     class Recording(AgentBackend):

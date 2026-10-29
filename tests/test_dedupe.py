@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from redfall.branching.dedupe import dedupe_key, merge_duplicates, same_location
+from redfall.branching.dedupe import dedupe_key, merge_duplicates
 
 
 @dataclass

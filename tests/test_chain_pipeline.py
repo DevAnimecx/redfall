@@ -11,7 +11,6 @@ code, against a real database.
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 from typing import Any
 
 import pytest

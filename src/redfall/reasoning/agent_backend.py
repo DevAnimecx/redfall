@@ -19,7 +19,6 @@ from typing import Any
 from sqlalchemy import select
 
 from ..agents.driver import AgentDriver, AgentError
-from ..llm import model_for_tier
 from ..store.models import LLMCall, LLMResponse
 from .backend import BackendError, BackendResult, ReasoningBackend
 
