@@ -887,7 +887,7 @@ function buildLlms(pages) {
     `- Release: ${RELEASE_URL}`,
     `- Maintainer: ${AUTHOR_NAME} (${GITHUB_USER_URL})`,
     `- Version: ${VERSION}; Python 3.12+; Windows, Linux and macOS`,
-    "- Full scans require Docker with a gVisor runtime and one LLM provider key through LiteLLM.",
+    "- A full scan requires Docker with a gVisor runtime. From 0.2.0 the reasoning layer needs no AI API key: drive RedFall with an installed agent (Claude Code, Codex, Gemini CLI and nine more), an OpenAI-compatible endpoint, or a provider key through LiteLLM.",
     `- Last updated: ${UPDATED}`,
     "",
     "## Start here",

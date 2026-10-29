@@ -26,7 +26,7 @@ export const FAQ = [
   },
   {
     q: "What does a full scan require?",
-    a: "Docker with a gVisor runsc runtime, one LLM provider key through LiteLLM, PostgreSQL and a target boot contract. Installing the CLI needs only Python 3.12+. redfall doctor reports what the host can actually run, and missing prerequisites fail loudly instead of producing a demo scan.",
+    a: "Docker with a gVisor runsc runtime, PostgreSQL and a target boot contract. Installing the CLI needs only Python 3.12+. From 0.2.0 the reasoning layer needs no AI API key — an installed agent, an OpenAI-compatible endpoint or a provider key all work. redfall doctor reports what the host can actually run, and missing prerequisites fail loudly instead of producing a demo scan.",
     href: "/redfall/docs/install/",
     link: "Read the install guide",
   },
