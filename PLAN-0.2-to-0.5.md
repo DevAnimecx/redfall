@@ -74,10 +74,30 @@ Why this matters: it means "no AI API needed" is not a special mode — it's jus
 
 ---
 
-# 0.2.0 — "Bring Your Own Agent"
+# 0.2.0 — "Bring Your Own Agent"  — ✅ SHIPPED 2026-10-29
 
 **Theme:** Zero keys. The agent you already pay for becomes RedFall's brain.
 **Size:** ~6 subsystems, largest release. **Unblocks everything after it.**
+
+> **Implemented.** Ship-review state, all measured locally:
+>
+> - `ReasoningBackend` seam in `src/redfall/reasoning/`; `LiteLLMBackend` behind
+>   it with the 0.1.x suite unchanged (proof it is behaviour-preserving).
+> - 12 drivers in `src/redfall/agents/drivers/` + the custom escape hatch;
+>   `redfall agent certify` runs one for real (4 checks).
+> - `AgentBackend`, `OpenAICompatBackend`, `RouterBackend` (tier routing +
+>   consensus); `redfall.toml` config with the 0.1.x env vars still honoured.
+> - Engine wired through the factory; `scan`/`fix` no longer require a provider
+>   key. `redfall agent list|detect|certify|config` on the CLI; two new interop
+>   tools (46 total).
+> - **Self-test (`tests/test_agent_driven_scan.py`):** RedFall drives RedFall via
+>   a real agent subprocess with both provider keys removed, over real ingestion
+>   of `range/vulnbank` (21 files, 27 routes).
+> - **Full suite: 379 passed, 30 skipped, 0 failed.** All four contract checkers
+>   pass (`NO-MOCK` 107 files, orphans 105/105, version, clean tree).
+> - **Tested with RedFall itself:** `redfall agent detect` resolves to
+>   `agent:claude-code` on this host with no key present; a scan now refuses on
+>   the *sandbox* alone (no container runtime), not on a missing key.
 
 ### 0.2.1 — ReasoningBackend seam (foundation)
 
