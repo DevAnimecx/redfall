@@ -79,15 +79,31 @@ class AgentDriver(ABC):
     homepage: str = ""
     capabilities: AgentCapabilities = AgentCapabilities()
 
+    def __init__(self) -> None:
+        # Version is probed at most once per process; see `version()`.
+        self._version_probed = False
+        self._version_cache: str | None = None
+
     # -- detection ---------------------------------------------------------
     @abstractmethod
     def executable(self) -> str | None:
         """The command to run, or None when the agent is not installed."""
 
     def version(self) -> str | None:
-        """Best-effort version string, for the certification record."""
+        """Best-effort version string, for the certification record.
+
+        Probed at most once per process. The dashboard and `redfall agent list`
+        both call this for every driver, and spawning twelve `--version`
+        subprocesses on every request is the difference between a responsive
+        console and a seven-second stall. A None result (not installed, or the
+        probe failed) is cached too, so a missing agent is not re-probed.
+        """
+        if self._version_probed:
+            return self._version_cache
+        self._version_probed = True
         exe = self.executable()
         if exe is None:
+            self._version_cache = None
             return None
         try:
             out = subprocess.run(
@@ -99,9 +115,11 @@ class AgentDriver(ABC):
                 errors="replace",
             )
         except (OSError, subprocess.SubprocessError):
+            self._version_cache = None
             return None
         text = (out.stdout or out.stderr or "").strip().splitlines()
-        return text[0].strip() if text else None
+        self._version_cache = text[0].strip() if text else None
+        return self._version_cache
 
     def version_argv(self) -> list[str]:
         return ["--version"]
@@ -178,13 +196,13 @@ class AgentDriver(ABC):
         """Extract token/cost accounting when the agent reports it."""
         return {}
 
-    def describe(self) -> dict[str, Any]:
+    def describe(self, *, with_version: bool = True) -> dict[str, Any]:
         return {
             "name": self.name,
             "title": self.title,
             "installed": self.available(),
             "executable": self.executable(),
-            "version": self.version() if self.available() else None,
+            "version": self.version() if (with_version and self.available()) else None,
             "homepage": self.homepage,
             "capabilities": {
                 "long_context": self.capabilities.long_context,

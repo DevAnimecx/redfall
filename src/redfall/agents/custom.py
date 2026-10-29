@@ -34,6 +34,7 @@ class CustomAgentDriver(AgentDriver):
     homepage = ""
 
     def __init__(self, spec: dict[str, Any]) -> None:
+        super().__init__()
         name = str(spec.get("name") or "").strip()
         command = str(spec.get("command") or "").strip()
         if not name:

@@ -48,6 +48,7 @@ class DriverRegistry:
             self._drivers[instance.name] = instance
         for driver in drivers or []:
             self._drivers[driver.name] = driver
+        self._describe_cache: list[dict] | None = None
 
     def get(self, name: str) -> AgentDriver | None:
         return self._drivers.get(name)
@@ -63,7 +64,23 @@ class DriverRegistry:
         return [d.name for d in self.all() if d.available()]
 
     def describe_all(self) -> list[dict]:
-        return [d.describe() for d in self.all()]
+        """Describe every driver, probing versions concurrently.
+
+        Twelve serial `--version` subprocesses take six seconds; concurrently
+        they take as long as the slowest one. The console calls this on load, so
+        it has to be fast.
+        """
+        if self._describe_cache is not None:
+            return [dict(item) for item in self._describe_cache]
+        drivers = self.all()
+        installed = [d for d in drivers if d.available()]
+        if installed:
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(max_workers=min(12, len(installed))) as pool:
+                list(pool.map(lambda d: d.version(), installed))
+        self._describe_cache = [d.describe() for d in drivers]
+        return [dict(item) for item in self._describe_cache]
 
 
 _REGISTRY: DriverRegistry | None = None
