@@ -20,7 +20,8 @@ from .chain.stage import ChainStageOutcome, run_chain_stage
 from .config import Config, check_prerequisites, describe_environment
 from .ingestion.dependencies import read_dependencies
 from .ingestion.ingest import ingest
-from .llm import BudgetExceeded, LLM, LLMError, new_budget
+from .llm import BudgetExceeded, LLMError, new_budget
+from .reasoning import BackendError, load_backend_config, make_backend
 from .sandbox.docker_gvisor import SandboxUnavailable
 from .store.db import init_engine
 from .store.models import Branch, Finding, LLMCall, SandboxRun, Scan
@@ -60,7 +61,7 @@ def run_scan(
     on_event: Any = None,
 ) -> ScanReport:
     """Execute a full scan. Raises rather than degrading when a prerequisite fails."""
-    check_prerequisites(config, require_llm=True, require_sandbox=True)
+    check_prerequisites(config, require_llm=False, require_sandbox=True)
 
     started = time.time()
     started_at = datetime.now(timezone.utc)
@@ -110,7 +111,16 @@ def run_scan(
         )
 
         budget = new_budget(config.max_tokens_per_scan, config.max_cost_per_scan_usd)
-        llm = LLM(session_factory=SessionLocal, budget=budget)
+        # 0.2.1: the model layer is chosen by config. A provider key and an
+        # installed agent are two answers to the same question; `auto` picks
+        # whichever is present and refuses loudly when neither is.
+        backend = make_backend(
+            load_backend_config(target_path),
+            session_factory=SessionLocal,
+            budget=budget,
+        )
+        emit("reasoning:backend", {"backend": backend.describe()})
+        llm = backend
         agent = Agent(llm=llm, scan_id=scan_id)
         validator = Validator(
             target=target_path,

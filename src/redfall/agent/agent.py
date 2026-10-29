@@ -1,8 +1,9 @@
 """The reasoning stages: plan, analyse, generate a PoC, propose a fix.
 
-Every stage is a real provider call through `redfall.llm`. A stage that cannot
-get a usable answer raises; none of them substitute a default, because a default
-here would be a fabricated finding.
+Every stage is a real call through a `ReasoningBackend` — a provider API or an
+installed agent, chosen by config (0.2.1). A stage that cannot get a usable
+answer raises; none of them substitute a default, because a default here would
+be a fabricated finding.
 """
 
 from __future__ import annotations
@@ -13,7 +14,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from ..llm import JSONParseError, LLM, LLMResult
+from ..llm import JSONParseError
+from ..reasoning.backend import ReasoningBackend
 from . import categories
 
 PROMPT_DIR = Path(__file__).parent / "prompts"
@@ -87,7 +89,7 @@ class AnalysisFinding:
 class Agent:
     """Wraps the LLM with the domain context each stage needs."""
 
-    def __init__(self, llm: LLM, scan_id: str) -> None:
+    def __init__(self, llm: ReasoningBackend, scan_id: str) -> None:
         self.llm = llm
         self.scan_id = scan_id
 

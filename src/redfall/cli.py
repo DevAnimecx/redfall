@@ -54,15 +54,29 @@ def doctor() -> None:
     )
     table.add_row(
         "LLM provider",
-        "OK" if config.providers else "MISSING",
-        ", ".join(config.providers) or "set OPENAI_API_KEY or ANTHROPIC_API_KEY",
+        "OK" if config.providers else "-",
+        ", ".join(config.providers) or "none (an installed agent can reason instead)",
     )
+    # 0.2.x: reasoning is either a provider key or an installed agent.
+    from .reasoning import load_backend_config
+    from .reasoning.factory import make_backend as _probe_backend
+
+    backend_row = "MISSING"
+    backend_detail = "no provider key and no agent installed"
+    try:
+        cfg = load_backend_config()
+        probe = _probe_backend(cfg, session_factory=None, budget=None)
+        backend_row = "OK"
+        backend_detail = f"{probe.name} ({probe.describe().get('kind', '')})"
+    except Exception as exc:  # noqa: BLE001 - diagnostics must not crash
+        backend_detail = str(exc)[:120]
+    table.add_row("Reasoning backend", backend_row, backend_detail)
     table.add_row("Node", "OK" if env["node"] else "MISSING", "")
     table.add_row("npm", "OK" if env["npm"] else "MISSING", "")
 
     console.print(table)
     try:
-        check_prerequisites(config)
+        check_prerequisites(config, require_llm=False)
         console.print("[green]all prerequisites satisfied — scans can run[/green]")
     except PrerequisiteError as exc:
         console.print("[red]scans cannot run:[/red]\n  - " + "\n  - ".join(exc.failures))
@@ -77,7 +91,7 @@ def scan(target: Path, out_path: Path | None, quiet: bool) -> None:
     """Scan a repository. Executes every finding in a gVisor sandbox."""
     config = load_config()
     try:
-        check_prerequisites(config)
+        check_prerequisites(config, require_llm=False)
     except PrerequisiteError as exc:
         _fail("refusing to scan:\n  - " + "\n  - ".join(exc.failures) + "\n\nSee BLOCKED.md.")
 
@@ -266,7 +280,7 @@ def fix(finding_id: str, target_path: Path, out_path: Path | None) -> None:
 
     config = load_config()
     try:
-        check_prerequisites(config)
+        check_prerequisites(config, require_llm=False)
     except PrerequisiteError as exc:
         _fail("refusing to fix:\n  - " + "\n  - ".join(exc.failures))
 
@@ -1583,10 +1597,13 @@ def _json_object(text: str, label: str) -> dict:
     return value
 
 
-def _make_llm(session_factory, budget):
-    from .llm import LLM
+def _make_llm(session_factory, budget, target=None):
+    """Build the configured reasoning backend (provider key or installed agent)."""
+    from .reasoning import load_backend_config, make_backend
 
-    return LLM(session_factory=session_factory, budget=budget)
+    return make_backend(
+        load_backend_config(target), session_factory=session_factory, budget=budget
+    )
 
 
 def _read_tests(target: Path) -> dict[str, str]:
@@ -1612,6 +1629,13 @@ def _severity_counts(findings: list[dict]) -> dict[str, int]:
         severity = str(finding.get("severity") or "unknown")
         counts[severity] = counts.get(severity, 0) + 1
     return counts
+
+
+# 0.2.x: the agent group lets an operator drive RedFall with an agent they
+# already run instead of holding a provider key.
+from .cli_agents import agent as _agent_group  # noqa: E402
+
+main.add_command(_agent_group)
 
 
 if __name__ == "__main__":
