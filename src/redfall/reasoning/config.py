@@ -139,6 +139,8 @@ def _from_env() -> BackendConfig:
 
 
 RENDER_TEMPLATE = """# RedFall configuration. Every key is optional; uncomment to use.
+# Read from the target directory, the current directory, then
+# ~/.config/redfall/config.toml, in that order. $REDFALL_CONFIG wins over all.
 
 [backend]
 # kind = "auto"            # auto | litellm | agent | openai_compat | custom | router
@@ -146,6 +148,18 @@ RENDER_TEMPLATE = """# RedFall configuration. Every key is optional; uncomment t
 # base_url = "http://localhost:11434/v1"  # used when kind = "openai_compat"
 # model = "qwen2.5-coder:32b"
 # api_key_env = "OPENAI_API_KEY"
+
+# --- bring an agent RedFall has never heard of -----------------------------
+# A custom command behaves like any shipped driver. `command` is executed
+# directly, never through a shell, so `args` cannot inject a shell command.
+# Use kind = "custom" and set the driver's name in `agent`, or register it here
+# so `redfall agent list` sees it too.
+# [[backend.options.agents]]
+# name = "my-agent"
+# command = "my-agent-cli"
+# args = ["--prompt", "{prompt}"]     # or omit args to pass the prompt on stdin
+# env = { MY_AGENT_KEY = "MY_AGENT_KEY" }   # subprocess env NAME = host env NAME
+# json_path = "result.content"        # optional: where the reply lives in stdout
 
 # --- multi-agent routing (kind = "router") -------------------------------
 # [routes]
