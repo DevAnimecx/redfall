@@ -54,6 +54,8 @@ TOOL_SCOPES: dict[str, str] = {
     "redfall_report": SCOPE_READ,
     "redfall_policy_check": SCOPE_READ,
     "redfall_adapter_certifications": SCOPE_READ,
+    "redfall_agents_list": SCOPE_READ,
+    "redfall_reasoning_describe": SCOPE_READ,
     # execute: run real work inside the sandbox boundary
     "redfall_campaign_run": SCOPE_EXECUTE,
     "redfall_scan_run": SCOPE_EXECUTE,
