@@ -1637,6 +1637,10 @@ from .cli_agents import agent as _agent_group  # noqa: E402
 
 main.add_command(_agent_group)
 
+from .cli_dashboard import dashboard as _dashboard_command  # noqa: E402
+
+main.add_command(_dashboard_command)
+
 
 if __name__ == "__main__":
     main()
