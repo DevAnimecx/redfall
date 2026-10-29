@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         >
           <strong style={{ fontSize: 16, letterSpacing: 0.4 }}>REDFALL</strong>
           <span style={{ color: '#8b949e', fontSize: 12 }}>
-            Redfall 0.1.1 · autonomous discovery and verified repair
+            Redfall 0.2.0 · autonomous discovery and verified repair
           </span>
         </header>
         <main style={{ padding: 24, maxWidth: 1240, margin: '0 auto' }}>{children}</main>

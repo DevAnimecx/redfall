@@ -6,4 +6,4 @@ drift between a wheel, a container tag and a Helm chart is how a customer ends u
 running something nobody tested.
 """
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"

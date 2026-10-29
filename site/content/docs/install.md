@@ -62,7 +62,7 @@ pipx install git+https://github.com/DevAnimecx/redfall
 # or, inside a uv virtualenv:
 uv pip install git+https://github.com/DevAnimecx/redfall
 # or install a verified release wheel:
-pip install redfall-0.1.1-py3-none-any.whl
+pip install redfall-0.2.0-py3-none-any.whl
 ```
 
 The release wheel is built by CI from the tagged source. It carries the sandbox harness (`redfall.validation`), the agent prompts and the sandbox Dockerfile, so the runtime does not depend on files that happen to be in your checkout. `scripts/verify_wheel.py` installs the wheel into a fresh virtualenv, runs it from a directory outside the checkout, and requires it to parse, taint and find the interprocedural flow.
@@ -72,7 +72,7 @@ The release wheel is built by CI from the tagged source. It carries the sandbox 
 A download should be verifiable, not trusted. The v0.1.1 release publishes `SHA256SUMS` and a Sigstore attestation:
 
 ```bash
-gh attestation verify redfall-0.1.1-py3-none-any.whl --repo DevAnimecx/redfall
+gh attestation verify redfall-0.2.0-py3-none-any.whl --repo DevAnimecx/redfall
 ```
 
 The attestation proves the wheel came from the repository's release workflow and the tagged commit. The checksum proves the file you downloaded is the file that was published. The [release verification page](/docs/release-verification/) explains what each check does and what it cannot prove. There is no claim here that the software is "virus free"; the claim is that the artifact and its build provenance can be checked.

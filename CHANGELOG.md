@@ -4,6 +4,54 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-10-29
+
+**Bring your own agent.** RedFall no longer needs an AI API key. The engine
+reasons through a `ReasoningBackend`, and one implementation of that is an
+installed agent RedFall drives (Claude Code, Codex, Gemini CLI and nine more).
+A provider key is now one option among several rather than a requirement.
+
+### Added
+
+- **ReasoningBackend seam** — one interface for every reasoning call, with the
+  JSON repair loop and budget accounting shared on the base class so a finding
+  looks the same whichever backend produced it. `LiteLLMBackend` is the 0.1.x
+  behaviour moved behind the seam with no change; `test_llm.py` still passes
+  unchanged, which is the evidence it is behaviour-preserving.
+- **Agent drivers (12)** — `claude-code`, `codex`, `gemini-cli`, `aider`,
+  `cursor`, `goose`, `openhands`, `continue`, `cline`, `kilo`, `qwen-code`,
+  `crush`. Each runs its real non-interactive entry point and passes the prompt
+  as a single argv element, never through a shell.
+- **Custom driver** — describe an unknown agent (command, args, env passthrough,
+  where the reply lives in stdout) in `redfall.toml` and it behaves like a
+  shipped driver.
+- **Executable agent contract** — `redfall agent certify <name>` runs the agent
+  for real and records four checks: installed, answers, returns parseable JSON,
+  exits cleanly. Certified only when all four pass.
+- **Backend config** — `redfall.toml` read ahead of the 0.1.x env vars. Kinds:
+  `auto`, `litellm`, `agent`, `openai_compat`, `custom`, `router`. A config file
+  that exists but cannot be parsed is a hard error, not a silent fall-through.
+- **OpenAI-compatible backend** — one code path for Ollama, vLLM, LM Studio,
+  OpenRouter and any gateway.
+- **Multi-agent routing** — route by tier and take a consensus across N agents,
+  keeping a finding only where at least `min_agree` agree. Agreement is a prior,
+  never proof: the sandbox still executes every result.
+- **`redfall agent list|detect|certify|config`** — the operator surface.
+
+### Changed
+
+- **`check_prerequisites` no longer requires a provider key** for `scan` and
+  `fix`; an installed agent satisfies the reasoning prerequisite. When neither
+  exists, `auto` refuses and names both options rather than falling back.
+- **`redfall doctor`** reports the resolved reasoning backend, so a host with an
+  agent and no key reads as ready to reason.
+
+### Notes
+
+- A finding is still only counted as real when the sandbox reproduces it, so a
+  host without a container runtime still refuses to scan. That is unchanged.
+
+
 ## [0.1.1] - 2026-10-21
 
 Patch-level consolidation of everything landed after the `v0.1.0` tag. It ships
@@ -233,5 +281,6 @@ execution, live LLM calls) refuses loudly and is listed in
 - vulnbank scan parity after the return-flow work: 27 routes, 20 taint paths,
   11 call edges, 0 over-claims; self-scan: 51 files, 0 parse errors.
 
+[0.2.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.2.0
 [0.1.1]: https://github.com/DevAnimecx/redfall/releases/tag/v0.1.1
 [0.1.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.1.0
