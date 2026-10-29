@@ -72,6 +72,18 @@ class EventBus:
         self._seq = 0
         self._closed = False
 
+    def new_scan_id(self) -> str:
+        """Mint an id for a scan before it starts.
+
+        A scan that has not run yet has no database id. The caller needs one
+        anyway: a browser must be able to subscribe to a scan's stream before the
+        scan emits its first event, otherwise it races the start. The id is
+        prefixed so it is never mistaken for a persisted campaign id.
+        """
+        import uuid
+
+        return f"live-{uuid.uuid4().hex[:12]}"
+
     def publish(self, kind: str, payload: dict[str, Any], scan_id: str | None = None) -> Event:
         from datetime import datetime, timezone
 
@@ -141,6 +153,13 @@ class EventBus:
     def subscriber_count(self) -> int:
         with self._lock:
             return len(self._subs)
+
+    def has_subscribers(self, scan_id: str | None = None) -> bool:
+        """True when at least one client is watching, optionally for one scan."""
+        with self._lock:
+            if scan_id is None:
+                return bool(self._subs)
+            return any(s.scan_id == scan_id for s in self._subs)
 
 
 class _Subscription:

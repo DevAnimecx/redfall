@@ -292,3 +292,65 @@ def test_socket_rejects_a_bad_token(live_server):
         raise AssertionError("expected a 401")
     except urllib.error.HTTPError as err:
         assert err.code == 401
+
+
+# -- live scans ------------------------------------------------------------
+
+
+def test_a_live_scan_is_identifiable_before_it_starts():
+    """A scan mints its stream id up front, so a browser can subscribe before
+    the first event. Without that, a client races the start of the scan."""
+    from redfall.dashboard import EventBus
+
+    bus = EventBus()
+    scan_id = bus.new_scan_id()
+    assert scan_id.startswith("live-")
+    assert scan_id != bus.new_scan_id()
+
+    sub = bus.subscribe(scan_id)
+    try:
+        bus.publish("scan:start", {"target": "/repo"}, scan_id)
+        first = next(sub.events(heartbeat_s=0.01))
+    finally:
+        sub.close()
+    assert first is not None
+    assert first.kind == "scan:start"
+    assert first.scan_id == scan_id
+
+
+def test_a_live_scan_that_never_runs_is_not_in_the_store():
+    """`GET /api/scans/live-...` answers from the bus, not the database."""
+    dashboard = _dashboard(projects=[])
+    scan_id = dashboard.bus.new_scan_id()
+    status, body = dashboard.handle("GET", f"/api/scans/{scan_id}")
+    assert status == 200
+    assert body["live"] is True
+    assert body["status"] == "running"
+    assert body["queued"] is False
+
+
+def test_bus_reports_whether_anyone_is_watching():
+    from redfall.dashboard import EventBus
+
+    bus = EventBus()
+    assert bus.has_subscribers() is False
+    assert bus.has_subscribers("live-abc") is False
+
+    sub = bus.subscribe("live-abc")
+    try:
+        assert bus.has_subscribers() is True
+        assert bus.has_subscribers("live-abc") is True
+        assert bus.has_subscribers("live-other") is False
+    finally:
+        sub.close()
+
+    assert bus.has_subscribers() is False
+
+
+def test_starting_a_scan_returns_the_stream_id(tmp_path):
+    """The 202 carries a scan id, so the caller can open the right stream."""
+    dashboard = _dashboard(projects=[str(tmp_path)])
+    status, body = dashboard.handle("POST", "/api/scans", body={"target": str(tmp_path)})
+    assert status == 202
+    assert body["scan_id"].startswith("live-")
+    assert body["events"] == f"/api/scans/{body['scan_id']}/events"

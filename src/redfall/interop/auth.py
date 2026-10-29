@@ -60,6 +60,7 @@ TOOL_SCOPES: dict[str, str] = {
     "redfall_campaign_run": SCOPE_EXECUTE,
     "redfall_scan_run": SCOPE_EXECUTE,
     "redfall_reproduce": SCOPE_EXECUTE,
+    "redfall_fix_propose": SCOPE_EXECUTE,
     "redfall_graph_index": SCOPE_EXECUTE,
     # write: mutate campaign state
     "redfall_campaign_create": SCOPE_WRITE,

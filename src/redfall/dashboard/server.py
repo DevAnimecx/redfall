@@ -193,6 +193,17 @@ class Dashboard:
 
         if len(rest) == 1:
             if method == "GET":
+                # A live scan is identified by an id the bus minted before the
+                # scan started. It has no database row yet, so its status comes
+                # from the stream rather than the store: answer with what the
+                # bus knows and let the client keep streaming.
+                if scan_id.startswith("live-"):
+                    return 200, {
+                        "id": scan_id,
+                        "status": "running",
+                        "live": True,
+                        "queued": self.bus.has_subscribers(scan_id),
+                    }
                 return 200, self._scan_detail(scan_id)
             raise ApiError(405, "method_not_allowed", f"{method} is not allowed here")
 
@@ -231,26 +242,42 @@ class Dashboard:
                 args[key] = body[key]
 
         # A long scan runs on a worker thread; the request returns at once.
+        #
+        # The scan id is minted here, before the scan starts, so a browser can
+        # subscribe to `/api/scans/{id}/events` and be listening *before* the
+        # first event is published. Without that, a client that subscribes only
+        # after reading the response races the start of the scan.
+        scan_id = self.bus.new_scan_id()
+        args["scan_id"] = scan_id
         result_holder: dict[str, Any] = {}
 
         def run() -> None:
             try:
-                self.bus.publish("scan:start", {"target": target}, None)
+                self.bus.publish("scan:start", {"target": target}, scan_id)
                 result = self.registry.call("redfall_scan_run", args)
                 result_holder.update(result)
                 self.bus.publish(
                     "scan:done",
-                    {"findings": len(result.get("findings", [])), "status": result.get("status", "")},
-                    result.get("scan_id"),
+                    {
+                        "findings": len(result.get("findings", [])),
+                        "status": result.get("status", ""),
+                        "scan_id": result.get("scan_id", scan_id),
+                    },
+                    scan_id,
                 )
             except Exception as exc:  # noqa: BLE001 - the stream reports the failure
-                self.bus.publish("scan:error", {"error": str(exc)}, None)
+                self.bus.publish("scan:error", {"error": str(exc)}, scan_id)
 
-        thread = threading.Thread(target=run, name=f"scan-{target}", daemon=True)
+        thread = threading.Thread(target=run, name=f"scan-{scan_id}", daemon=True)
         with self._lock:
-            self._workers[target] = thread
+            self._workers[scan_id] = thread
         thread.start()
-        return 202, {"accepted": True, "target": target, "events": "/api/scans/events"}
+        return 202, {
+            "accepted": True,
+            "target": target,
+            "scan_id": scan_id,
+            "events": f"/api/scans/{scan_id}/events",
+        }
 
     def _project_roots(self) -> list[str]:
         return list(self.projects)
@@ -294,12 +321,15 @@ class Dashboard:
         if action == "reproduce" and method == "POST":
             return 200, self.registry.call("redfall_reproduce", {"finding_id": finding_id})
         if action == "fix" and method == "POST":
-            # Never applies: the handler proposes and records; the operator
-            # reviews. A dashboard that silently patched a repo would be the
+            # Never applies: the handler attempts the fix inside a throwaway
+            # git worktree and returns the patch, so the operator's checkout is
+            # untouched. A dashboard that silently patched a repo would be the
             # opposite of what this project is for.
-            return 200, self.registry.call(
-                "redfall_report", {"scan_id": "", "include_fixes": True}
-            )
+            args: dict[str, Any] = {"finding_id": finding_id}
+            for key in ("target", "campaign_id", "require_reproduced"):
+                if key in body and body[key] is not None:
+                    args[key] = body[key]
+            return 200, self.registry.call("redfall_fix_propose", args)
         raise ApiError(404, "not_found", f"no finding action {action!r}")
 
 

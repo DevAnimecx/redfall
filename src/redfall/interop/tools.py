@@ -693,6 +693,20 @@ class ToolRegistry:
             self._report,
         )
         self._add(
+            "redfall_fix_propose",
+            "Attempt a fix for one finding and return the patch. Runs inside a throwaway git worktree, so the operator's checkout is never touched; the patch is evidence, not an applied change. Refuses with a reason when the finding is unproven or the target is not a git repository.",
+            _object_schema(
+                {
+                    "finding_id": {"type": "string"},
+                    "campaign_id": {"type": "string"},
+                    "target": {"type": "string"},
+                    "require_reproduced": {"type": "boolean"},
+                },
+                ("finding_id",),
+            ),
+            self._fix_propose,
+        )
+        self._add(
             "redfall_policy_check",
             "Check whether a filesystem action is inside campaign scope or REDFALL_ALLOWED_ROOTS. Denials include the resolved roots and reason.",
             _object_schema(
@@ -1216,6 +1230,16 @@ class ToolRegistry:
                 statement = statement.where(Finding.id == finding_id)
             if scan_id:
                 statement = statement.where(Finding.scan_id == scan_id)
+            severity = self._optional_str(args, "severity")
+            if severity:
+                statement = statement.where(Finding.severity == severity)
+            category = self._optional_str(args, "category")
+            if category:
+                statement = statement.where(Finding.category == category)
+            if "reproduced" in args and args.get("reproduced") is not None:
+                statement = statement.where(
+                    Finding.reproduced == self._optional_bool(args, "reproduced", False)
+                )
             if campaign_id:
                 campaign = self._campaign_or_error(session, campaign_id)
                 linked = session.scalars(
@@ -1322,6 +1346,161 @@ class ToolRegistry:
             except ReproductionError as exc:
                 raise ToolError(str(exc)) from exc
             return {"ok": True, **outcome.to_wire()}
+
+    def _fix_propose(self, args: dict[str, Any]) -> dict[str, Any]:
+        """Propose a fix without applying it to the operator's checkout.
+
+        The fixer needs a writable repository: it edits files, runs tests and
+        replays the PoC. Doing that in place would mean a dashboard button
+        rewriting the working tree. So the work happens in a detached git
+        worktree that is removed afterwards, and only the patch text leaves.
+        """
+        import subprocess
+        import tempfile
+
+        from ..agent.agent import Agent
+        from ..fix.fixer import Fixer, fix_record
+        from ..llm import new_budget
+        from ..validation.validator import Validator
+
+        finding_id = self._required_str(args, "finding_id")
+        campaign_id = self._optional_str(args, "campaign_id")
+        require_reproduced = bool(args.get("require_reproduced", True))
+
+        with self._scope() as session:
+            finding = session.get(Finding, finding_id)
+            if finding is None:
+                raise ToolError(f"finding not found: {finding_id}")
+            if require_reproduced and not finding.reproduced:
+                return {
+                    "ok": False,
+                    "applied": False,
+                    "refused": "unproven",
+                    "reason": (
+                        "this finding was never reproduced, so a fix cannot be shown "
+                        "to work. Run redfall_reproduce first, or pass "
+                        "require_reproduced=false to accept an unverified attempt."
+                    ),
+                }
+            scan = session.get(Scan, finding.scan_id)
+            if scan is None:
+                raise ToolError(f"finding {finding_id} has no scan target")
+            raw_target = self._optional_str(args, "target") or scan.repo
+            if campaign_id:
+                campaign = self._campaign_or_error(session, campaign_id)
+                self._require_active(CampaignService(session), campaign)
+                target = require_campaign_path(campaign, raw_target, action="fix")
+            else:
+                target = require_os_path(raw_target, action="fix")
+
+            config = load_config()
+            self._check_git_worktree(target)
+
+            with tempfile.TemporaryDirectory(prefix="redfall-fix-") as tmp:
+                worktree = Path(tmp) / "tree"
+                self._add_worktree(target, worktree)
+                try:
+                    budget = new_budget(
+                        config.max_tokens_per_scan, config.max_cost_per_scan_usd
+                    )
+                    agent = Agent(
+                        llm=self._backend_for(session, budget),
+                        scan_id=finding.scan_id,
+                    )
+                    validator = Validator(
+                        target=worktree,
+                        session=session,
+                        scan_id=finding.scan_id,
+                        workdir=config.workdir / "workspaces",
+                        timeout_s=config.sandbox_timeout_s,
+                    )
+                    fixer = Fixer(
+                        agent=agent,
+                        validator=validator,
+                        session=session,
+                        scan_id=finding.scan_id,
+                        target=worktree,
+                    )
+                    outcome = fixer.run(finding)
+                    record = fix_record(outcome)
+                    return {
+                        "ok": True,
+                        "applied": False,
+                        "applied_note": (
+                            "the patch was produced in a throwaway worktree and removed "
+                            "with it; nothing was written to the target checkout"
+                        ),
+                        "patch": outcome.patch,
+                        "strategy": outcome.strategy,
+                        "verify_log": outcome.verify_log[-4000:],
+                        "blocker": outcome.blocker,
+                        "history": outcome.history,
+                        **record,
+                    }
+                except subprocess.SubprocessError as exc:
+                    raise ToolError(f"git worktree failed: {exc}") from exc
+                finally:
+                    self._remove_worktree(target, worktree)
+
+    @staticmethod
+    def _check_git_worktree(target: str) -> None:
+        import subprocess
+
+        probe = subprocess.run(
+            ["git", "-C", target, "rev-parse", "--is-inside-work-tree"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if probe.returncode != 0 or probe.stdout.strip() != "true":
+            raise ToolError(
+                f"{target} is not a git repository, so a fix cannot be isolated in a "
+                "worktree. Initialise one or fix it by hand."
+            )
+
+    @staticmethod
+    def _add_worktree(target: str, worktree: Path) -> None:
+        import subprocess
+
+        worktree.parent.mkdir(parents=True, exist_ok=True)
+        result = subprocess.run(
+            ["git", "-C", target, "worktree", "add", "--detach", str(worktree), "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise ToolError(f"could not create a worktree in {target}: {result.stderr.strip()}")
+
+    @staticmethod
+    def _remove_worktree(target: str, worktree: Path) -> None:
+        import shutil
+        import subprocess
+
+        subprocess.run(
+            ["git", "-C", target, "worktree", "remove", "--force", str(worktree)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        shutil.rmtree(worktree, ignore_errors=True)
+
+    def _backend_for(self, session: Session, budget: Any) -> Any:
+        """The reasoning backend the fixer should borrow.
+
+        Built through the same factory the scanner uses, so a fix is attempted
+        with whatever the operator configured — a provider key, an installed
+        agent, or a router — and no second code path decides differently.
+        """
+        from ..reasoning.config import load_backend_config
+        from ..reasoning.factory import make_backend
+
+        backend_config = load_backend_config(None)
+        return make_backend(
+            backend_config,
+            session_factory=lambda: session,
+            budget=budget,
+        )
 
     def _report(self, args: dict[str, Any]) -> dict[str, Any]:
         with self._scope() as session:
