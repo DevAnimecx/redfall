@@ -96,9 +96,16 @@ LOCKFILES = [
 _SNAPSHOT = "-" + "SNAPSHOT"
 _PRE = "|".join(("rc", "alpha", "beta", "dev"))
 
+# Rules that only apply to a file of a particular name. A `"version"` field is
+# a package manifest's version only in `package.json`; the same key appears in
+# tool configs (`.claude/launch.json` carries a schema version) where it means
+# nothing about this release and must not be compared against VERSION.
+NAME_SCOPED_FORBIDDEN = [
+    ("package.json", rf'"version"\s*:\s*"(?!{V}")[^"]+"', f"package.json version != {VERSION}"),
+]
+
 FORBIDDEN = [
     (rf'^version\s*=\s*"(?!{V}")[^"]+"', f"pyproject version != {VERSION}"),
-    (rf'"version"\s*:\s*"(?!{V}")[^"]+"', f"package.json version != {VERSION}"),
     (rf'^__version__\s*=\s*"(?!{V}")[^"]+"', f"__version__ != {VERSION}"),
     (rf'^\s*version\s*:\s*(?!{V}\b)0\.\d+\.\d+', f"chart/spec version != {VERSION}"),
     (re.escape(_SNAPSHOT) + r"\b", "Maven snapshot suffix"),
@@ -140,8 +147,14 @@ def check_forbidden() -> list[str]:
         if path.name in ("package-lock.json",):
             continue
         text = read(path)
+        rules = list(FORBIDDEN)
+        rules += [
+            (pattern, label)
+            for name, pattern, label in NAME_SCOPED_FORBIDDEN
+            if path.name == name
+        ]
         for index, line in enumerate(text.splitlines(), start=1):
-            for pattern, label in FORBIDDEN:
+            for pattern, label in rules:
                 if re.search(pattern, line):
                     problems.append(f"{rel(path)}:{index}: {label} — {line.strip()[:90]}")
     return problems

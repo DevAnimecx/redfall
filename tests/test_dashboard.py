@@ -354,3 +354,44 @@ def test_starting_a_scan_returns_the_stream_id(tmp_path):
     assert status == 202
     assert body["scan_id"].startswith("live-")
     assert body["events"] == f"/api/scans/{body['scan_id']}/events"
+
+
+# --------------------------------------------------------------- reports route
+
+def test_reports_route_passes_the_id_under_the_name_the_registry_requires():
+    """`/api/reports/{id}` must call `redfall_report` with `campaign_id`.
+
+    The console's Results page reads this route, and the registry names the
+    parameter `campaign_id`. Sending `scan_id` instead fails schema validation
+    on every call, which the tool reports as a *missing required argument* —
+    a refusal that looks like a data problem rather than a wiring problem.
+    """
+    seen: dict[str, object] = {}
+
+    class Recorder:
+        def call(self, name, args):
+            seen["name"] = name
+            seen["args"] = args
+            return {"ok": True}
+
+        def specs(self):
+            return []
+
+    from redfall.dashboard import Dashboard
+
+    status, body = Dashboard(Recorder()).handle("GET", "/api/reports/camp-1")
+
+    assert status == 200
+    assert body == {"ok": True}
+    assert seen["name"] == "redfall_report"
+    assert seen["args"] == {"campaign_id": "camp-1"}
+
+
+def test_reports_route_requires_an_id():
+    from redfall.dashboard import ApiError
+
+    with pytest.raises(ApiError) as caught:
+        _dashboard().handle("GET", "/api/reports")
+
+    assert caught.value.status == 400
+    assert caught.value.kind == "bad_request"

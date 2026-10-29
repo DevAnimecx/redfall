@@ -7,7 +7,7 @@ database is provisioned on first use without a migration tool.
 from __future__ import annotations
 
 from contextlib import contextmanager
-from typing import Iterator
+from typing import Any, Iterator
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -19,10 +19,45 @@ _engine: Engine | None = None
 _sessionmaker: sessionmaker[Session] | None = None
 
 
+def _connect_args(database_url: str) -> dict[str, Any]:
+    """Per-dialect connection arguments, kept separate so they can be asserted.
+
+    A bounded connect timeout, for the same reason `ping` sets one: libpq waits
+    for the operating system's TCP timeout otherwise, so a database that is
+    simply not running makes every request hang for ~30s and then report a
+    generic connection error. Any surface built on this engine — the CLI, the
+    dashboard, MCP stdio — would stall instead of saying the database is down.
+    """
+    if database_url.startswith("postgresql"):
+        return {"connect_timeout": 5}
+    if database_url.startswith("sqlite"):
+        # The console opens more than one connection; the default thread-bound
+        # check rejects the one that did not create the table.
+        return {"check_same_thread": False}
+    return {}
+
+
 def init_engine(database_url: str, *, echo: bool = False) -> Engine:
     """Create (or replace) the global engine and ensure the schema exists."""
     global _engine, _sessionmaker
-    _engine = create_engine(database_url, pool_pre_ping=True, echo=echo, future=True)
+    _engine = create_engine(
+        database_url,
+        pool_pre_ping=True,
+        echo=echo,
+        future=True,
+        connect_args=_connect_args(database_url),
+    )
+    if database_url.startswith("sqlite"):
+        # WAL lets the dashboard read while a scan writes; without it a
+        # concurrent writer returns "database is locked" to the console.
+        from sqlalchemy import event
+
+        @event.listens_for(_engine, "connect")
+        def _sqlite_pragmas(dbapi_connection: Any, _record: Any) -> None:
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
     _sessionmaker = sessionmaker(bind=_engine, expire_on_commit=False, future=True)
     Base.metadata.create_all(_engine)
     return _engine

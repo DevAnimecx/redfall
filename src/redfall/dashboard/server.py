@@ -169,7 +169,10 @@ class Dashboard:
         if resource == "reports":
             if len(parts) < 2:
                 raise ApiError(400, "bad_request", "a scan id is required")
-            return 200, self.registry.call("redfall_report", {"scan_id": parts[1]})
+            # The registry names this parameter `campaign_id`; a scan's id is
+            # the campaign id it was recorded under, which is why the console
+            # can pass an id straight from /api/scans.
+            return 200, self.registry.call("redfall_report", {"campaign_id": parts[1]})
 
         raise ApiError(404, "not_found", f"no API resource {resource!r}")
 

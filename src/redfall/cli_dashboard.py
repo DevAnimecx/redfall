@@ -35,6 +35,7 @@ def dashboard(host: str, port: int, token: str | None, projects: tuple[Path, ...
     from .config import load_config
     from .dashboard import serve_dashboard
     from .interop.tools import ToolRegistry
+    from sqlalchemy.exc import OperationalError
 
     token = token or os.getenv("REDFALL_DASHBOARD_TOKEN")
 
@@ -46,7 +47,14 @@ def dashboard(host: str, port: int, token: str | None, projects: tuple[Path, ...
         )
 
     config = load_config()
-    engine = init_engine(config.database_url)
+    try:
+        engine = init_engine(config.database_url)
+    except OperationalError as exc:
+        raise click.ClickException(
+            f"cannot reach the database at {config.database_url}: {exc.orig}\n"
+            "Start Postgres (see scripts/restore_env.sh), or point DATABASE_URL "
+            "at a running instance, then try again."
+        ) from exc
     from sqlalchemy.orm import sessionmaker
 
     SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
