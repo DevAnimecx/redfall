@@ -5,7 +5,7 @@ import SiteHeader from '../components/SiteHeader';
 export const metadata = {
   title: 'RedFall Console',
   description:
-    'RedFall console — live, execution-verified vulnerability findings, evidence and verified fixes.',
+    'Redfall 0.3.0 · live, execution-verified vulnerability findings, evidence and verified fixes.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

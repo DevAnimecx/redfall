@@ -4,6 +4,70 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-10-29
+
+**The console.** RedFall grows a control plane: `redfall dashboard` starts a
+local HTTP server over the same tool registry the CLI, MCP and A2A surfaces
+use. An operation is defined once and every surface calls it, so the console
+cannot drift from the command line. Alongside it, the reasoning layer stops
+probing agents on every call, and a fix can be attempted without touching the
+operator's checkout.
+
+### Added
+
+- **Dashboard API** — a stdlib `ThreadingHTTPServer` exposing health, version,
+  agents, reasoning, projects, scans, findings, reports and the one-click fix.
+  No framework, no second source of truth: every route delegates to a
+  registered tool.
+- **Live event stream** — Server-Sent Events over a bounded in-process bus. A
+  running scan emits `scan:start`, `branch`, `finding`, `spend` and `scan:done`.
+  A scan mints its stream id *before* it starts, so a browser subscribes before
+  the first event instead of racing it.
+- **Bounded, honest bus** — a slow subscriber loses the oldest events rather
+  than growing the server without limit, and is told it fell behind. Losing an
+  event is visible, never silent.
+- **Project allowlist** — a scan target outside the configured roots is refused
+  with `403 out_of_scope`, the same gate the agent gateways use.
+- **Token-gated binds** — the server binds loopback by default and refuses a
+  non-loopback bind without a bearer token.
+- **`redfall_fix_propose`** — attempts a fix inside a throwaway git worktree,
+  runs the target's tests and replays the PoC there, then removes the worktree
+  and returns the patch. The operator's checkout is never written to. A finding
+  that was never reproduced is refused by default, with that reason stated.
+- **The console** — a Next.js application talking to the API: an overview, a
+  live scan view driven by the event stream, a findings and proof workspace, an
+  agent page, and a results page. The previous page read a saved report from
+  disk and could only ever show a finished scan; it is replaced.
+
+### Changed
+
+- **Agent detection is cheap after the first call.** Each driver probes its
+  `--version` once per process and caches it, and `describe_all()` probes
+  concurrently. `redfall agent list` went from about seven seconds to roughly
+  five on a cold call and nothing afterwards.
+- **Two tools were added to the registry** — `redfall_agents_list` and
+  `redfall_reasoning_describe`, both read-scoped — bringing the advertised
+  count to 46.
+- **The dashboard documents itself** — a new guide covers the routes, the
+  stream, the scope gates and what the bus does not claim.
+
+### Fixed
+
+- **`CustomAgentDriver` never called its parent initialiser**, so the version
+  cache it inherits did not exist on an instance built from a `redfall.toml`
+  spec.
+- **An invalid `redfall.toml` is now a hard error.** A parse failure used to be
+  swallowed and the loader fell through to environment variables, so a typo
+  silently changed which backend the engine used.
+
+### Verified
+
+- `python -m pytest tests/ -q` → **440 passed, 30 skipped, 0 failed**.
+- All four contract checkers pass: no-mock, orphans, version and clean-tree.
+- The dashboard's socket contract is exercised against a real server: JSON
+  routes, a `404` body, a live SSE stream and a rejected token.
+- Version contract: 11 declarations and 5 lockfile roots agree on 0.3.0.
+
 ## [0.2.0] - 2026-10-29
 
 **Bring your own agent.** RedFall no longer needs an AI API key. The engine
@@ -281,6 +345,7 @@ execution, live LLM calls) refuses loudly and is listed in
 - vulnbank scan parity after the return-flow work: 27 routes, 20 taint paths,
   11 call edges, 0 over-claims; self-scan: 51 files, 0 parse errors.
 
+[0.3.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.3.0
 [0.2.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.2.0
 [0.1.1]: https://github.com/DevAnimecx/redfall/releases/tag/v0.1.1
 [0.1.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.1.0

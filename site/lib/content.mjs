@@ -25,6 +25,18 @@ export const FAQ = [
     link: "Check language coverage",
   },
   {
+    q: "Does RedFall need an AI API key?",
+    a: "No. From 0.2.0 the reasoning layer borrows an agent you already have installed — Claude Code, Codex, Gemini CLI, Aider, Cursor, Goose, OpenHands, Continue, Cline, Kilo, Qwen Code or Crush — or reads from an OpenAI-compatible endpoint such as Ollama, vLLM, LM Studio or OpenRouter. A provider key is one option among four, not a requirement. redfall agent detect names the agent it would use.",
+    href: "/redfall/docs/agents/",
+    link: "How bring-your-own-agent works",
+  },
+  {
+    q: "How do I connect my own agent?",
+    a: "Run redfall agent detect to see what is installed, then redfall agent certify <name> to prove the agent answers a real prompt with valid JSON from this host. Any agent that is not one of the twelve shipped drivers can be declared in redfall.toml under [agent] with a command, and RedFall will drive it the same way. Certification records the agent version and the run, and nothing else.",
+    href: "/redfall/docs/agents/",
+    link: "Certify an agent",
+  },
+  {
     q: "What does a full scan require?",
     a: "Docker with a gVisor runsc runtime, PostgreSQL and a target boot contract. Installing the CLI needs only Python 3.12+. From 0.2.0 the reasoning layer needs no AI API key — an installed agent, an OpenAI-compatible endpoint or a provider key all work. redfall doctor reports what the host can actually run, and missing prerequisites fail loudly instead of producing a demo scan.",
     href: "/redfall/docs/install/",
@@ -47,6 +59,12 @@ export const FAQ = [
     a: "The source, tests and range targets are public on GitHub. Releases are built by CI from the tagged commit, published with SHA256SUMS, and attested with Sigstore. Verify a wheel with gh attestation verify. That proves build provenance, not that the software is free of every vulnerability.",
     href: "/redfall/docs/release-verification/",
     link: "Verify a release",
+  },
+  {
+    q: "Is there a dashboard or a graphical interface?",
+    a: "Yes. From 0.3.0, redfall dashboard starts a local console over the same tool registry the CLI uses — not a separate implementation. It streams a running scan over Server-Sent Events, lists findings with their evidence, replays a proof of concept, and proposes a fix inside a throwaway git worktree so your checkout is never written to. It binds loopback by default and refuses a non-loopback bind without a bearer token.",
+    href: "/redfall/docs/dashboard/",
+    link: "The dashboard guide",
   },
   {
     q: "Is RedFall free to use?",
@@ -103,6 +121,50 @@ export const FEATURES = [
   },
 ];
 
+// The twelve agents RedFall can drive today. One list feeds the landing page,
+// the FAQ above and the docs, so the count cannot drift between them.
+export const AGENTS = [
+  ["Claude Code", "claude", "Anthropic"],
+  ["Codex", "codex", "OpenAI"],
+  ["Gemini CLI", "gemini", "Google"],
+  ["Aider", "aider", "open source"],
+  ["Cursor", "cursor-agent", "Cursor"],
+  ["Goose", "goose", "Block"],
+  ["OpenHands", "openhands", "open source"],
+  ["Continue", "cn", "Continue"],
+  ["Cline", "cline", "Cline"],
+  ["Kilo", "kilo", "Kilo"],
+  ["Qwen Code", "qwen", "Alibaba"],
+  ["Crush", "crush", "Charm"],
+];
+
+export const REASONING_CHOICES = [
+  {
+    title: "Borrow an installed agent",
+    body: "RedFall drives an agent already on your machine as a real subprocess, passing each prompt as data — never interpolated into a shell command. Twelve drivers ship today, and a custom command can be declared in redfall.toml.",
+    href: "/redfall/docs/agents/",
+    link: "The twelve agent drivers",
+  },
+  {
+    title: "Point at a local endpoint",
+    body: "Ollama, vLLM, LM Studio and OpenRouter speak the OpenAI wire format. Set a base URL and a model, and the engine talks to your own inference server with nothing leaving the machine.",
+    href: "/redfall/docs/interop/",
+    link: "Configure an endpoint",
+  },
+  {
+    title: "Bring a provider key",
+    body: "A hosted provider key still works, routed through LiteLLM exactly as before. Nothing about 0.2.0 removed it — the key just stopped being the only way in.",
+    href: "/redfall/docs/install/",
+    link: "The key path",
+  },
+  {
+    title: "Route across several",
+    body: "Split work by tier and require agreement: cheap models triage, a strong model decides, and consensus mode keeps the answer the majority reached. Spend is enforced before and after every call.",
+    href: "/redfall/docs/architecture/",
+    link: "How routing decides",
+  },
+];
+
 export const STEPS = [
   {
     title: "Ingest",
@@ -116,7 +178,7 @@ export const STEPS = [
   },
   {
     title: "Plan",
-    body: "The orchestrator grows a tree of branches; seven adaptive detectors and agent categories decide where the next attempt goes, under a budget, with a bring-your-own LLM key.",
+    body: "The orchestrator grows a tree of branches; seven adaptive detectors and agent categories decide where the next attempt goes, under a budget, using an agent or endpoint you already have.",
     href: "/redfall/docs/adaptive-scanning/",
   },
   {

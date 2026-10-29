@@ -1,7 +1,7 @@
 ---
 title: Bring your own agent
-seoTitle: "RedFall Agents: Use Claude Code, Codex, Gemini CLI as the Reasoning Backend"
-description: "RedFall 0.2.0 needs no AI API key. Drive it with an installed agent — Claude Code, Codex, Gemini CLI, Cursor, Aider and seven more — or any OpenAI-compatible endpoint, or a custom command."
+seoTitle: "RedFall Agents: Drive It With Claude Code or Codex"
+description: "RedFall needs no AI API key. Drive it with an installed agent — Claude Code, Codex, Gemini CLI, Cursor, Aider and seven more — or an OpenAI-compatible endpoint."
 path: docs/agents/
 group: How it works
 kind: pillar

@@ -1,4 +1,4 @@
-"""`redfall dashboard` (0.3.0).
+"""`redfall dashboard`.
 
 Starts the live control-plane API the Next.js console talks to. Binds loopback
 by default: this is a single-operator console, and the safe default is that it

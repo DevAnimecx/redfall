@@ -13,7 +13,15 @@ import {
   X,
 } from "lucide-react";
 
-import { EVIDENCE, FAQ, FEATURES, LAST_UPDATED, STEPS } from "../lib/content.mjs";
+import {
+  AGENTS,
+  EVIDENCE,
+  FAQ,
+  FEATURES,
+  LAST_UPDATED,
+  REASONING_CHOICES,
+  STEPS,
+} from "../lib/content.mjs";
 import { RELEASE_URL, VERSION } from "../lib/release.mjs";
 
 const GITHUB = "https://github.com/DevAnimecx/redfall";
@@ -27,6 +35,7 @@ const LLMS = "/redfall/llms.txt";
 
 const NAV = [
   ["#why", "Why"],
+  ["#agents", "Your agent"],
   ["#how", "How it works"],
   ["#evidence", "Evidence"],
   ["#compare", "Compare"],
@@ -438,7 +447,8 @@ export default function App() {
               <p className="rise rise-2 mx-auto mt-6 max-w-[560px] text-lg leading-relaxed text-muted">
                 RedFall reads a target's real source, tracks attacker-controlled data from request surface to sink, and
                 runs every candidate exploit inside a gVisor sandbox against the live application. Only what reproduces
-                is reported — then it repairs, and verifies the fix against the target's own tests.
+                is reported — then it repairs, and verifies the fix against the target's own tests. It drives an AI
+                agent you already have; no API key required.
               </p>
 
               <div className="rise rise-3 mt-9 flex flex-col justify-center gap-3 sm:flex-row">
@@ -498,6 +508,67 @@ export default function App() {
                   </article>
                 );
               })}
+            </div>
+          </div>
+        </section>
+
+        {/* Bring your own agent */}
+        <section id="agents" className="section border-t border-line">
+          <div className="container-rf">
+            <div className="mx-auto max-w-[720px] text-center" data-reveal>
+              <span className="accent-rule mx-auto mb-5" aria-hidden="true" />
+              <h2 className="h2 text-ink">Bring the agent you already use.</h2>
+              <p className="mt-3 text-muted">
+                RedFall is not another model subscription. It is the engine that plans, executes and verifies — and it
+                borrows reasoning from an agent already installed on your machine. Twelve drivers ship today, a custom
+                command covers everything else, and a provider key is optional rather than required.
+              </p>
+            </div>
+
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4" data-reveal>
+              {REASONING_CHOICES.map(({ title, body, href, link }) => (
+                <article key={title} className="card card-hover flex flex-col p-7" data-reveal>
+                  <h3 className="text-lg font-semibold text-ink">{title}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted">{body}</p>
+                  <a
+                    href={href}
+                    className="mt-4 inline-flex w-fit items-center gap-1.5 text-sm font-medium text-ink underline decoration-accent/50 underline-offset-4 hover:decoration-accent"
+                  >
+                    {link}
+                    <ArrowRight size={14} strokeWidth={2} aria-hidden="true" />
+                  </a>
+                </article>
+              ))}
+            </div>
+
+            <div className="mt-12" data-reveal>
+              <h3 className="caption text-muted">Agent drivers shipped in {VERSION}</h3>
+              <ul className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {AGENTS.map(([name, bin, vendor]) => (
+                  <li
+                    key={name}
+                    className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-4 py-3"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Check size={15} strokeWidth={2.5} className="text-accent" aria-hidden="true" />
+                      <span className="font-medium text-ink">{name}</span>
+                    </span>
+                    <span className="font-mono text-xs text-muted">{bin}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-5 text-sm text-muted">
+                Detection is a real probe of the executable, and certification runs the agent once to confirm it answers
+                with valid JSON from this host. Read the{" "}
+                <a href={`${DOCS}agents/`} className="footer-link underline decoration-accent/50 underline-offset-4">
+                  agent driver guide
+                </a>{" "}
+                or the{" "}
+                <a href={`${DOCS}interop/`} className="footer-link underline decoration-accent/50 underline-offset-4">
+                  interop surface
+                </a>
+                .
+              </p>
             </div>
           </div>
         </section>

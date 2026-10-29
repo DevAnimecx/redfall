@@ -374,7 +374,7 @@ manager you already use:
 ```bash
 pipx install git+https://github.com/DevAnimecx/redfall   # isolated
 uv pip install git+https://github.com/DevAnimecx/redfall # or in a uv venv
-pip install redfall-0.2.0-py3-none-any.whl               # a verified release wheel
+pip install redfall-0.3.0-py3-none-any.whl               # a verified release wheel
 redfall doctor                                           # exactly what this host can and cannot run
 ```
 
@@ -383,7 +383,7 @@ Release artifacts are built by CI from the tagged source, published with
 trusted:
 
 ```bash
-gh attestation verify redfall-0.2.0-py3-none-any.whl --repo DevAnimecx/redfall
+gh attestation verify redfall-0.3.0-py3-none-any.whl --repo DevAnimecx/redfall
 ```
 
 The wheel carries everything the runtime reads — the sandbox harness

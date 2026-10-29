@@ -5,9 +5,9 @@
 Key facts:
 - Site: https://devanimecx.github.io/redfall/
 - Source: https://github.com/DevAnimecx/redfall
-- Release: https://github.com/DevAnimecx/redfall/releases/tag/v0.2.0
+- Release: https://github.com/DevAnimecx/redfall/releases/tag/v0.3.0
 - Maintainer: DevAnimecx (https://github.com/DevAnimecx)
-- Version: 0.2.0; Python 3.12+; Windows, Linux and macOS
+- Version: 0.3.0; Python 3.12+; Windows, Linux and macOS
 - A full scan requires Docker with a gVisor runtime. From 0.2.0 the reasoning layer needs no AI API key: drive RedFall with an installed agent (Claude Code, Codex, Gemini CLI and nine more), an OpenAI-compatible endpoint, or a provider key through LiteLLM.
 - Last updated: 2026-10-21
 
@@ -21,7 +21,7 @@ Key facts:
 ## How it works
 
 - [How RedFall works](https://devanimecx.github.io/redfall/docs/architecture/): The RedFall scan pipeline: tree-sitter ingestion, taint analysis, adaptive branches, LLM planning, gVisor execution, chaining and verified repair.
-- [Bring your own agent](https://devanimecx.github.io/redfall/docs/agents/): RedFall 0.2.0 needs no AI API key. Drive it with an installed agent — Claude Code, Codex, Gemini CLI, Cursor, Aider and seven more — or any OpenAI-compatible endpoint, or a custom command.
+- [Bring your own agent](https://devanimecx.github.io/redfall/docs/agents/): RedFall needs no AI API key. Drive it with an installed agent — Claude Code, Codex, Gemini CLI, Cursor, Aider and seven more — or an OpenAI-compatible endpoint.
 - [Taint analysis for TypeScript and Python](https://devanimecx.github.io/redfall/docs/taint-analysis/): How RedFall tracks request data from source to sink, resolves cross-file calls through imports, and handles return flow without guessing sanitisers.
 - [How the gVisor sandbox executes a PoC](https://devanimecx.github.io/redfall/docs/sandbox/): Inside RedFall's execution boundary: Docker on the gVisor runsc runtime, a real target boot, raw HTTP replay, and a predicate that decides whether a finding exists.
 - [Adaptive scanning: seven runtime surfaces](https://devanimecx.github.io/redfall/docs/adaptive-scanning/): Dynamic imports, plugin loaders, database-stored code, feature flags and webhooks change the attack surface mid-scan. RedFall spawns a branch when one appears.
@@ -40,6 +40,7 @@ Key facts:
 
 ## Reference
 
+- [The dashboard](https://devanimecx.github.io/redfall/docs/dashboard/): Run redfall dashboard for a local console over the same tool registry the CLI uses: start scans, follow a live stream, read findings with evidence, propose a fix.
 - [Execution-verified scanning vs static analysis](https://devanimecx.github.io/redfall/compare/static-analysis/): A fair comparison of static analysis, DAST and execution-verified scanning: what each proves, where each fits, and when RedFall's narrower execution gate is worth it.
 - [RedFall CLI reference](https://devanimecx.github.io/redfall/docs/cli/): The RedFall 0.1.1 CLI: scan, fix, findings, report, doctor, environment, campaign, graph, reproduce, policy-check, mcp, interop and adapters.
 - [Agent interoperability](https://devanimecx.github.io/redfall/docs/interop/): How RedFall exposes the same 44-tool registry over MCP, HTTP/OpenAPI and A2A v1.0, with bearer scopes, trust labels, audit and signed artifacts.
@@ -53,14 +54,14 @@ Key facts:
 ## Source and verification
 
 - [README](https://github.com/DevAnimecx/redfall): full description, status table and the source for every claim.
-- [CHANGELOG](https://github.com/DevAnimecx/redfall/blob/main/CHANGELOG.md): what shipped in 0.2.0, with measured numbers.
+- [CHANGELOG](https://github.com/DevAnimecx/redfall/blob/main/CHANGELOG.md): what shipped in 0.3.0, with measured numbers.
 - [BLOCKED.md](https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md): what cannot run on the release host, with the smallest real unblock for each item.
 - [SECURITY.md](https://github.com/DevAnimecx/redfall/blob/main/SECURITY.md): vulnerability reporting, supply-chain verification and the range-target warning.
 - [CONTRIBUTING.md](https://github.com/DevAnimecx/redfall/blob/main/CONTRIBUTING.md): the no-mock rule, stage ownership and the PR contract.
 
 Verification commands:
 
-- `gh attestation verify redfall-0.2.0-py3-none-any.whl --repo DevAnimecx/redfall` proves the release wheel was built by this repository's release workflow from the tagged commit.
+- `gh attestation verify redfall-0.3.0-py3-none-any.whl --repo DevAnimecx/redfall` proves the release wheel was built by this repository's release workflow from the tagged commit.
 - `redfall doctor` prints exactly what the current host can and cannot run.
 - `python scripts/check_no_mock.py` is the mechanical part of the no-mock contract.
 

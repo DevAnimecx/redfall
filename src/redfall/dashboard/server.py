@@ -1,4 +1,4 @@
-"""The dashboard HTTP API (0.3.1).
+"""The dashboard HTTP API.
 
 One stdlib `ThreadingHTTPServer`, no framework, no second source of truth. Every
 route delegates to the shipped `ToolRegistry`, so an operation is implemented

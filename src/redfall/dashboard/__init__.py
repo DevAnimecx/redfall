@@ -1,4 +1,4 @@
-"""The live control-plane API (0.3.0).
+"""The live control-plane API.
 
 The dashboard talks to one HTTP surface that reuses the same `ToolRegistry` the
 MCP, HTTP and A2A gateways already expose. There is no parallel implementation

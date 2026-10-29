@@ -1,4 +1,4 @@
-"""A bounded, in-process event bus for the dashboard's live stream (0.3.1).
+"""A bounded, in-process event bus for the dashboard's live stream.
 
 A running scan emits events; every connected browser gets them. The bus is
 deliberately small and honest about its limits:
