@@ -110,12 +110,22 @@ class BranchEngine:
         self,
         branch: Branch,
         on_finding: Callable[[Branch, Finding], None] | None = None,
+        *,
+        session: Session | None = None,
     ) -> BranchOutcome:
+        """Run one branch. Pass `session` when branches run in parallel.
+
+        A SQLAlchemy Session is not safe to share between threads, so a caller
+        that runs branches concurrently must give each worker its own and pass
+        it here. The sequential caller omits it and keeps using the session the
+        engine was built with.
+        """
+        active = session if session is not None else self.session
         started = time.time()
         outcome = BranchOutcome(branch_id=branch.id, name=branch.name)
         branch.status = "running"
         branch.started_at = _now()
-        self.session.flush()
+        active.flush()
 
         files = {f.path: f.content for f in self.ingest.files if f.path in branch.scope_files}
         routes = [r for r in self.ingest.http_routes() if r["file"] in branch.scope_files]
@@ -142,14 +152,14 @@ class BranchEngine:
             branch.status = "failed"
             outcome.errors.append(f"analyze: {err}")
             branch.completed_at = _now()
-            self.session.flush()
+            active.flush()
             outcome.duration_ms = int((time.time() - started) * 1000)
             return outcome
 
         outcome.candidates = len(candidates)
         accepted: list[Finding] = []
         for candidate in candidates:
-            row = self._validate_candidate(branch, candidate, files, routes, outcome)
+            row = self._validate_candidate(branch, candidate, files, routes, outcome, active)
             if row is not None:
                 accepted.append(row)
                 if on_finding is not None:
@@ -161,7 +171,7 @@ class BranchEngine:
         outcome.findings = merged
         branch.status = "completed"
         branch.completed_at = _now()
-        self.session.flush()
+        active.flush()
         outcome.duration_ms = int((time.time() - started) * 1000)
         return outcome
 
@@ -172,6 +182,7 @@ class BranchEngine:
         files: dict[str, str],
         routes: list[dict[str, Any]],
         outcome: BranchOutcome,
+        session: Session,
     ) -> Finding | None:
         """Generate a PoC and execute it. Only a reproduced candidate is kept."""
         if not candidate.file:
@@ -202,6 +213,7 @@ class BranchEngine:
                 poc=poc,
                 finding_category=candidate.category,
                 target_file=candidate.file,
+                session=session,
             )
             if verdict.reproduced:
                 break
@@ -248,7 +260,7 @@ class BranchEngine:
             dedupe_key=dedupe_key(candidate.category, candidate.file, candidate.symbol, candidate.line),
             status="open",
         )
-        self.session.add(row)
+        session.add(row)
         return row
 
     # -- helpers -----------------------------------------------------------

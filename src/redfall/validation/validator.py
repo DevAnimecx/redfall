@@ -85,9 +85,18 @@ class Validator:
         poc: dict[str, Any],
         finding_category: str,
         target_file: str,
+        session: Session | None = None,
     ) -> Verdict:
-        """Run one PoC in a fresh gVisor container and return the verdict."""
+        """Run one PoC in a fresh gVisor container and return the verdict.
+
+        Pass `session` when validations run in parallel: a SQLAlchemy Session is
+        not thread-safe, so a concurrent caller supplies one per worker. The
+        sandbox itself is stateless across calls — each run mints its own
+        container name and workspace directory — so only the row write needs
+        isolating.
+        """
         ensure_runtime()
+        active = session if session is not None else self.session
         run_id = self._run_id(poc)
         workspace = self._prepare_workspace(run_id, poc)
 
@@ -110,10 +119,11 @@ class Validator:
         except SandboxUnavailable:
             raise
         except SandboxExecutionError as err:
-            return self._record_failure(run_id, branch_id, f"sandbox: {err}", started)
+            return self._record_failure(run_id, branch_id, f"sandbox: {err}", started, active)
 
         verdict = self._parse_verdict(result.stdout, run_id)
         self._record(
+            session=active,
             run_id=run_id,
             branch_id=branch_id,
             container_id=result.container_id,
@@ -211,8 +221,16 @@ class Validator:
             detail="the harness did not emit a verdict line",
         )
 
-    def _record_failure(self, run_id: str, branch_id: str | None, error: str, started: float) -> Verdict:
+    def _record_failure(
+        self,
+        run_id: str,
+        branch_id: str | None,
+        error: str,
+        started: float,
+        session: Session | None = None,
+    ) -> Verdict:
         self._record(
+            session=session if session is not None else self.session,
             run_id=run_id,
             branch_id=branch_id,
             container_id="",
@@ -237,6 +255,7 @@ class Validator:
     def _record(
         self,
         *,
+        session: Session,
         run_id: str,
         branch_id: str | None,
         container_id: str,
@@ -250,7 +269,7 @@ class Validator:
     ) -> None:
         from datetime import datetime, timezone
 
-        self.session.add(
+        session.add(
             SandboxRun(
                 id=run_id,
                 scan_id=self.scan_id,
@@ -264,7 +283,7 @@ class Validator:
                 error=(error + "\n" + stderr[-2000:]).strip()[:4000],
             )
         )
-        self.session.flush()
+        session.flush()
 
     @staticmethod
     def _run_id(poc: dict[str, Any]) -> str:
