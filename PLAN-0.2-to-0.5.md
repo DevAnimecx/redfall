@@ -174,7 +174,7 @@ Ship in waves so each wave is certifiable on its own.
 
 ---
 
-# 0.3.0 — "Live Control Plane" (the dashboard)
+# 0.3.0 — "Live Control Plane" (the dashboard)  — ✅ SHIPPED 2026-10-29
 
 **Theme:** From static report viewer → real-time security operations console.
 **Size:** ~5 subsystems. Frontend-heavy.
@@ -231,7 +231,7 @@ UI is replaced, so cleaning it first is wasted work.
 
 ---
 
-# 0.4.0 — "Deeper, Broader, Faster"
+# 0.4.0 — "Deeper, Broader, Faster"  — ✅ SHIPPED 2026-10-30 (languages uncertified)
 
 **Theme:** More real vulnerabilities, more languages, materially faster.
 **Size:** ~6 subsystems + benchmarking.

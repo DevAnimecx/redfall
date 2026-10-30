@@ -4,6 +4,85 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-10-30
+
+**Deeper, broader, faster.** RedFall reads four languages instead of two, runs
+branches concurrently instead of one at a time, and stops redoing work it has
+already done. The engine itself is unchanged — every change here is a seam or an
+addition, which is what makes the speed numbers credible rather than a rewrite
+that happens to be faster on the day it is measured.
+
+The honesty rule holds throughout: a language ships only with the analysis it
+can actually do, and a category that cannot be reproduced on this host is listed
+with a measured reason rather than a claim.
+
+### Added
+
+- **Java and Kotlin** — a fourth `LanguageSupport` bundle. Routes come from
+  Spring and JAX-RS annotations, with the class-level `@RequestMapping` prefix
+  joined onto the method path, and Kotlin is read by the same parser because its
+  grammar keeps Java's declaration shapes. Sources are the request bindings —
+  `@RequestParam`, `@PathVariable`, `@RequestBody`, `@RequestHeader`,
+  `@CookieValue`, `@MatrixVariable`, `@ModelAttribute`, `@RequestPart` — not the
+  URL alone.
+- **Go** — `net/http`, gorilla/chi and Gin/Echo route registration, read from
+  the call rather than from a decorator. Sinks are receiver-gated: `Command` on
+  `os/exec` is process execution, `Command` on someone's own type is not, and a
+  name that cannot be resolved to a recognised receiver is not called a sink at
+  all.
+- **Language attribution** — `language_name_for()` maps a suffix to a language
+  and answers `"unknown"` when none is known, replacing two separate defaults
+  that attributed every unrecognised file to JavaScript.
+- **Concurrent branches** — branches run on a worker pool bounded by
+  `config.sandbox_pool_size`, a setting that existed but was wired to nothing.
+  The shared branch tree, the findings callback and the spawn queue all stay on
+  the caller's thread; only the sandbox work is parallel.
+- **Per-call database sessions** — `run_branch`, `validate` and `ingest` take an
+  optional session. The sequential path is byte-identical to before, so the
+  existing behaviour is not a special case of the new behaviour.
+- **Workspace pool** — a target is copied once per scan into a template and
+  checked out per PoC, instead of copied once per PoC.
+- **Parse cache** — a SQLite-backed content-addressed cache for parsed files,
+  versioned by `CACHE_VERSION` and encoded as JSON rather than pickled. A
+  read failure is treated as a miss, never as a crash.
+- **Semantic reasoning cache** — a second lookup key derived from the canonical
+  form of a prompt, so a rephrased question reuses an answer. A hit records what
+  it reused.
+- **Transaction state merges** — `update_scan_state` merges under WATCH/MULTI
+  and retries, raising rather than silently dropping a merge.
+
+### Changed
+
+- **Ingestion records the language it parsed**, in both the persisted rows and
+  the graph, from one shared map.
+- **`tree-sitter-go`, `tree-sitter-java` and `tree-sitter-kotlin` are
+  dependencies**, so a Go or JVM service parses from a clean install.
+
+### Verified
+
+- `python -m pytest tests/ -q` → **560 passed, 34 skipped, 0 failed**.
+- All four contract checkers pass: no-mock (120 files), orphans (118 modules),
+  version (11 declarations, 5 lockfile roots) and clean-tree.
+- The 44 new language tests run real source through the real pipeline. The Go
+  import-binding and receiver-gating tests each pin a behaviour whose obvious
+  alternative is wrong: recording `net/http` instead of `http` breaks every sink
+  resolution while still parsing cleanly, and an unguarded `Command` invents an
+  exec finding with no exploit behind it.
+
+### Not verified on this host
+
+- **No Docker, no gVisor, no JVM and no Go toolchain are installed here.** No
+  Spring, Gin or `net/http` application is executed, no PoC is replayed, and no
+  category is certified. The language work is verified by running the analysers
+  over source; it is *not* verified by reproducing a vulnerability in a running
+  service. That gap is stated rather than papered over.
+- **The concurrency changes are exercised, not benchmarked.** The pool, the
+  per-call sessions and the caches have tests that pin their contracts; the
+  speed-up figures in the plan are targets, not measurements, and are not
+  claimed here.
+- **The Redis-gated state tests skip** without a Redis server, so the
+  merge-under-WATCH path is unit-tested and not integration-tested here.
+
 ## [0.3.0] - 2026-10-29
 
 **The console.** RedFall grows a control plane: `redfall dashboard` starts a
@@ -345,6 +424,7 @@ execution, live LLM calls) refuses loudly and is listed in
 - vulnbank scan parity after the return-flow work: 27 routes, 20 taint paths,
   11 call edges, 0 over-claims; self-scan: 51 files, 0 parse errors.
 
+[0.4.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.4.0
 [0.3.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.3.0
 [0.2.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.2.0
 [0.1.1]: https://github.com/DevAnimecx/redfall/releases/tag/v0.1.1

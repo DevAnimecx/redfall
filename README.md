@@ -16,7 +16,7 @@
   <a href="scripts/check_no_mock.py"><img src="https://img.shields.io/badge/no--mock%20contract-enforced%20in%20CI-brightgreen" alt="no-mock contract enforced in CI"></a>
 </p>
 
-**RedFall is an autonomous vulnerability scanner that proves every finding by executing it.** It reads a target's real source with tree-sitter (TypeScript, JavaScript and Python), tracks attacker-controlled data from request surface to sink — including across function boundaries — generates a candidate exploit for every lead, runs it inside a sandbox (Docker + gVisor) against the real application, and reports only what reproduced. It then attempts a repair and calls a fix verified only when the target's own tests still pass *and* the original PoC stops working.
+**RedFall is an autonomous vulnerability scanner that proves every finding by executing it.** It reads a target's real source with tree-sitter (TypeScript, JavaScript, Python, Java and Kotlin, and Go), tracks attacker-controlled data from request surface to sink — including across function boundaries — generates a candidate exploit for every lead, runs it inside a sandbox (Docker + gVisor) against the real application, and reports only what reproduced. It then attempts a repair and calls a fix verified only when the target's own tests still pass *and* the original PoC stops working.
 
 <https://devanimecx.github.io/redfall/> · [Install](#install) · [How a finding becomes real](#how-a-finding-becomes-real) · [FAQ](#faq) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [BLOCKED.md](BLOCKED.md)
 
@@ -33,6 +33,7 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | Component | State |
 | --- | --- |
 | Ingestion (tree-sitter TS/TSX/JS + Python, symbols, taint incl. cross-function hops, deps) | **Built and verified against real targets** |
+| Java/Kotlin and Go ingestion (Spring + JAX-RS annotations; net/http, gorilla/chi, Gin/Echo) | **Built and tested on real source; not certified** — routes, symbols and taint are exercised over real files, but no JVM or Go toolchain exists on the build host, so no Spring, Gin or `net/http` application has been executed and no category certified |
 | Route frameworks (Express, Fastify, koa-router, NestJS decorators, Flask/FastAPI) | **Built and verified** — each recognised by its real registration shape |
 | Adaptive branching (recursive tree, 7 spawn triggers) | **Built and verified** — all 7 triggers fire on real source |
 | Cross-branch chaining (attack graph, compound CVSS, narrative) | **Built and verified** — 6/6 chains reproduce on `chainbank`; the LLM-proposed chain stage is wired end to end and structurally reviewed |
@@ -374,7 +375,7 @@ manager you already use:
 ```bash
 pipx install git+https://github.com/DevAnimecx/redfall   # isolated
 uv pip install git+https://github.com/DevAnimecx/redfall # or in a uv venv
-pip install redfall-0.3.0-py3-none-any.whl               # a verified release wheel
+pip install redfall-0.4.0-py3-none-any.whl               # a verified release wheel
 redfall doctor                                           # exactly what this host can and cannot run
 ```
 
@@ -383,7 +384,7 @@ Release artifacts are built by CI from the tagged source, published with
 trusted:
 
 ```bash
-gh attestation verify redfall-0.3.0-py3-none-any.whl --repo DevAnimecx/redfall
+gh attestation verify redfall-0.4.0-py3-none-any.whl --repo DevAnimecx/redfall
 ```
 
 The wheel carries everything the runtime reads — the sandbox harness
@@ -647,11 +648,21 @@ dropped behind your back.
 
 ### Which languages and frameworks are covered?
 
-TypeScript/TSX, JavaScript/JSX and Python. Route extraction covers Express,
-Fastify, koa-router and NestJS decorators, plus Flask and FastAPI with
-blueprint/router prefix resolution. Taint analysis has a depth-one
-interprocedural pass in both language pairs, including unseeded return-flow
-summaries, and an inter-file call graph.
+TypeScript/TSX, JavaScript/JSX, Python, Java and Kotlin, and Go. Route extraction
+covers Express, Fastify, koa-router and NestJS decorators; Flask and FastAPI with
+blueprint/router prefix resolution; Spring and JAX-RS annotations with the
+class-level `@RequestMapping` prefix joined onto the method path; and `net/http`,
+gorilla/chi and Gin/Echo registration read from the call itself.
+
+Taint analysis has a depth-one interprocedural pass in both original language
+pairs, including unseeded return-flow summaries, and an inter-file call graph.
+The JVM and Go analysers are intraprocedural: they propagate through local
+variables within a function and do not yet follow a value across a call.
+
+Java/Kotlin and Go are **not certified**. Certification means a language's
+categories reproduce against a real vulnerable target it can execute, and this
+build host has no JVM and no Go toolchain. The analysers are tested over real
+source; they are not claimed to reproduce a vulnerability in a running service.
 
 ### What does a full scan require?
 

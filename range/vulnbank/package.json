@@ -1,6 +1,6 @@
 {
   "name": "vulnbank",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Deliberately vulnerable banking API \u2014 Redfall the baseline release range target. Not for production use.",
   "main": "dist/server.js",

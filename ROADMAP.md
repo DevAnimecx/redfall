@@ -4,29 +4,32 @@
 > the path to it. Nothing below should be read as shipped until it has a real
 > test, a reproducible run, or a published benchmark result.
 >
-> **Implementation status (2026-10-21):** Phases 1–3 are implemented — durable
-> campaigns/tasks/leases/budgets, the E0–E4 hash-chained evidence ledger, a
-> persisted provenance-aware graph v1, a resumable runner with preflight
-> reservations, real graph/scan/reproduce/report handlers, 44 MCP stdio tools,
-> and a single HTTP/OpenAPI + A2A v1.0 gateway over the same tool registry.
-> Local Windows verification: compile clean, no-mock **80 files PASS**, orphan
-> **78 modules PASS**, **53 focused Phase 3 tests passed** (real sockets, SSE
-> and two gateway subprocess contracts), and a complete no-PostgreSQL run
-> reported **337 passed, 30 skipped, 0 failed**. CI run
-> [39616295334](https://github.com/DevAnimecx/redfall/actions/runs/39616295334)
-> passed every job: the Postgres 17 / Python 3.12 `check` job ran **362 passed,
-> 5 skipped in 45.49s** (the five skips are the live gVisor tests) and all six
-> wheel/installer package jobs passed. The `0.1.1` release is published; its
-> downloaded artifacts passed `SHA256SUMS` and `gh attestation verify`. The
-> release record is in [`RELEASE.md`](RELEASE.md).
+> **Implementation status (2026-10-30):** the 0.4.0 line is implemented —
+> everything below the 0.1.1 baseline (durable campaigns/tasks/leases/budgets,
+> the E0–E4 hash-chained evidence ledger, graph v1, the resumable runner, MCP
+> stdio, the HTTP/OpenAPI + A2A v1.0 gateway), plus the 0.2.0 agent seam, the
+> 0.3.0 console, and the 0.4.0 speed, depth and language work: concurrent
+> branches on a bounded pool, per-call sessions, a workspace pool, a parse cache
+> and a semantic reasoning cache, and Java/Kotlin and Go ingestion.
+>
+> Local Windows verification of 0.4.0: compile clean, no-mock **120 files
+> PASS**, orphan **118 modules PASS**, version **11 declarations / 5 lockfile
+> roots PASS**, clean-tree PASS, and the full suite reported **560 passed, 34
+> skipped, 0 failed**.
+>
+> **The 0.4.0 language and speed work is not certified.** Java/Kotlin and Go are
+> analysed over real source but never executed — this host has no JVM and no Go
+> toolchain — so no category is certified for them. The concurrency and caching
+> changes have contract tests, not benchmarks: the speed figures in §5 are
+> targets, and no measured number is claimed here.
 >
 > Still unimplemented: A2A push notifications and multi-turn continuation,
 > environment recipes/synthesis, multi-role campaigns, sanitizer-node synthesis,
-> languages outside the current TypeScript/JavaScript/Python ingestion,
+> C#/.NET and PHP/Ruby, interprocedural analysis for the JVM and Go engines,
 > self-learning, external-agent certification beyond the shipped surfaces, and
 > the four-hour campaign. See [`CHANGELOG.md`](CHANGELOG.md).
 >
-> Baseline: RedFall `0.1.1`, tag `v0.1.1`, 2026-10-21.
+> Baseline: RedFall `0.4.0`, 2026-10-30.
 >
 > The plan deliberately avoids promising “all vulnerabilities”, “any language”,
 > “self-evolving” or “best” as facts. It defines how those claims would be
