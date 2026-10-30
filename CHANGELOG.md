@@ -4,6 +4,79 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-10-30
+
+**Platform.** RedFall becomes something a team can run rather than a tool one
+person runs. Four additions, each opt-in, each keeping the defaults of the
+release before it: an enterprise control plane, a learning loop that only
+learns from reproduced outcomes, an isolation ladder with a capacity plan, an
+agent mesh with separated duties, and a deployment image.
+
+The thread running through all five is the same one that runs through the rest
+of the project: a claim is only as good as the thing that checks it. Tenancy is
+derived from a credential rather than accepted from a request. A lesson cites
+the E3/E4 evidence that produced it or it is not created. The capacity plan
+refuses to guess a number it cannot read. The critic is not the author. The
+healthcheck is a capability check, not a liveness ping.
+
+### Added
+
+- **Tenancy, roles, policy and audit export** — an isolation boundary a team
+  can be put behind. A credential resolves to a tenant and the scope built from
+  it is the only thing queries filter on, so no request field can widen it. Five
+  roles with explicit permission sets, per-tenant policy rules evaluated before
+  an action runs, and a JSONL/CSV audit export whose resume point is anchored to
+  the last record it wrote rather than the wall clock.
+- **The learning loop** — `propose` reads the evidence record and checks its
+  grade, taking no grade argument, so a caller cannot assert that its own claim
+  is verified. Candidate → shadow → holdout evaluation → promotion → rollback,
+  with the gate re-checked at promotion and the *worst* holdout deciding.
+- **An isolation ladder and a capacity planner** — Firecracker, gVisor and plain
+  containers described as one ladder with a probe each, plus the arithmetic that
+  says how many units of one a host can hold. On the 1982 MiB host this was
+  written against, the 50-concurrent-microVM target computes to two.
+- **The agent mesh** — eight named roles, each with the smallest tool allowlist
+  its job needs and the separation constraints that matter: `exploit` must not
+  share an agent with `critic` or `verifier`, and `verifier` must not share one
+  with `fixer`. A binding that collapses an explicit pair is refused; one that
+  collapses only by falling back to a default is warned about and carried in the
+  plan.
+- **A deployment image and stack** — the orchestrator image, a compose file with
+  Postgres and Redis, and a healthcheck wired to `redfall doctor --quiet`. The
+  README states the Docker socket risk in plain words and documents the
+  socket-proxy alternative.
+
+### Changed
+
+- **`redfall doctor`** now has `--quiet` and prints two new rows: the strongest
+  isolation tier this host supports and the concurrency it plans for.
+
+### Verified
+
+- `python -m pytest tests/ -q` → **746 passed, 34 skipped, 0 failed**.
+- All four contract checkers pass: no-mock, orphans, version (11 declarations,
+  5 lockfile roots) and clean-tree.
+- The three new subsystems carry their own adversarial tests: reading another
+  tenant's campaign by id returns nothing while the row stays put; a lesson
+  cannot be proposed from an E1 hypothesis; two holdouts that disagree block a
+  promotion; `exploit` and `critic` bound to one agent is refused.
+
+### Not verified on this host
+
+- **No Docker, so the deployment image has never been built and the stack has
+  never been brought up.** The deploy tests verify the manifests parse and their
+  invariants hold — non-root user, declared volumes, no committed credential,
+  healthcheck wired to the capability check — and nothing more.
+- **No KVM and no Firecracker**, so no microVM has booted and no startup latency
+  been measured. The p50/p95 figures are published targets, and the microVM
+  concurrency has been computed and refused, not demonstrated.
+- **No holdout set**, so no lesson has been promoted on real data. The gates and
+  their refusals are tested; the learning *gain* is not measured.
+- **No multi-agent campaign has run**, so no claim is made that routing one role
+  to one vendor and another to a second improves anything.
+- **No OIDC or SAML provider is wired up.** `idp_subject` is stored and nothing
+  authenticates against it: the identity-provider half of SSO is not built.
+
 ## [0.4.0] - 2026-10-30
 
 **Deeper, broader, faster.** RedFall reads four languages instead of two, runs
@@ -424,6 +497,7 @@ execution, live LLM calls) refuses loudly and is listed in
 - vulnbank scan parity after the return-flow work: 27 routes, 20 taint paths,
   11 call edges, 0 over-claims; self-scan: 51 files, 0 parse errors.
 
+[0.5.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.5.0
 [0.4.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.4.0
 [0.3.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.3.0
 [0.2.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.2.0

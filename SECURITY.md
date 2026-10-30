@@ -44,7 +44,7 @@ What is true about the artifacts, and how to check it:
   source and carry Sigstore build attestations. Verify a download with:
 
   ```bash
-  gh attestation verify redfall-0.4.0-py3-none-any.whl --repo DevAnimecx/redfall
+  gh attestation verify redfall-0.5.0-py3-none-any.whl --repo DevAnimecx/redfall
   ```
 
 - Every release publishes `SHA256SUMS` next to the artifacts. If a hash does

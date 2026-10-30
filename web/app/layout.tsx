@@ -12,7 +12,7 @@ import { AppSidebar } from '@/components/app-sidebar';
 export const metadata = {
   title: 'RedFall Console',
   description:
-    'Redfall 0.4.0 · live, execution-verified vulnerability findings, evidence and verified fixes.',
+    'Redfall 0.5.0 · live, execution-verified vulnerability findings, evidence and verified fixes.',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

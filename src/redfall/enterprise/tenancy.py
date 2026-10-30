@@ -10,7 +10,7 @@ resolved tenant.
 
 Two escape hatches are deliberate and explicit:
 
-* ``REDFALL_TENANCY=off`` (the default) keeps the pre-0.5.0 behaviour: one
+* ``REDFALL_TENANCY=off`` (the default) keeps the behaviour that predates it: one
   implicit tenant, no filter, every existing test and deployment unchanged.
 * ``adopt_orphans`` claims rows whose ``tenant_id`` is empty into the default
   tenant. Those rows are what a database written before this release looks like — the
@@ -243,7 +243,7 @@ def resolve_scope(
     3. The default tenant.
 
     When tenancy is off the scope is unenforced and sees everything, which is
-    the pre-0.5.0 behaviour.
+    the behaviour that predates tenancy.
     """
     if not tenancy_enabled():
         return TenantScope(tenant_id=default_tenant_id(), slug=DEFAULT_TENANT_SLUG, enforced=False)

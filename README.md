@@ -11,7 +11,7 @@
   <a href="https://devanimecx.github.io/redfall/"><img src="https://img.shields.io/badge/website-devanimecx.github.io%2Fredfall-ff2b2b" alt="website"></a>
   <img src="https://img.shields.io/badge/platforms-windows%20%7C%20linux%20%7C%20macos-blue" alt="platforms">
   <img src="https://img.shields.io/badge/python-3.12%20%7C%203.13-blue" alt="python versions">
-  <img src="https://img.shields.io/badge/tests-367%20collected-blue" alt="367 tests collected; the full suite runs in CI">
+  <img src="https://img.shields.io/badge/tests-780%20collected-blue" alt="780 tests collected; the full suite runs in CI">
   <img src="https://img.shields.io/badge/findings-executed%20proofs%20only-brightgreen" alt="findings are executed proofs only">
   <a href="scripts/check_no_mock.py"><img src="https://img.shields.io/badge/no--mock%20contract-enforced%20in%20CI-brightgreen" alt="no-mock contract enforced in CI"></a>
 </p>
@@ -45,7 +45,7 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | HTTP/OpenAPI gateway | **Built and tested** — `POST /v1/tools/{name}` executes the same 44-tool registry; OpenAPI 3.1 is generated from that registry; bearer tokens, scopes, quotas, audit and signed artifact URLs |
 | A2A v1.0 agent | **Built and tested** — Agent Card, `SendMessage`/`SendStreamingMessage`/`GetTask`/`ListTasks`/`CancelTask`/`SubscribeToTask`, SSE task/status/artifact envelopes, cooperative cancellation and HMAC-signed artifacts; push notifications are explicitly not implemented |
 | Executable adapter contracts | **Built and tested** — `redfall mcp certify` (stdio), `redfall interop certify --protocol http` (10 checks) and `--protocol a2a` (11 checks) launch a fresh server/client against a real socket and a temporary database; certification covers the shipped surfaces only. CI run [39616295334](https://github.com/DevAnimecx/redfall/actions/runs/39616295334): **362 passed, 5 skipped** (live gVisor), all package jobs passed |
-| No-mock enforcement | **Passing** (`NO-MOCK CONTRACT: PASS`, 107 files) |
+| No-mock enforcement | **Passing** (`NO-MOCK CONTRACT: PASS`, 137 files) |
 | Data layer (Postgres 17 + Redis) | **Built and verified** |
 | Packaging (any platform Python 3.12 runs on) | **Built and verified** — the wheel ships the harness, prompts and Dockerfile; installed into a fresh venv and driven from outside the checkout (`WHEEL VERIFY: PASS`); CI matrix on Ubuntu/Windows/macOS |
 | Installers (`scripts/install.sh`, `scripts/install.ps1`) | **Built and verified** — the PowerShell installer was executed end to end on this host into a throwaway home; the POSIX script is syntax-checked against a real shell here and both are executed by the CI package matrix on Ubuntu/Windows/macOS |
@@ -53,6 +53,11 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | SARIF 2.1.0 export (`redfall report --format sarif`) | **Built and verified** — every result carries `properties.redfall.verified`; unproven candidates stay visible |
 | Landing page + documentation (`site/`, React + Tailwind landing, static Markdown docs) | **Built and measured** — <https://devanimecx.github.io/redfall/> and 23 docs/trust pages; the 0.1.1 build has 25 HTML routes and 24 sitemap URLs. Local Lighthouse: landing and docs 100/100/100/100 on desktop and mobile. The 0.1.1 deployment (Pages run [39616295475](https://github.com/DevAnimecx/redfall/actions/runs/39616295475)) passed the build/SEO gate, the live monitor on 24 pages, and IndexNow accepted 24 URLs with HTTP 200. Two live Lighthouse runs measured desktop 97–98 and mobile 93–99; one mobile run was below the 95 performance gate, which is recorded as a live limit rather than hidden |
 | Sandbox (Docker + gVisor) | **Built, refuses on this host** — no container runtime |
+| Isolation ladder + capacity planner (`sandbox/tiers.py`) | **Built and tested** — Firecracker, gVisor and plain containers as one ladder with a probe each, and the arithmetic that says how many units a host holds. On this host the 50-microVM target computes to two and the plan refuses rather than guessing. No microVM has booted here |
+| Enterprise control plane (`enterprise/`) | **Built and tested** — tenancy derived from a credential rather than a request field, five roles, per-tenant policy rules and a JSONL/CSV audit export. Off unless `REDFALL_TENANCY` is set. No OIDC/SAML provider is wired up |
+| Learning loop (`learning/`) | **Built and tested** — a lesson cites an E3/E4 evidence record or it is not created; candidate → shadow → holdout → promotion → rollback, with the gate re-checked at promotion. No holdout exists here, so no promotion has been measured |
+| Agent mesh (`mesh/`) | **Built and tested** — eight roles with tool allowlists and separation constraints; an author/critic collapse is refused. No multi-agent campaign has been run |
+| Deployment (`deploy/`) | **Built, manifests verified only** — an orchestrator image, a compose stack and a healthcheck wired to `redfall doctor --quiet`. No Docker on this host, so the image has never been built |
 | Reasoning backends (`reasoning/`) | **Built and tested** — one seam, with a provider key (BYOK), an installed agent, an OpenAI-compatible endpoint, or a router over several as the implementation. `test_llm.py` still passes unchanged, proving the seam is behaviour-preserving |
 | Agent drivers (`agents/`) | **Built and tested** — 12 shipped (Claude Code, Codex, Gemini CLI, Aider, Cursor, Goose, OpenHands, Continue, Cline, Kilo Code, Qwen Code, Crush) plus a custom driver. `redfall agent certify <name>` runs the agent for real and records 4 checks; on this host 5 of the 12 are detected and `auto` resolves to one with no key present |
 | Multi-agent routing (`reasoning/router.py`) | **Built and tested** — route by tier, or take a consensus across N agents above `min_agree`; agreement is a prior, never proof, so the sandbox still executes every result |
@@ -375,7 +380,7 @@ manager you already use:
 ```bash
 pipx install git+https://github.com/DevAnimecx/redfall   # isolated
 uv pip install git+https://github.com/DevAnimecx/redfall # or in a uv venv
-pip install redfall-0.4.0-py3-none-any.whl               # a verified release wheel
+pip install redfall-0.5.0-py3-none-any.whl               # a verified release wheel
 redfall doctor                                           # exactly what this host can and cannot run
 ```
 
@@ -384,7 +389,7 @@ Release artifacts are built by CI from the tagged source, published with
 trusted:
 
 ```bash
-gh attestation verify redfall-0.4.0-py3-none-any.whl --repo DevAnimecx/redfall
+gh attestation verify redfall-0.5.0-py3-none-any.whl --repo DevAnimecx/redfall
 ```
 
 The wheel carries everything the runtime reads — the sandbox harness

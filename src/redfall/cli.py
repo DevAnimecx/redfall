@@ -79,7 +79,7 @@ def doctor(quiet: bool) -> None:
     table.add_row("Node", "OK" if env["node"] else "MISSING", "")
     table.add_row("npm", "OK" if env["npm"] else "MISSING", "")
 
-    # 0.5.3: the isolation ladder and what concurrency this host can hold. The
+    # The isolation ladder and what concurrency this host can hold. The
     # plan refuses rather than guesses, so a MISSING tier prints a reason.
     from .sandbox.tiers import scale_report
 
@@ -1669,18 +1669,18 @@ from .cli_dashboard import dashboard as _dashboard_command  # noqa: E402
 
 main.add_command(_dashboard_command)
 
-# 0.5.0: the enterprise control plane. Opt-in — a single-operator install never
+# The enterprise control plane. Opt-in — a single-operator install never
 # creates a tenant and never has a rule evaluated against it.
 from .cli_tenant import tenant as _tenant_group  # noqa: E402
 
 main.add_command(_tenant_group)
 
-# 0.5.2: the learning loop. Lessons come from verified outcomes only.
+# The learning loop. Lessons come from verified outcomes only.
 from .cli_learning import learn as _learn_group  # noqa: E402
 
 main.add_command(_learn_group)
 
-# 0.5.4: the agent mesh. Roles, their tools, and which agent plays each.
+# The agent mesh. Roles, their tools, and which agent plays each.
 from .cli_mesh import mesh as _mesh_group  # noqa: E402
 
 main.add_command(_mesh_group)

@@ -5,9 +5,9 @@
 Key facts:
 - Site: https://devanimecx.github.io/redfall/
 - Source: https://github.com/DevAnimecx/redfall
-- Release: https://github.com/DevAnimecx/redfall/releases/tag/v0.4.0
+- Release: https://github.com/DevAnimecx/redfall/releases/tag/v0.5.0
 - Maintainer: DevAnimecx (https://github.com/DevAnimecx)
-- Version: 0.4.0; Python 3.12+; Windows, Linux and macOS
+- Version: 0.5.0; Python 3.12+; Windows, Linux and macOS
 - A full scan requires Docker with a gVisor runtime. From 0.2.0 the reasoning layer needs no AI API key: drive RedFall with an installed agent (Claude Code, Codex, Gemini CLI and nine more), an OpenAI-compatible endpoint, or a provider key through LiteLLM.
 - Last updated: 2026-10-21
 
@@ -54,14 +54,14 @@ Key facts:
 ## Source and verification
 
 - [README](https://github.com/DevAnimecx/redfall): full description, status table and the source for every claim.
-- [CHANGELOG](https://github.com/DevAnimecx/redfall/blob/main/CHANGELOG.md): what shipped in 0.4.0, with measured numbers.
+- [CHANGELOG](https://github.com/DevAnimecx/redfall/blob/main/CHANGELOG.md): what shipped in 0.5.0, with measured numbers.
 - [BLOCKED.md](https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md): what cannot run on the release host, with the smallest real unblock for each item.
 - [SECURITY.md](https://github.com/DevAnimecx/redfall/blob/main/SECURITY.md): vulnerability reporting, supply-chain verification and the range-target warning.
 - [CONTRIBUTING.md](https://github.com/DevAnimecx/redfall/blob/main/CONTRIBUTING.md): the no-mock rule, stage ownership and the PR contract.
 
 Verification commands:
 
-- `gh attestation verify redfall-0.4.0-py3-none-any.whl --repo DevAnimecx/redfall` proves the release wheel was built by this repository's release workflow from the tagged commit.
+- `gh attestation verify redfall-0.5.0-py3-none-any.whl --repo DevAnimecx/redfall` proves the release wheel was built by this repository's release workflow from the tagged commit.
 - `redfall doctor` prints exactly what the current host can and cannot run.
 - `python scripts/check_no_mock.py` is the mechanical part of the no-mock contract.
 

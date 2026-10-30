@@ -1,6 +1,6 @@
 {
   "name": "vulnbank-adaptive",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "description": "Deliberately vulnerable banking API \u2014 Redfall 0.1.1 range target with dynamic attack surfaces. Not for production use.",
   "main": "dist/server.js",
