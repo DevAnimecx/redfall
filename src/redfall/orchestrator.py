@@ -332,6 +332,11 @@ def run_scan(
             outcome.llm_errors.append(f"sandbox unavailable during chaining: {err}")
             emit("chain:sandbox-unavailable", {"reason": str(err)})
         outcome.llm_errors.extend(chain_stage.errors)
+        # Every PoC has run, so the prepared target template has done its job.
+        # The per-PoC workspaces stay for inspection; only the shared copy goes.
+        # `close` is idempotent and ignores errors, so an early exit that never
+        # built a template costs nothing here.
+        validator.close()
 
         duration_ms = int((time.time() - started) * 1000)
         severity_counts: dict[str, int] = {}

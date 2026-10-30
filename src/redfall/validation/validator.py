@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import shutil
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -26,13 +25,10 @@ from ..sandbox.docker_gvisor import (
     ensure_runtime,
 )
 from ..store.models import SandboxRun
+from .workspace import WorkspacePool
 
 HARNESS = Path(__file__).parent / "harness.mjs"
 VERDICT_MARKER = "REDFALL_VERDICT "
-
-# Files the target needs at runtime but which are not application source.
-RUNTIME_GLOBS = ("package.json", "package-lock.json", "tsconfig.json", "jest.config.js", ".env.example")
-RUNTIME_DIRS = ("src", "migrations", "public", "views", "templates")
 
 
 @dataclass(frozen=True)
@@ -75,7 +71,11 @@ class Validator:
         self.workdir = Path(workdir or (default_workdir() / "workspaces"))
         self.workdir.mkdir(parents=True, exist_ok=True)
         self.timeout_s = timeout_s
-        self._template: Path | None = None
+        self._pool = WorkspacePool(target=self.target, workdir=self.workdir)
+
+    def close(self) -> None:
+        """Drop the prepared template. Per-PoC workspaces stay for inspection."""
+        self._pool.close()
 
     # -- public ------------------------------------------------------------
     def validate(
@@ -150,43 +150,16 @@ class Validator:
 
     # -- workspace ---------------------------------------------------------
     def _prepare_workspace(self, run_id: str, poc: dict[str, Any]) -> Path:
-        """Copy the target into a throwaway workspace and drop the PoC beside it.
+        """Give this PoC a workspace cloned from the scan's prepared template.
 
-        The target is copied rather than mounted so an exploit that writes to
-        disk cannot damage the repository being scanned.
+        The target is copied, never mounted, so an exploit that writes to disk
+        cannot damage the repository being scanned. The template is built once
+        per scan, which is what stops every PoC paying for the same copy.
         """
-        workspace = self.workdir / run_id
-        if workspace.exists():
-            shutil.rmtree(workspace)
-        workspace.mkdir(parents=True)
-
-        target_copy = workspace / "target"
-        self._copy_target(target_copy)
+        workspace = self._pool.checkout(run_id)
         (workspace / "harness.mjs").write_text(HARNESS.read_text())
         (workspace / "poc.json").write_text(json.dumps(poc, indent=2))
         return workspace
-
-    def _copy_target(self, dest: Path) -> None:
-        dest.mkdir(parents=True, exist_ok=True)
-        for pattern in RUNTIME_GLOBS:
-            src = self.target / pattern
-            if src.exists():
-                shutil.copy2(src, dest / pattern)
-        for dirname in RUNTIME_DIRS:
-            src = self.target / dirname
-            if src.exists():
-                shutil.copytree(src, dest / dirname, dirs_exist_ok=True)
-        # node_modules is large, so link it instead of copying when the host can.
-        # A link that cannot be created (or cannot be resolved inside the
-        # container) is not an error: the harness runs `npm install` itself, and
-        # copying a host-built tree across operating systems would be worse than
-        # reinstalling because the binaries would not match the container.
-        node_modules = self.target / "node_modules"
-        if node_modules.exists():
-            try:
-                (dest / "node_modules").symlink_to(node_modules, target_is_directory=True)
-            except OSError:
-                pass
 
     # -- verdict -----------------------------------------------------------
     @staticmethod
