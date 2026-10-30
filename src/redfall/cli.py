@@ -30,7 +30,12 @@ def main() -> None:
 
 
 @main.command()
-def doctor() -> None:
+@click.option(
+    "--quiet",
+    is_flag=True,
+    help="Print only the failures. For a container healthcheck, where the exit code is the answer.",
+)
+def doctor(quiet: bool) -> None:
     """Report exactly which prerequisites this host satisfies."""
     config = load_config()
     env = describe_environment(config)
@@ -95,10 +100,12 @@ def doctor() -> None:
     except Exception as exc:  # noqa: BLE001 - diagnostics must not crash
         table.add_row("Sandbox tier", "UNKNOWN", str(exc)[:110])
 
-    console.print(table)
+    if not quiet:
+        console.print(table)
     try:
         check_prerequisites(config, require_llm=False)
-        console.print("[green]all prerequisites satisfied — scans can run[/green]")
+        if not quiet:
+            console.print("[green]all prerequisites satisfied — scans can run[/green]")
     except PrerequisiteError as exc:
         console.print("[red]scans cannot run:[/red]\n  - " + "\n  - ".join(exc.failures))
         raise SystemExit(1) from None

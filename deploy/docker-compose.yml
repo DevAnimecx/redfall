@@ -1,0 +1,86 @@
+# A complete RedFall deployment: the orchestrator, its database and its cache.
+#
+# This is the stack a team runs when they want RedFall as a service rather than
+# as a CLI on a laptop. Two facts about it are deliberate and worth reading
+# before using it anywhere real:
+#
+# 1. `docker.sock` is mounted into the orchestrator. The socket is equivalent to
+#    root on the host: anything that can talk to it can start a privileged
+#    container. RedFall needs it to start sandboxes, and there is no way to make
+#    that need disappear. `deploy/README.md` documents the socket-proxy
+#    alternative, which narrows the socket to container create/start/stop and is
+#    what a production deployment should use. It is not the default here only
+#    because it adds a second moving part to a stack meant to come up with one
+#    command.
+#
+# 2. The data volumes are named, not bind mounts. The evidence ledger is
+#    hash-chained and a bind mount to a path that later moves silently breaks
+#    every reproduction command recorded in it.
+#
+# Secrets come from the environment. Nothing in this file carries a credential,
+# and the values below are the defaults a local run needs, not ones to keep.
+
+name: redfall
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-redfall}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-redfall}
+      POSTGRES_DB: ${POSTGRES_DB:-redfall}
+    volumes:
+      - redfall-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-redfall} -d ${POSTGRES_DB:-redfall}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # Not published: only the orchestrator needs the database, and a Postgres
+    # port open to the host is a port open to whatever else shares that host.
+
+  cache:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  engine:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-redfall}:${POSTGRES_PASSWORD:-redfall}@db:5432/${POSTGRES_DB:-redfall}
+      REDIS_URL: redis://cache:6379/0
+      REDFALL_ALLOWED_ROOTS: /var/lib/redfall/work
+      # The operator sets one of these. Without a key RedFall reasons through an
+      # installed agent instead, which this image does not carry.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      REDFALL_DASHBOARD_TOKEN: ${REDFALL_DASHBOARD_TOKEN:-}
+      REDFALL_SANDBOX_POOL_SIZE: ${REDFALL_SANDBOX_POOL_SIZE:-3}
+    volumes:
+      - redfall-state:/var/lib/redfall
+      # See note 1. Narrow this with a socket proxy before exposing the host.
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      # Loopback by default. Putting this on 0.0.0.0 without
+      # REDFALL_DASHBOARD_TOKEN set is refused by the server itself, but the
+      # bind is the first line of defence and it is set here too.
+      - "${REDFALL_BIND:-127.0.0.1}:8787:8787"
+    command: ["dashboard", "--host", "0.0.0.0", "--port", "8787"]
+
+volumes:
+  redfall-db:
+  redfall-state:
