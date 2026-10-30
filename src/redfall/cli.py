@@ -74,6 +74,27 @@ def doctor() -> None:
     table.add_row("Node", "OK" if env["node"] else "MISSING", "")
     table.add_row("npm", "OK" if env["npm"] else "MISSING", "")
 
+    # 0.5.3: the isolation ladder and what concurrency this host can hold. The
+    # plan refuses rather than guesses, so a MISSING tier prints a reason.
+    from .sandbox.tiers import scale_report
+
+    try:
+        scale = scale_report(requested=config.sandbox_pool_size)
+        tier_name = scale["tier"]["name"] if scale["tier"] else "none"
+        plan = scale["plan"]
+        table.add_row(
+            f"Sandbox tier (>= {scale['minimum_isolation']})",
+            "OK" if scale["tier"] else "MISSING",
+            f"strongest available: {tier_name}",
+        )
+        table.add_row(
+            f"Concurrency (asked {plan['requested']})",
+            "OK" if plan["ok"] else "LIMITED",
+            f"{plan['allowed']} unit(s); bound by {plan['binding']} — {plan['reason']}"[:110],
+        )
+    except Exception as exc:  # noqa: BLE001 - diagnostics must not crash
+        table.add_row("Sandbox tier", "UNKNOWN", str(exc)[:110])
+
     console.print(table)
     try:
         check_prerequisites(config, require_llm=False)
