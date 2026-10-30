@@ -55,12 +55,9 @@ class GraphBuild:
 
 
 def _language(path: str) -> str:
-    suffix = Path(path).suffix.lower()
-    if suffix in (".py", ".pyw"):
-        return "python"
-    if suffix in (".ts", ".tsx"):
-        return "typescript"
-    return "javascript"
+    from ..ingestion.languages import language_name_for
+
+    return language_name_for(path)
 
 
 def _join_url(prefix: str, path: str) -> str:

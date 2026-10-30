@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import hashlib
-from pathlib import Path
 
 from sqlalchemy.orm import Session
 
 from ..store.models import Dep, FileRow, Symbol, TaintPath
 from .ingest import IngestResult
+from .languages import language_name_for
 
 
 def _sid(*parts: object) -> str:
@@ -18,12 +18,7 @@ def _sid(*parts: object) -> str:
 
 
 def _language_of(path: str) -> str:
-    suffix = Path(path).suffix.lower()
-    if suffix in (".py", ".pyw"):
-        return "python"
-    if suffix in (".ts", ".tsx"):
-        return "typescript"
-    return "javascript"
+    return language_name_for(path)
 
 
 def persist(result: IngestResult, session: Session) -> None:
