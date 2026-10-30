@@ -20,7 +20,7 @@ export const FAQ = [
   },
   {
     q: "Which languages and frameworks are covered?",
-    a: "TypeScript, JavaScript and Python. Route extraction covers Express, Fastify, koa-router, NestJS, Flask and FastAPI, with mount and blueprint prefixes resolved. Taint analysis is intra- and interprocedural with return flow. It is not a full type checker or a general-purpose SAST platform.",
+    a: "TypeScript, JavaScript and Python are the certified pair-pairs: route extraction for Express, Fastify, koa-router, NestJS, Flask and FastAPI with prefixes resolved, and intra- plus interprocedural taint with return flow. Java/Kotlin and Go are read but not certified — Spring and JAX-RS annotations, and net/http, gorilla/chi and Gin/Echo registration are parsed and traced over real source, but no JVM or Go toolchain runs here, so no category has been reproduced against a running service. It is not a full type checker or a general-purpose SAST platform.",
     href: "/redfall/docs/languages/",
     link: "Check language coverage",
   },
@@ -67,6 +67,24 @@ export const FAQ = [
     link: "The dashboard guide",
   },
   {
+    q: "Can a team run RedFall together?",
+    a: "From 0.5.0. Enterprise tenancy puts teams behind isolation boundaries: a credential resolves to a tenant and the scope built from it is the only thing queries filter on, so no request field can widen it. Five roles carry explicit permission sets, operators write per-tenant policy rules that are evaluated before an action runs, and audit exports cover a timeline without a gap. It is off unless REDFALL_TENANCY is set. No OIDC or SAML provider is wired up yet — the identity half of SSO is stored, not enforced.",
+    href: "/redfall/docs/enterprise/",
+    link: "Tenancy, roles and policy",
+  },
+  {
+    q: "Does RedFall learn from its own results?",
+    a: "From 0.5.0, and only from reproduced ones. A lesson cites an E3/E4 evidence record — propose takes no grade argument, so a caller cannot declare its own claim verified — and then runs beside current behaviour in shadow, is compared against a holdout, and is promoted only if the *worst* holdout improved. Rejection and rollback both require a reason, and nothing is deleted. No holdout set exists on this host, so no promotion has been measured and no learning gain is claimed.",
+    href: "/redfall/docs/learning/",
+    link: "How the learning loop is gated",
+  },
+  {
+    q: "Can different agents play different roles?",
+    a: "Yes. The agent mesh names eight roles — recon, analyst, planner, exploit, runtime operator, critic, fixer, verifier — each with the smallest tool allowlist its job needs. The separation is the point: asking one agent to author an exploit and then judge whether it worked produces a report that looks identical to an independently verified one. A binding that puts the author and the critic on the same agent is refused. Most teams run one agent everywhere, so falling back to a shared default warns rather than failing.",
+    href: "/redfall/docs/mesh/",
+    link: "The agent mesh",
+  },
+  {
     q: "Is RedFall free to use?",
     a: `RedFall ${VERSION} does not declare a license, so public source readability is not a grant of reuse rights. If you need a license for evaluation or redistribution, open an issue. The project is maintained by DevAnimecx and has no corporate support contract.`,
     href: "/redfall/about/",
@@ -83,14 +101,19 @@ export const FAQ = [
 export const EVIDENCE = [
   [
     "Test suite",
-    "pytest against real artefacts, local + CI",
-    "367 collected; 337 local passed, 30 skipped; 362 CI passed, 5 skipped",
+    `pytest against real artefacts, local + CI`,
+    `780 collected; 746 passed, 34 skipped on this host`,
   ],
   ["range/vulnbank", "76 tests, candidate exploits executed over real HTTP", "30/32 PoCs, 32/32 patches verified"],
   ["range/vulnbank-adaptive", "vulnbank plus 7 adaptive surfaces", "7/7 PoCs"],
   ["range/pythonbank", "real HTTP against Flask / FastAPI targets", "17/17 PoCs"],
   ["range/chainbank", "two-step exploit chains end to end", "6/6 chains reproduce"],
-  ["Self-scan", "RedFall's own tree, both language parsers", "654 edges, 0 errors"],
+  ["Self-scan", "RedFall's own tree, all five language parsers", "0 parse errors"],
+  [
+    "Capacity plan, not a claim",
+    "the microVM target computed against this host",
+    "50 requested, 2 supported; refuses rather than guessing",
+  ],
   [`Release v${VERSION}`, "CI-built wheel and sdist, SHA256SUMS, Sigstore", "verify with SHA256SUMS and Sigstore"],
 ];
 
@@ -103,7 +126,7 @@ export const FEATURES = [
   },
   {
     title: "Taint that crosses functions",
-    body: "Route extraction for Express, Fastify, koa-router, NestJS, Flask and FastAPI. Depth-one interprocedural taint in both language pairs, with return-flow summaries, over an inter-file call graph.",
+    body: "Route extraction for Express, Fastify, koa-router, NestJS, Flask and FastAPI. Depth-one interprocedural taint in both language pairs, with return-flow summaries, over an inter-file call graph. Java/Kotlin and Go are read too, but not certified.",
     href: "/redfall/docs/taint-analysis/",
     link: "How taint analysis works",
   },
@@ -118,6 +141,54 @@ export const FEATURES = [
     body: "The repair loop patches on a branch, runs the target's own tests, and re-runs the original PoC. Verified means the suite passes and the PoC stops reproducing — three attempts, then a human sees the transcript.",
     href: "/redfall/docs/verified-fixes/",
     link: "How fixes are proved",
+  },
+];
+
+// The platform surfaces added across 0.4.0 and 0.5.0. Each entry says what the
+// thing is and what it does *not* claim, because the second half is what makes
+// the first half believable.
+export const PLATFORM = [
+  {
+    title: "Four languages, two of them certified",
+    body: "Java/Kotlin and Go join TypeScript and Python. Spring and JAX-RS annotations are read, with the class prefix joined onto the method path; Go routes are read from the registration call, and its sinks are receiver-gated so a method named Command on someone's own type is not mistaken for process execution.",
+    status: "Uncertified: no JVM or Go toolchain on the build host, so no service has been executed.",
+    href: "/redfall/docs/languages/",
+    link: "Language coverage and its limits",
+  },
+  {
+    title: "Tenancy a team can be put behind",
+    body: "A credential resolves to a tenant and the scope built from it is the only thing queries filter on. No request carries a tenant id a caller could choose, so reading another tenant's campaign by guessing its id is not a policy that can be misconfigured. Five roles, per-tenant policy rules, and an audit export whose resume point is the last record it wrote rather than the wall clock.",
+    status: "Off unless REDFALL_TENANCY is set. No OIDC or SAML provider is wired up.",
+    href: "/redfall/docs/enterprise/",
+    link: "Tenancy, roles and policy",
+  },
+  {
+    title: "A loop that learns only from proofs",
+    body: "A lesson cites an E3/E4 evidence record and takes no grade argument, so a caller cannot declare its own claim verified. It then runs in shadow beside current behaviour, is compared on a holdout, and is promoted only when the worst holdout improved — with the gate re-checked at promotion and both rejection and rollback keeping their reason.",
+    status: "No holdout exists on this host, so no promotion has been measured.",
+    href: "/redfall/docs/learning/",
+    link: "How the loop is gated",
+  },
+  {
+    title: "A critic that is not the author",
+    body: "Eight named roles, each with the smallest tool allowlist its job needs. The verifier holds no tool that writes a fix, and the fixer holds no tool that runs the proof. One agent authoring an exploit and then judging whether it worked produces a report that looks identical to an independently verified one — which is why the binding is refused.",
+    status: "No multi-agent campaign has been run here; the refusals are tested, the gain is not claimed.",
+    href: "/redfall/docs/mesh/",
+    link: "The agent mesh",
+  },
+  {
+    title: "An isolation ladder, and a plan that refuses",
+    body: "Firecracker, gVisor and plain containers described as one ladder with a probe each, plus the arithmetic that says how many units of one a host holds. The 50-concurrent-microVM target computes to two on a 1982 MiB host, and the planner says so instead of a scheduler that starts fifty and runs out of memory.",
+    status: "No KVM and no Docker here, so nothing boots: the plan is computed and refused, never demonstrated.",
+    href: "/redfall/docs/sandbox/",
+    link: "Tiers and capacity",
+  },
+  {
+    title: "A deployment image",
+    body: "An orchestrator image kept separate from the sandbox image it drives, a compose stack with its database and cache, and a healthcheck wired to redfall doctor --quiet — so a container that cannot scan reports unhealthy rather than merely busy.",
+    status: "Manifests are verified; the image has never been built, because there is no Docker here.",
+    href: "/redfall/docs/deploy/",
+    link: "Deployment guide",
   },
 ];
 

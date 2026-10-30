@@ -9,13 +9,14 @@ Key facts:
 - Maintainer: DevAnimecx (https://github.com/DevAnimecx)
 - Version: 0.5.0; Python 3.12+; Windows, Linux and macOS
 - A full scan requires Docker with a gVisor runtime. From 0.2.0 the reasoning layer needs no AI API key: drive RedFall with an installed agent (Claude Code, Codex, Gemini CLI and nine more), an OpenAI-compatible endpoint, or a provider key through LiteLLM.
-- Last updated: 2026-10-21
+- Last updated: 2026-10-30
 
 ## Start here
 
 - [RedFall documentation](https://devanimecx.github.io/redfall/docs/): How RedFall proves vulnerability findings by executing them: the verification guide, taint analysis, gVisor sandbox, adaptive scanning, fixes, install and reference.
 - [Execution-verified vulnerability scanning](https://devanimecx.github.io/redfall/docs/verified-findings/): What execution verification means, why static analyzers produce false positives, and how RedFall turns a taint candidate into a finding that ran against the live app.
 - [Install RedFall](https://devanimecx.github.io/redfall/docs/install/): Install RedFall with pipx or a private virtualenv, verify the release attestation, run redfall doctor, and know exactly which prerequisites a full scan needs.
+- [Deployment](https://devanimecx.github.io/redfall/docs/deploy/): Deploy RedFall's orchestrator as a container: an image kept separate from the sandbox it drives, a compose stack with Postgres and Redis, and a real healthcheck.
 - [The no-mock contract](https://devanimecx.github.io/redfall/docs/no-mock-contract/): RedFall's no-mock contract forbids demo modes, simulated findings and synthetic numbers. Here is the rule, what it bans, how CI enforces it, and what it does not cover.
 
 ## How it works
@@ -27,7 +28,8 @@ Key facts:
 - [Adaptive scanning: seven runtime surfaces](https://devanimecx.github.io/redfall/docs/adaptive-scanning/): Dynamic imports, plugin loaders, database-stored code, feature flags and webhooks change the attack surface mid-scan. RedFall spawns a branch when one appears.
 - [Exploit chaining from verified findings](https://devanimecx.github.io/redfall/docs/exploit-chaining/): RedFall composes reproduced findings into attack paths. A chain edge exists only after a composite PoC replays each step and its predicate holds against the live app.
 - [Verified fixes: how RedFall proves a repair](https://devanimecx.github.io/redfall/docs/verified-fixes/): A RedFall fix is verified only when the target's own tests pass and the original proof of concept stops reproducing. Three attempts, then a human with the transcript.
-- [Languages and frameworks supported](https://devanimecx.github.io/redfall/docs/languages/): RedFall parses TypeScript, JavaScript and Python with tree-sitter, recognises Express, Fastify, NestJS, Flask and FastAPI routes, and covers 25 of 32 seeded categories.
+- [Languages and frameworks supported](https://devanimecx.github.io/redfall/docs/languages/): RedFall parses TypeScript, JavaScript, Python, Java, Kotlin and Go with tree-sitter, recognising Express, FastAPI, Spring, net/http, Gin and Echo routes.
+- [The agent mesh](https://devanimecx.github.io/redfall/docs/mesh/): Eight named agent roles with the smallest tool allowlist each needs, and a refusal when the exploit author and the critic resolve to the same agent.
 
 ## Trust and evidence
 
@@ -37,6 +39,8 @@ Key facts:
 - [Verify a RedFall release](https://devanimecx.github.io/redfall/docs/release-verification/): Check the SHA256SUMS file, verify the Sigstore build attestation with gh, and prove an installed wheel behaves. What the checks show and what they do not.
 - [What RedFall cannot run yet](https://devanimecx.github.io/redfall/docs/blocked/): The current host has no container runtime and no LLM provider key. Here is the blocker ledger: what cannot run, what was tried, and the smallest real unblock for each.
 - [Security and supply chain](https://devanimecx.github.io/redfall/docs/security/): RedFall's threat model, the deliberately vulnerable range targets, private vulnerability reporting, weekly dependency auditing and Sigstore-attested releases.
+- [Tenancy, roles and policy](https://devanimecx.github.io/redfall/docs/enterprise/): RedFall's enterprise control plane: tenant isolation derived from a credential, five roles, per-tenant policy-as-code rules, and a gap-free audit export for a SIEM.
+- [The learning loop](https://devanimecx.github.io/redfall/docs/learning/): How RedFall learns only from reproduced outcomes: a lesson cites E3/E4 evidence or is not created, runs in shadow, and is promoted only on the worst holdout.
 
 ## Reference
 

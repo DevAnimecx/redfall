@@ -892,7 +892,7 @@ function buildLlms(pages) {
     "",
     "## Start here",
     "",
-    ...["docs/", "docs/verified-findings/", "docs/install/", "docs/no-mock-contract/"].map((p) => {
+    ...["docs/", "docs/verified-findings/", "docs/install/", "docs/deploy/", "docs/no-mock-contract/"].map((p) => {
       const page = pages.find((x) => x.path === p);
       return page ? `- [${page.title}](${page.url}): ${page.description}` : null;
     }).filter(Boolean),

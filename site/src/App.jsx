@@ -19,6 +19,7 @@ import {
   FAQ,
   FEATURES,
   LAST_UPDATED,
+  PLATFORM,
   REASONING_CHOICES,
   STEPS,
 } from "../lib/content.mjs";
@@ -35,6 +36,7 @@ const LLMS = "/redfall/llms.txt";
 
 const NAV = [
   ["#why", "Why"],
+  ["#platform", "Platform"],
   ["#agents", "Your agent"],
   ["#how", "How it works"],
   ["#evidence", "Evidence"],
@@ -512,6 +514,44 @@ export default function App() {
           </div>
         </section>
 
+        {/* Platform — what 0.4.0 and 0.5.0 added, and what each one does not claim */}
+        <section id="platform" className="section border-t border-line">
+          <div className="container-rf">
+            <div className="mx-auto max-w-[680px] text-center" data-reveal>
+              <span className="accent-rule mx-auto mb-5" aria-hidden="true" />
+              <h2 className="h2 text-ink">What {VERSION} added.</h2>
+              <p className="mt-3 text-muted">
+                Every surface below states its own limit in the same breath as its capability. That is the house style,
+                and it is the reason a claim here is worth reading.
+              </p>
+            </div>
+
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {PLATFORM.map(({ title, body, status, href, link }, index) => (
+                <article
+                  key={title}
+                  className="card card-hover flex flex-col p-7"
+                  data-reveal
+                  data-delay={index % 3}
+                >
+                  <h3 className="text-lg font-semibold text-ink">{title}</h3>
+                  <p className="mt-2 flex-1 text-sm leading-relaxed text-muted">{body}</p>
+                  <p className="mt-4 rounded-md border border-line bg-surface px-3 py-2 text-xs leading-relaxed text-muted">
+                    {status}
+                  </p>
+                  <a
+                    href={href}
+                    className="mt-4 inline-flex w-fit items-center gap-1.5 text-sm font-medium text-ink underline decoration-accent/50 underline-offset-4 hover:decoration-accent"
+                  >
+                    {link}
+                    <ArrowRight size={14} strokeWidth={2} aria-hidden="true" />
+                  </a>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* Bring your own agent */}
         <section id="agents" className="section border-t border-line">
           <div className="container-rf">
@@ -588,7 +628,7 @@ export default function App() {
             </div>
             <div className="mt-8 grid divide-y divide-line border-t border-line sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4">
               <div className="sm:border-b sm:border-line lg:border-b-0 lg:border-r">
-                <Counter value={362} label="tests passed in CI" />
+                <Counter value={746} label="tests passed on this host" />
               </div>
               <div className="sm:border-b sm:border-line lg:border-b-0 lg:border-r">
                 <Counter value={6} suffix="/6" label="chains reproduce" />

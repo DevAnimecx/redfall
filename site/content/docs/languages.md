@@ -1,30 +1,53 @@
 ---
 title: Languages and frameworks supported
 seoTitle: "Supported Languages and Frameworks | RedFall"
-description: "RedFall parses TypeScript, JavaScript and Python with tree-sitter, recognises Express, Fastify, NestJS, Flask and FastAPI routes, and covers 25 of 32 seeded categories."
+description: "RedFall parses TypeScript, JavaScript, Python, Java, Kotlin and Go with tree-sitter, recognising Express, FastAPI, Spring, net/http, Gin and Echo routes."
 path: docs/languages/
 group: How it works
 kind: cluster
 pillar: architecture
 order: 7
-updated: 2026-10-21
-keywords: TypeScript vulnerability scanner, Python security scanner, Express security, Flask security scanner
+updated: 2026-10-30
+keywords: TypeScript vulnerability scanner, Python security scanner, Java security scanner, Go security scanner, Spring security, Gin security
 sources: https://tree-sitter.github.io/tree-sitter/, https://github.com/DevAnimecx/redfall/blob/main/src/redfall/agent/categories.py
 related: taint-analysis, ranges, architecture
 ---
 
-**RedFall 0.1.1 reads TypeScript, JavaScript and Python.** It parses the source with tree-sitter, extracts routes, handlers, calls and dependencies, and runs taint analysis for both language families. It does not claim Java, Go, Rust, C# or PHP coverage.
+**RedFall 0.5.0 reads five languages: TypeScript/JavaScript, Python, Java,
+Kotlin and Go.** Two are certified; two are not, and the difference is stated
+here rather than buried.
 
-The language boundary is deliberate. A parser that half-understands a language produces routes and taint paths that look plausible and fail at execution. RedFall would rather name the supported set than advertise a language it cannot parse.
+It parses the source with tree-sitter, extracts routes, handlers, calls and
+dependencies, and runs taint analysis for each. It does not claim Rust, C#,
+PHP or Ruby coverage.
+
+The language boundary is deliberate. A parser that half-understands a language
+produces routes and taint paths that look plausible and fail at execution.
+RedFall would rather name the supported set than advertise a language it cannot
+parse.
 
 ## Which file types are parsed?
 
-| Language family | Extensions | Parser |
-| --- | --- | --- |
-| TypeScript / JavaScript | `.ts`, `.tsx`, `.js`, `.jsx` | tree-sitter TypeScript/JavaScript |
-| Python | `.py` | tree-sitter Python |
+| Language family | Extensions | Parser | Status |
+| --- | --- | --- | --- |
+| TypeScript / JavaScript | `.ts`, `.tsx`, `.js`, `.jsx` | tree-sitter TypeScript/JavaScript | **Certified** |
+| Python | `.py`, `.pyw` | tree-sitter Python | **Certified** |
+| Java | `.java` | tree-sitter Java | **Read, uncertified** |
+| Kotlin | `.kt`, `.kts` | tree-sitter Kotlin | **Read, uncertified** |
+| Go | `.go` | tree-sitter Go | **Read, uncertified** |
 
-The language registry exposes the same four operations for every supported language: support check, parse, symbol extraction and taint analysis. Adding a language means supplying those operations, not editing the ingestion loop.
+> **Certified means a category reproduces against a real target the language can
+> run.** The build host has no JVM and no Go toolchain, so no Spring, JAX-RS,
+> net/http, Gin or Echo application has been executed and no category has been
+> certified for Java, Kotlin or Go. The analysers are tested over real source;
+> they are not claimed to reproduce a vulnerability in a running service.
+
+The language registry exposes the same four operations for every supported
+language: support check, parse, symbol extraction and taint analysis. Adding a
+language means supplying those operations, not editing the ingestion loop.
+
+A file whose language nobody recognises is reported as `unknown` rather than
+defaulted to JavaScript, so a misattributed file is visible instead of quiet.
 
 The parser extracts files, symbols, routes, handlers, middleware, calls, imports, database/exec/fs/fetch calls and package metadata. The git commit is recorded with the scan so a finding is tied to a build.
 
@@ -40,6 +63,23 @@ Route extraction recognises registration shapes, not just a generic `app.get` pa
 | NestJS | `@Controller` and `@Get`/`@Post` decorators lifted to full paths |
 | Flask | Blueprints, route decorators and blueprint prefixes |
 | FastAPI | Route decorators and router prefixes |
+| Spring (Java/Kotlin) | `@GetMapping`, `@PostMapping`, `@RequestMapping` and the JAX-RS verbs, with the class-level `@RequestMapping` prefix joined onto the method path |
+| net/http (Go) | `http.HandleFunc` and `http.Handle`, read from the call rather than a decorator |
+| gorilla/chi, Gin, Echo (Go) | Method registration on a router, plus `r.Group("/api")` mounts |
+
+The JVM and Go analysers are **intraprocedural**: they propagate taint through
+local variables within a function and do not yet follow a value across a call.
+The depth-one interprocedural pass described below applies to the TypeScript and
+Python engines.
+
+Two Go-specific facts are worth knowing because both are cases where the obvious
+reading is wrong. An import binds its **last path segment**, so `net/http` is
+used as `http` — recording the whole path breaks every sink resolution while the
+parse still looks clean. And a sink is **receiver-gated**: `Command` on
+`os/exec` is process execution, `Command` on someone's own type is not, and a
+name that cannot be resolved to a recognised receiver is not called a sink at
+all, because a taint path to something unexploitable is a finding with no
+exploit behind it.
 
 Mount and blueprint prefixes are resolved through imports, so `router.post('/login')` under `/api/auth` becomes `POST /api/auth/login`. A route that is registered through an unsupported indirection may be missed; the [adaptive scanning page](/docs/adaptive-scanning/) describes the detectors that widen scope when the source suggests runtime registration.
 

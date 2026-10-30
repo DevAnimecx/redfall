@@ -7,7 +7,7 @@ group: How it works
 kind: cluster
 pillar: architecture
 order: 3
-updated: 2026-10-21
+updated: 2026-10-30
 keywords: gVisor sandbox vulnerability scanner, docker runsc security testing, proof of concept execution
 sources: https://gvisor.dev/docs/, https://docs.docker.com/engine/security/, https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md
 related: verified-findings, blocked, architecture
@@ -28,6 +28,54 @@ The boundary has three layers:
 | Harness and predicate | A real boot, a real request, an observable assertion | Proof of impact beyond the observed effect |
 
 Docker constrains the process. gVisor changes the kernel surface the process can reach: the container's syscalls are handled by the gVisor Sentry rather than directly by the host kernel. RedFall's executor requires the `runsc` runtime and refuses to run without it.
+
+The container is started with a deliberately narrow vector:
+
+## Isolation tiers, and what this host can hold
+
+From 0.5.0 the runtime is one point on a **ladder** rather than a hard-coded
+choice. Each tier declares what it defends against and what it costs, so a
+deployment picks the strongest its host supports:
+
+| Tier | Isolation | Memory per unit | What it is |
+| --- | --- | --- | --- |
+| `firecracker` | Own kernel | 512 MiB | A microVM per workload; needs KVM and the jailer |
+| `gvisor` | Emulated kernel | 320 MiB | User-space kernel intercepts syscalls; the current default |
+| `container` | Shared kernel | 256 MiB | Plain container; weakest tier |
+
+The levels are named for what they defend against, not for the product providing
+them, so a claim of "microVM isolation" is falsifiable by looking at which tier
+booted. `redfall doctor` reports the strongest tier this host has and the probe
+reason every other one was rejected.
+
+### The capacity plan refuses rather than guesses
+
+The scale-out target is 50 concurrent microVMs. Whether that fits is arithmetic
+— memory times count against host memory, plus CPU and disk — and it is
+arithmetic that can be computed and *refused* before a campaign is accepted:
+
+```
+$ redfall doctor
+Sandbox tier (>= kernel_emulated)  MISSING  strongest available: none
+Concurrency (asked 3)              LIMITED  0 unit(s); bound by no_tier
+```
+
+On a 1982 MiB host, 50 microVMs at 512 MiB each is 25,600 MiB against 1,982 —
+the plan returns **2**, and names memory as the binding constraint. A planner
+that says "no, this host holds 2" is more useful than a scheduler that starts 50
+and runs out of memory.
+
+It refuses in two cases rather than guessing: a host with no tier at all, and a
+host whose memory it could not read. A plan built on an unread number is how a
+scheduler starts more work than the machine holds. A reserve (512 MiB by
+default) is held back for the orchestrator and the OS, because a plan that fills
+memory exactly is a plan that OOMs the moment anything else runs.
+
+> **Unverified on the build host.** No KVM, no Firecracker, no Docker. Nothing
+> boots here, so no microVM has started and no startup latency has been
+> measured. The tier p50/p95 figures are published targets, not this host's
+> numbers, and the microVM concurrency has been computed and refused — never
+> demonstrated. See [`deploy/README.md`](/docs/deploy/) for running it for real.
 
 The container is started with a deliberately narrow vector:
 
