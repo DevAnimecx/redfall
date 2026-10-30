@@ -13,7 +13,7 @@ Two escape hatches are deliberate and explicit:
 * ``REDFALL_TENANCY=off`` (the default) keeps the pre-0.5.0 behaviour: one
   implicit tenant, no filter, every existing test and deployment unchanged.
 * ``adopt_orphans`` claims rows whose ``tenant_id`` is empty into the default
-  tenant. Those rows are what a database written by 0.4.0 looks like — the
+  tenant. Those rows are what a database written before this release looks like — the
   column is new and defaults to ``""``. Adoption is a one-shot, idempotent call
   an operator makes, not something a read silently does.
 """
@@ -313,7 +313,7 @@ def adopt_orphans(
 ) -> dict[str, int]:
     """Claim pre-tenancy rows into a tenant. Idempotent and counted.
 
-    A database written by 0.4.0 has ``tenant_id = ''`` on every campaign and
+    A database written before this release has ``tenant_id = ''`` on every campaign and
     token. Left alone, an enforced deployment shows an operator an empty
     console and refuses every existing credential — which reads as data loss
     even though nothing was dropped. This is the explicit, reversible-by-inspect
