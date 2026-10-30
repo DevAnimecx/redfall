@@ -1673,6 +1673,11 @@ from .cli_learning import learn as _learn_group  # noqa: E402
 
 main.add_command(_learn_group)
 
+# 0.5.4: the agent mesh. Roles, their tools, and which agent plays each.
+from .cli_mesh import mesh as _mesh_group  # noqa: E402
+
+main.add_command(_mesh_group)
+
 
 if __name__ == "__main__":
     main()
