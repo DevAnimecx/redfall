@@ -1647,6 +1647,11 @@ from .cli_tenant import tenant as _tenant_group  # noqa: E402
 
 main.add_command(_tenant_group)
 
+# 0.5.2: the learning loop. Lessons come from verified outcomes only.
+from .cli_learning import learn as _learn_group  # noqa: E402
+
+main.add_command(_learn_group)
+
 
 if __name__ == "__main__":
     main()
