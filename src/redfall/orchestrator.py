@@ -15,6 +15,7 @@ from sqlalchemy import func, select
 from .agent.agent import Agent
 from .branching.adaptive_scan import AdaptiveSpawner, SpawnRecord, new_tree
 from .branching.engine import BranchEngine, ScanOutcome
+from .branching.worklist import BranchWorklist
 from .chain.executor import ChainExecutor
 from .chain.stage import ChainStageOutcome, run_chain_stage
 from .config import Config, check_prerequisites, describe_environment
@@ -197,50 +198,70 @@ def run_scan(
         executed: list[Branch] = []
         worklist = sorted(branches, key=lambda b: b.priority, reverse=True)
         queued = {b.id for b in worklist}
-        while worklist:
-            branch = worklist.pop(0)
-            emit(
-                "branch:start",
-                {
-                    "branch": branch.name,
-                    "adaptive": branch.is_adaptive,
-                    "trigger": branch.trigger_reason,
-                    "files": branch.scope_files,
-                },
-            )
-            state.update_scan_state(scan_id, {"current_branch": branch.name})
-            try:
-                branch_outcome = branch_engine.run_branch(branch, on_finding=on_finding)
-            except SandboxUnavailable as err:
-                outcome.llm_errors.append(f"sandbox unavailable during {branch.name}: {err}")
-                emit("branch:sandbox-unavailable", {"branch": branch.name, "reason": str(err)})
-                break
-            except BudgetExceeded as err:
-                outcome.llm_errors.append(f"budget: {err}")
-                emit("scan:budget-exceeded", {"reason": str(err)})
-                break
-            except LLMError as err:
-                outcome.llm_errors.append(f"{branch.name}: {err}")
-                emit("branch:llm-error", {"branch": branch.name, "error": str(err)})
+
+        # Branches run `sandbox_pool_size` at a time. Each worker takes its own
+        # session; everything shared stays on this thread, which is why the
+        # findings are replayed here through `on_finding` rather than reported
+        # from inside the worker.
+        def run_one(branch: Branch, worker_session: Session) -> Any:
+            return branch_engine.run_branch(branch, session=worker_session)
+
+        pool = BranchWorklist(
+            run_branch=run_one,
+            session_factory=SessionLocal,
+            workers=max(1, config.sandbox_pool_size),
+        )
+        for branch in worklist:
+            pool.submit(branch)
+
+        def fold(run: Any) -> bool:
+            """Apply a finished branch to the scan. False means stop the scan."""
+            branch = session.get(Branch, run.branch_id)
+            if run.error is not None:
+                err = run.error
+                if isinstance(err, SandboxUnavailable):
+                    outcome.llm_errors.append(f"sandbox unavailable during {run.name}: {err}")
+                    emit("branch:sandbox-unavailable", {"branch": run.name, "reason": str(err)})
+                    return False
+                if isinstance(err, BudgetExceeded):
+                    outcome.llm_errors.append(f"budget: {err}")
+                    emit("scan:budget-exceeded", {"reason": str(err)})
+                    return False
+                if isinstance(err, LLMError):
+                    outcome.llm_errors.append(f"{run.name}: {err}")
+                    emit("branch:llm-error", {"branch": run.name, "error": str(err)})
+                    if branch is not None:
+                        executed.append(branch)
+                    return True
+                # Anything else is a bug in a branch or the engine, not a
+                # condition the scan can absorb. Let it surface.
+                raise err
+
+            branch_outcome = run.outcome
+            if branch is not None:
+                # Replay the worker's findings here: the hook mutates the branch
+                # tree, which is single-owner state.
+                for row in branch_outcome.findings:
+                    on_finding(branch, row)
                 executed.append(branch)
-                continue
             outcome.branches.append(branch_outcome)
             outcome.findings.extend(branch_outcome.findings)
-            executed.append(branch)
             emit(
                 "branch:done",
                 {
-                    "branch": branch.name,
-                    "adaptive": branch.is_adaptive,
+                    "branch": run.name,
+                    "adaptive": branch.is_adaptive if branch is not None else False,
                     "candidates": branch_outcome.candidates,
                     "reproduced": branch_outcome.reproduced,
                     "duration_ms": branch_outcome.duration_ms,
                 },
             )
-            # Anything an advanced spawn added mid-branch becomes work, ordered
-            # against what is already queued by priority rather than by age.
+            return True
+
+        def enqueue_spawned() -> None:
+            """Append adaptive branches an advanced run produced, by priority."""
             fresh = False
-            for record in spawns:
+            for record in list(spawns):
                 if record.branch_id in queued:
                     continue
                 row = session.get(Branch, record.branch_id)
@@ -251,6 +272,40 @@ def run_scan(
                 fresh = True
             if fresh:
                 worklist.sort(key=lambda b: b.priority, reverse=True)
+
+        stopping = False
+        try:
+            while True:
+                # Top the pool up from the worklist, highest priority first.
+                while worklist and pool.has_room() and not stopping:
+                    branch = worklist.pop(0)
+                    emit(
+                        "branch:start",
+                        {
+                            "branch": branch.name,
+                            "adaptive": branch.is_adaptive,
+                            "trigger": branch.trigger_reason,
+                            "files": branch.scope_files,
+                        },
+                    )
+                    state.update_scan_state(scan_id, {"current_branch": branch.name})
+                    pool.submit(branch)
+
+                if pool.in_flight == 0:
+                    if not worklist or stopping:
+                        break
+                    continue
+
+                for run in pool.take_done(block=True):
+                    # Re-read the branch row on this thread's session: the
+                    # worker flushed through its own, and this session may hold
+                    # a stale copy.
+                    session.expire_all()
+                    if not fold(run):
+                        stopping = True
+                enqueue_spawned()
+        finally:
+            pool.close()
 
         # Chain stage (§ step 7). Only reproduced findings take part; the model
         # proposes wirings, the sandbox replays them, and only the steps whose
