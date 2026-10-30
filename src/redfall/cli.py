@@ -1641,6 +1641,12 @@ from .cli_dashboard import dashboard as _dashboard_command  # noqa: E402
 
 main.add_command(_dashboard_command)
 
+# 0.5.0: the enterprise control plane. Opt-in — a single-operator install never
+# creates a tenant and never has a rule evaluated against it.
+from .cli_tenant import tenant as _tenant_group  # noqa: E402
+
+main.add_command(_tenant_group)
+
 
 if __name__ == "__main__":
     main()

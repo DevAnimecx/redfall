@@ -404,6 +404,10 @@ class Campaign(Base):
     __tablename__ = "campaigns"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    # The isolation boundary this campaign belongs to. Empty on rows created
+    # before tenancy existed; those are adopted into the default tenant by
+    # `redfall.enterprise.tenancy.adopt_orphans`.
+    tenant_id: Mapped[str] = mapped_column(String(64), default="", index=True)
     repo: Mapped[str] = mapped_column(Text, nullable=False)
     commit: Mapped[str] = mapped_column(String(64), default="")
     objective: Mapped[str] = mapped_column(String(32), default="discovery")
@@ -450,6 +454,7 @@ class Campaign(Base):
     def to_wire(self) -> dict[str, object]:
         return {
             "id": self.id,
+            "tenant_id": self.tenant_id,
             "repo": self.repo,
             "commit": self.commit,
             "objective": self.objective,
@@ -832,6 +837,10 @@ class AgentToken(Base):
     __tablename__ = "agent_tokens"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    # The tenant this credential acts for, and the principal it acts as. Both
+    # are resolved at authentication and neither is ever read from the request.
+    tenant_id: Mapped[str] = mapped_column(String(64), default="", index=True)
+    principal_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     token_sha256: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
     scopes: Mapped[list] = mapped_column(JSON, default=list)
@@ -843,6 +852,8 @@ class AgentToken(Base):
     def to_wire(self) -> dict[str, object]:
         return {
             "id": self.id,
+            "tenant_id": self.tenant_id,
+            "principal_id": self.principal_id,
             "name": self.name,
             "scopes": list(self.scopes or []),
             "quota_per_hour": self.quota_per_hour,

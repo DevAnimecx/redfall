@@ -13,6 +13,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from . import models_tenant  # noqa: F401 - registers the tenancy tables on Base
 from .models import Base
 
 _engine: Engine | None = None
