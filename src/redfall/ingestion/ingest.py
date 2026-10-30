@@ -11,6 +11,13 @@ from sqlalchemy.orm import Session
 
 from .cache import CachedParse, ParseCache, content_key
 from .dependencies import Dependency, read_dependencies, security_relevant
+
+# Languages with an interprocedural pass. JVM is not here: the two passes that
+# exist are written against the Python and TypeScript grammars, and queuing a
+# Java file into them would run the wrong walker over it. It is a deliberate
+# gap, not an oversight — the test for JVM intake covers the intraprocedural
+# result that does run.
+INTERPROCEDURAL_LANGUAGES = ("python", "typescript")
 from .git_repo import GitInfo, inspect as inspect_git
 from .inter import CallEdge, InterFile, analyse_inter
 from .inter_ts import analyse_inter_ts
@@ -321,7 +328,7 @@ def ingest(
                 content=text,
             )
         )
-        if support.name in ("python", "typescript"):
+        if support.name in INTERPROCEDURAL_LANGUAGES:
             inter_files.append(InterFile(rel=rel, parsed=parsed, symbols=symbols))
 
     if inter_files:
