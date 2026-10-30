@@ -7,6 +7,11 @@ from typing import Any
 
 import redis
 
+# Bound the optimistic-lock retry. Contention here is between branches of one
+# scan, which is brief; a patch that cannot land in this many tries means
+# something is wrong, and the alternative to raising is silently losing a merge.
+_MERGE_ATTEMPTS = 8
+
 
 class StateStore:
     """Small typed wrapper over the two key families Redfall uses."""
@@ -30,10 +35,34 @@ class StateStore:
         return json.loads(raw) if raw else None
 
     def update_scan_state(self, scan_id: str, patch: dict[str, Any], ttl_s: int = 86400) -> dict[str, Any]:
-        current = self.get_scan_state(scan_id) or {}
-        current.update(patch)
-        self.set_scan_state(scan_id, current, ttl_s=ttl_s)
-        return current
+        """Merge `patch` into the scan's state, without losing a concurrent merge.
+
+        Branches run in parallel and each reports progress here, so a plain
+        read-merge-write drops whichever patch lands second: both read the same
+        base, each writes back its own version, and the later write silently
+        discards the earlier merge. The value is optimistic-locked with WATCH
+        instead, and the merge is retried if anyone else wrote in between.
+        """
+        key = f"scan:{scan_id}:state"
+        for _ in range(_MERGE_ATTEMPTS):
+            with self._client.pipeline() as pipe:
+                try:
+                    pipe.watch(key)
+                    raw = pipe.get(key)
+                    current = json.loads(raw) if raw else {}
+                    current.update(patch)
+                    pipe.multi()
+                    pipe.set(key, json.dumps(current), ex=ttl_s)
+                    pipe.execute()
+                except redis.WatchError:
+                    # Someone else merged first; re-read and try again rather
+                    # than overwriting their patch with our stale base.
+                    continue
+                return current
+        raise RuntimeError(
+            f"scan {scan_id} state was modified concurrently on every one of "
+            f"{_MERGE_ATTEMPTS} attempts; refusing to drop a merge"
+        )
 
     # --- branch queue -------------------------------------------------------
     def push_branches(self, scan_id: str, branch_ids: list[str]) -> int:

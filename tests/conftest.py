@@ -28,6 +28,23 @@ def postgres_url() -> str:
 
 
 @pytest.fixture(scope="session")
+def redis_url() -> str:
+    """A reachable Redis, or an honest skip.
+
+    `StateStore` is built on Redis transactions, so its concurrency behaviour
+    cannot be exercised against a stand-in. Without a server this skips rather
+    than asserting against a fake that would pass whatever the test expected.
+    """
+    from redfall.store.state import StateStore
+
+    url = os.getenv("REDFALL_REDIS_URL", "redis://localhost:6379/0")
+    ok, detail = StateStore(url).ping()
+    if not ok:
+        pytest.skip(f"no Redis at {url} ({detail}); StateStore tests skipped")
+    return url
+
+
+@pytest.fixture(scope="session")
 def vulnbank() -> Path:
     if not TARGET.exists():
         pytest.skip(f"range target missing at {TARGET}")

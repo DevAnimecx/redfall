@@ -67,6 +67,89 @@ def test_budget_tracks_unknown_cost_without_faking_a_price():
     assert budget.tokens_used == 200
 
 
+def _run_threads(fn, count: int) -> list[object]:
+    """Run `fn(i)` on `count` threads released together, and collect what they return.
+
+    Each thread's return value (or the exception it raised) lands in the result
+    list, so the caller can assert on the outcomes rather than on thread state.
+
+    A short switch interval maximises interleaving. On CPython it is not enough
+    to make an unguarded `+=` lose an update — the GIL does not release inside
+    one attribute update — so these tests pin the required behaviour under
+    concurrency rather than reproducing a failure on this interpreter. They are
+    what would catch a regression on a free-threaded build, or if the counters
+    ever became a non-atomic type or the check and the write drifted apart.
+    """
+    import sys
+    import threading
+
+    results: list[object] = [None] * count
+    barrier = threading.Barrier(count)
+
+    def worker(index: int) -> None:
+        try:
+            results[index] = fn(index)
+        except BaseException as err:  # noqa: BLE001 - recorded, asserted by the caller
+            results[index] = err
+
+    previous = sys.getswitchinterval()
+    sys.setswitchinterval(1e-6)
+    try:
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(count)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    finally:
+        sys.setswitchinterval(previous)
+    return results
+
+
+def test_budget_loses_no_spend_when_branches_run_concurrently():
+    """Branches share one budget, so a lost increment erases real spend.
+
+    `+=` on a plain attribute is read-modify-write. Under the GIL this happens
+    not to interleave, but the lock is what makes that a guarantee rather than
+    an accident — and this is the property a parallel scan depends on.
+    """
+    budget = Budget(max_tokens=10_000_000, max_cost_usd=1000.0)
+    per_call, threads = 3, 16
+
+    _run_threads(lambda _i: budget.record(per_call, 0, 0.001), threads)
+
+    assert budget.tokens_used == per_call * threads
+    assert budget.calls == threads
+    assert budget.cost_usd == pytest.approx(0.001 * threads)
+
+
+def test_concurrent_record_cannot_let_the_scan_exceed_its_ceiling():
+    """check-then-add must be indivisible, or two branches both pass it.
+
+    Each call fits under the ceiling on its own, but they do not all fit
+    together. If the spend and the check are separate steps — or if two threads
+    read the total before either writes it — more calls get through than the
+    budget permits.
+    """
+    budget = Budget(max_tokens=1000, max_cost_usd=1000.0)
+    threads = 16
+
+    outcomes = _run_threads(lambda _i: budget.record(300, 0, 0.0), threads)
+    admitted = [o for o in outcomes if o is None]
+    refused = [o for o in outcomes if isinstance(o, BudgetExceeded)]
+
+    # 300 tokens a call under a 1000 ceiling: exactly three fit before the
+    # fourth breaches it. Every other call must be refused — that is the
+    # ceiling holding under concurrency, which is the property under test.
+    assert len(admitted) == 3, f"{len(admitted)} calls passed a 1000-token ceiling"
+    assert len(refused) == threads - 3
+    # `record` adds before it checks, so a refused call still counts its spend:
+    # the total is what was genuinely spent (16 × 300), not a clamped 900. The
+    # numbers stay honest so a report can show the overshoot that a refusal
+    # implies. Ordering is the lock's job; accuracy is this method's.
+    assert budget.tokens_used == 300 * threads
+    assert budget.calls == threads
+
+
 def test_a_call_without_a_provider_credential_raises(monkeypatch, postgres_url):
     """§1 rule 4: live calls only. No credential must mean no result."""
     from redfall.llm import LLM

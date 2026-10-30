@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -72,7 +73,14 @@ class LLMResult:
 
 @dataclass
 class Budget:
-    """Running totals against the §5 ceilings."""
+    """Running totals against the §5 ceilings.
+
+    Branches run concurrently, so the counters are guarded. A lock around each
+    accessor is not enough: `check()` then `add()` is a read-then-write pair, and
+    two threads can both pass the check before either records its spend, letting
+    the scan exceed the ceiling §5 sets. `record()` does both under one lock for
+    callers that spend, which is why it exists beside the plain accessors.
+    """
 
     max_tokens: int
     max_cost_usd: float
@@ -80,19 +88,26 @@ class Budget:
     cost_usd: float = 0.0
     calls: int = 0
     cost_unknown_calls: int = 0
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
     def add(self, prompt_tokens: int, completion_tokens: int, cost_usd: float | None) -> None:
-        self.tokens_used += prompt_tokens + completion_tokens
-        self.calls += 1
-        if cost_usd is None:
-            self.cost_unknown_calls += 1
-        else:
-            self.cost_usd += cost_usd
+        with self._lock:
+            self.tokens_used += prompt_tokens + completion_tokens
+            self.calls += 1
+            if cost_usd is None:
+                self.cost_unknown_calls += 1
+            else:
+                self.cost_usd += cost_usd
 
     def remaining_tokens(self) -> int:
-        return max(0, self.max_tokens - self.tokens_used)
+        with self._lock:
+            return max(0, self.max_tokens - self.tokens_used)
 
     def check(self) -> None:
+        with self._lock:
+            self._check_locked()
+
+    def _check_locked(self) -> None:
         if self.tokens_used > self.max_tokens:
             raise BudgetExceeded(
                 f"token budget exhausted: {self.tokens_used} used of {self.max_tokens} permitted"
@@ -102,12 +117,37 @@ class Budget:
                 f"cost ceiling exceeded: ${self.cost_usd:.2f} used of ${self.max_cost_usd:.2f} permitted"
             )
 
+    def record(
+        self, prompt_tokens: int, completion_tokens: int, cost_usd: float | None
+    ) -> None:
+        """Add a call's spend and check the ceiling as one atomic step.
+
+        This is what a caller that has just spent should use. It keeps the
+        check-then-add pair indivisible, so concurrent branches cannot each
+        observe headroom that only one of them has.
+        """
+        with self._lock:
+            self.tokens_used += prompt_tokens + completion_tokens
+            self.calls += 1
+            if cost_usd is None:
+                self.cost_unknown_calls += 1
+            else:
+                self.cost_usd += cost_usd
+            self._check_locked()
+
+    def snapshot(self) -> dict[str, Any]:
+        """Counters read together, so a report cannot show a torn total."""
+        with self._lock:
+            return {
+                "tokens_used": self.tokens_used,
+                "cost_usd": round(self.cost_usd, 4),
+                "calls": self.calls,
+                "cost_unknown_calls": self.cost_unknown_calls,
+            }
+
     def as_dict(self) -> dict[str, Any]:
         return {
-            "tokens_used": self.tokens_used,
-            "cost_usd": round(self.cost_usd, 4),
-            "calls": self.calls,
-            "cost_unknown_calls": self.cost_unknown_calls,
+            **self.snapshot(),
             "max_tokens": self.max_tokens,
             "max_cost_usd": self.max_cost_usd,
         }
@@ -230,8 +270,7 @@ class LLM:
 
         cached = self._lookup(digest)
         if cached is not None:
-            self.budget.add(cached.prompt_tokens, cached.completion_tokens, cached.cost_usd)
-            self.budget.check()
+            self.budget.record(cached.prompt_tokens, cached.completion_tokens, cached.cost_usd)
             return cached
 
         self.budget.check()
@@ -278,8 +317,7 @@ class LLM:
             cached=False,
         )
 
-        self.budget.add(prompt_tokens, completion_tokens, cost)
-        self.budget.check()
+        self.budget.record(prompt_tokens, completion_tokens, cost)
 
         return LLMResult(
             content=content,

@@ -135,8 +135,7 @@ class ReasoningBackend(ABC):
 
         cached = self._lookup(digest)
         if cached is not None:
-            self.budget.add(cached.prompt_tokens, cached.completion_tokens, cached.cost_usd)
-            self.budget.check()
+            self.budget.record(cached.prompt_tokens, cached.completion_tokens, cached.cost_usd)
             return cached
 
         self.budget.check()
@@ -151,8 +150,7 @@ class ReasoningBackend(ABC):
             branch_id=branch_id,
         )
 
-        self.budget.add(result.prompt_tokens, result.completion_tokens, result.cost_usd)
-        self.budget.check()
+        self.budget.record(result.prompt_tokens, result.completion_tokens, result.cost_usd)
 
         result.call_id = self._record(
             digest=digest,
