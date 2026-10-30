@@ -9,6 +9,7 @@ from pathlib import Path
 
 from sqlalchemy.orm import Session
 
+from .cache import CachedParse, ParseCache, content_key
 from .dependencies import Dependency, read_dependencies, security_relevant
 from .git_repo import GitInfo, inspect as inspect_git
 from .inter import CallEdge, InterFile, analyse_inter
@@ -238,8 +239,20 @@ def _iter_sources(root: Path) -> list[Path]:
     return out
 
 
-def ingest(scan_id: str, target: str | Path, session: Session | None = None) -> IngestResult:
-    """Parse every source file in `target` and (optionally) persist the graph."""
+def ingest(
+    scan_id: str,
+    target: str | Path,
+    session: Session | None = None,
+    *,
+    cache: ParseCache | None = None,
+) -> IngestResult:
+    """Parse every source file in `target` and (optionally) persist the graph.
+
+    Pass a `cache` to skip symbol extraction and taint on files whose bytes have
+    not changed since a previous ingest. Omit it and every file is parsed from
+    scratch, which is what a one-off index wants and what keeps the cache
+    strictly optional rather than something a scan depends on.
+    """
     started = time.time()
     root = Path(target).resolve()
     if not root.exists():
@@ -259,26 +272,49 @@ def ingest(scan_id: str, target: str | Path, session: Session | None = None) -> 
         if support is None:
             continue
         source = path.read_bytes()
+        key = content_key(rel, source, language=support.name)
+        cached = cache.get(key) if cache is not None else None
+
         parsed = support.parse(path, source)
         if parsed is None:
             continue
-        try:
-            symbols = support.symbols(parsed)
-        except Exception as err:  # noqa: BLE001 - one bad file must not kill the scan
-            result.parse_errors.append(f"{rel}: symbols: {type(err).__name__}: {err}")
-            continue
-        try:
-            taints = support.taint(parsed, symbols)
-        except Exception as err:  # noqa: BLE001
-            result.parse_errors.append(f"{rel}: taint: {type(err).__name__}: {err}")
-            taints = []
+
+        if cached is not None:
+            # The tree itself cannot be cached — it is a tree-sitter node graph,
+            # not data — so it is reparsed above. What the cache saves is the
+            # symbol extraction and the taint pass over it, which is where the
+            # time goes on a large file.
+            symbols, taints = cached.symbols, cached.taints
+        else:
+            try:
+                symbols = support.symbols(parsed)
+            except Exception as err:  # noqa: BLE001 - one bad file must not kill the scan
+                result.parse_errors.append(f"{rel}: symbols: {type(err).__name__}: {err}")
+                continue
+            try:
+                taints = support.taint(parsed, symbols)
+            except Exception as err:  # noqa: BLE001
+                result.parse_errors.append(f"{rel}: taint: {type(err).__name__}: {err}")
+                taints = []
 
         text = source.decode("utf-8", errors="replace")
+        line_count = text.count("\n") + 1
+        if cached is None and cache is not None:
+            cache.put(
+                key,
+                CachedParse(
+                    language=support.name,
+                    symbols=symbols,
+                    taints=taints,
+                    line_count=line_count,
+                    size_bytes=len(source),
+                ),
+            )
         result.files.append(
             IngestedFile(
                 id=_file_id(scan_id, rel),
                 path=rel,
-                line_count=text.count("\n") + 1,
+                line_count=line_count,
                 size_bytes=len(source),
                 symbols=symbols,
                 taints=taints,

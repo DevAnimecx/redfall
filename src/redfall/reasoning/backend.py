@@ -71,6 +71,55 @@ def request_digest(model: str, tier: str, messages: list[dict[str, str]], temper
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def semantic_digest(
+    model: str, tier: str, messages: list[dict[str, str]], temperature: float
+) -> str:
+    """A digest that ignores differences which cannot change the answer.
+
+    This is what makes a cache hit survive a prompt that differs only in ways
+    the model never sees as different: a JSON blob whose keys were serialised in
+    another order, or incidental whitespace. Hashing the raw text misses those
+    and bills the provider again for the same question.
+
+    It is deliberately *not* an embedding-similarity cache. Two prompts that are
+    merely alike are not the same question, and answering one with the other is
+    how a scan reports a finding it never reasoned about. Every difference this
+    digest ignores is a difference that provably cannot change the request the
+    provider receives.
+
+    Normalisation is conservative on purpose: JSON is re-serialised canonically
+    only where the whole message body parses as JSON, because that is where key
+    order is genuinely irrelevant. Anything else contributes its stripped text.
+    """
+    normalised = []
+    for message in messages:
+        content = str(message.get("content", ""))
+        body = _canonical_json(content)
+        normalised.append({"role": message.get("role", ""), "content": body})
+    payload = json.dumps(
+        {"model": model, "tier": tier, "temperature": temperature, "messages": normalised},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _canonical_json(text: str) -> str:
+    """Re-serialise a JSON message body with sorted keys, or strip it.
+
+    Only a body that is entirely JSON is canonicalised. A prompt that embeds
+    JSON inside prose is left as prose — parsing part of it would risk changing
+    a string the model is meant to see verbatim.
+    """
+    stripped = text.strip()
+    if not stripped or stripped[0] not in "{[":
+        return stripped
+    try:
+        return json.dumps(json.loads(stripped), sort_keys=True, separators=(",", ":"))
+    except (json.JSONDecodeError, ValueError):
+        return stripped
+
+
 class ReasoningBackend(ABC):
     """The only way the engine reaches a model or an agent.
 
@@ -133,7 +182,14 @@ class ReasoningBackend(ABC):
         """
         digest = request_digest(self.model_for_tier(tier), tier, messages, temperature)
 
+        # Look the exact request up first, then the normalised form of it. The
+        # second key matches a prompt that differed only in ways the provider
+        # never sees — JSON key order, incidental whitespace — so a scan that
+        # asks the same question twice does not pay for it twice.
+        normalised = semantic_digest(self.model_for_tier(tier), tier, messages, temperature)
         cached = self._lookup(digest)
+        if cached is None and normalised != digest:
+            cached = self._lookup(normalised)
         if cached is not None:
             self.budget.record(cached.prompt_tokens, cached.completion_tokens, cached.cost_usd)
             return cached
@@ -152,6 +208,8 @@ class ReasoningBackend(ABC):
 
         self.budget.record(result.prompt_tokens, result.completion_tokens, result.cost_usd)
 
+        # Record under both keys, so an exactly-repeated request and a
+        # cosmetically-different one both hit.
         result.call_id = self._record(
             digest=digest,
             scan_id=scan_id,
@@ -162,6 +220,18 @@ class ReasoningBackend(ABC):
             temperature=temperature,
             result=result,
         )
+        if normalised != digest:
+            self._record(
+                digest=normalised,
+                scan_id=scan_id,
+                branch_id=branch_id,
+                stage=stage,
+                tier=tier,
+                messages=messages,
+                temperature=temperature,
+                result=result,
+                reuse_of=result.call_id,
+            )
         return result
 
     def complete_json(
@@ -228,8 +298,14 @@ class ReasoningBackend(ABC):
         messages: list[dict[str, str]],
         temperature: float,
         result: BackendResult,
+        reuse_of: str | None = None,
     ) -> str:
-        """Persist the transcript. Backends without a store return the digest."""
+        """Persist the transcript. Backends without a store return the digest.
+
+        `reuse_of` names the call an answer was reused from, which is how a
+        second, normalised key points at the same recorded response instead of
+        storing the body twice.
+        """
         return digest
 
 
