@@ -194,8 +194,10 @@ jobs:
         run: |
           TAG=$(curl -fsSL https://api.github.com/repos/google/gvisor/releases/latest | python -c "import sys, json; print(json.load(sys.stdin)['tag_name'])")
           echo "gVisor release: $TAG"
-          curl -fsSL -o /tmp/gvisor.tar.bz2 "https://github.com/google/gvisor/releases/download/${TAG}/gvisor-x86_64.tar.bz2"
+          curl -fsSL -o /tmp/gvisor-x86_64.tar.bz2 "https://github.com/google/gvisor/releases/download/${TAG}/gvisor-x86_64.tar.bz2"
           curl -fsSL -o /tmp/SHA512SUMS "https://github.com/google/gvisor/releases/download/${TAG}/SHA512SUMS"
+          # The SUMS file names its own asset, so the downloaded file must
+          # carry the same name for `sha512sum -c` to find it.
           (cd /tmp && grep " gvisor-x86_64.tar.bz2\$" SHA512SUMS | sha512sum -c -)
           sudo tar -xjf /tmp/gvisor.tar.bz2 -C /usr/local/bin runsc
           sudo chmod +x /usr/local/bin/runsc
