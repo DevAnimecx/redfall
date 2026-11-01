@@ -103,7 +103,7 @@ function siteGraph() {
     url: abs(""),
     name: SITE_NAME,
     description:
-      "Execution-verified vulnerability scanning for TypeScript, JavaScript and Python. Every finding reproduces in a gVisor sandbox.",
+      "Execution-verified vulnerability scanning for TypeScript, JavaScript and Python (certified), and Java, Kotlin and Go (parsed, not certified). Every finding reproduces in an isolated sandbox before it is reported.",
     publisher: { "@id": ORG_ID },
     inLanguage: "en",
   };
@@ -113,12 +113,14 @@ function siteGraph() {
     name: SITE_NAME,
     url: abs(""),
     description:
-      "Execution-verified vulnerability scanner for TypeScript, JavaScript and Python. tree-sitter ingestion, source-to-sink taint analysis, exploit verification in a Docker + gVisor sandbox, verified repair and SARIF 2.1.0 export.",
+      "Execution-verified vulnerability scanner. tree-sitter ingestion across five languages, source-to-sink taint analysis, exploit verification in an isolated sandbox, a hash-chained evidence ledger, verified repair and SARIF 2.1.0 export. Apache-2.0.",
     applicationCategory: "SecurityApplication",
     applicationSubCategory: "Vulnerability scanner",
     operatingSystem: "Windows, Linux, macOS",
     softwareVersion: VERSION,
     programmingLanguage: "Python",
+    license: "https://www.apache.org/licenses/LICENSE-2.0",
+    isAccessibleForFree: true,
     codeRepository: REPO_URL,
     downloadUrl: RELEASE_URL,
     releaseNotes: `${REPO_URL}/blob/main/CHANGELOG.md`,
@@ -129,13 +131,14 @@ function siteGraph() {
     publisher: { "@id": ORG_ID },
     screenshot: image,
     featureList: [
-      "Execution-verified findings",
+      "Execution-verified findings with a hash-chained evidence record per finding",
       "Taint analysis with an interprocedural pass and return flow",
       "Seven adaptive runtime-surface detectors",
       "Exploit chaining over reproduced findings",
       "Verified repair against the target's own tests",
       "SARIF 2.1.0 with a verified flag on every result",
-      "HTTP/OpenAPI and A2A v1.0 gateway over the same 44-tool registry",
+      "HTTP/OpenAPI and A2A v1.0 gateway over the same 47-tool registry",
+      "Measured recall: 29.4% on 17 seeded Python flows, with the misses named",
     ],
     softwareRequirements:
       "Python 3.12+; Docker with the gVisor runsc runtime, PostgreSQL and an LLM provider key for a full scan",

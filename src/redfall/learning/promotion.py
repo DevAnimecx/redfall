@@ -17,9 +17,11 @@ Three constants carry the judgement, and each is stated rather than tuned:
   before it is even worth evaluating. A lesson that disagrees constantly is
   either a real correction or noise, and the cheap filter for noise is
   agreement.
-* ``MIN_DELTA`` — how much better on the holdout a candidate must be. Zero
-  would promote noise; requiring a margin means a promotion is a decision, not
-  a coin flip.
+* ``MIN_DELTA`` — a floor on how much better a candidate must be. It is a
+  floor and not the bar: the bar actually applied is
+  ``detectable_delta(n)``, derived from the holdout's size (see that function).
+  A fixed 0.02 was a guess wearing a decimal point — on a ten-case holdout it
+  is less than one case.
 * ``MIN_HOLDOUT_N`` — how many cases the evaluation must cover. A two-case
   holdout that improves by 0.5 is one flipped finding, not evidence.
 
@@ -44,6 +46,42 @@ from .registry import LearningError
 MIN_AGREEMENT = 0.8
 MIN_DELTA = 0.02
 MIN_HOLDOUT_N = 10
+
+
+def detectable_delta(n: int, *, baseline_metric: float | None = None) -> float:
+    """The smallest metric change that a holdout of ``n`` cases can distinguish.
+
+    This is the number the old fixed ``MIN_DELTA`` was pretending to be. On a
+    ten-case holdout, 0.02 is *less than one case* — a gate at 0.02 would pass
+    a candidate whose "improvement" is a single finding flipping, which is not
+    evidence of anything.
+
+    The floor comes from the binomial standard error of a proportion. For a
+    metric that is a fraction of ``n`` cases, the standard error is at most
+    ``0.5 / sqrt(n)`` (maximal at p=0.5); two standard errors is the smallest
+    difference that is not noise at roughly 95% confidence. So:
+
+        detectable = 2 * 0.5 / sqrt(n) = 1 / sqrt(n)
+
+    For n=10 that is ~0.316 — one whole case is 0.1, so a ten-case holdout
+    cannot resolve anything finer than about three findings. For n=100 it is
+    0.1, and for n=400 it is 0.05. The gate scales with the holdout instead of
+    being a round number chosen once.
+
+    When a baseline metric is supplied the worst-case ``p=0.5`` is replaced by
+    the actual ``sqrt(p(1-p))``, which is tighter when the metric is already
+    near 0 or 1 — a precision of 0.95 measured on 100 cases has a much smaller
+    standard error than one at 0.5.
+    """
+    if n <= 0:
+        # No cases: nothing is distinguishable. Returning infinity means the
+        # caller cannot promote on an empty holdout, which is the safe answer.
+        return float("inf")
+    if baseline_metric is None:
+        return 1.0 / (n ** 0.5)
+    p = min(max(float(baseline_metric), 0.0), 1.0)
+    # Bernoulli standard error, doubled for a two-sided ~95% band.
+    return 2.0 * ((p * (1.0 - p)) ** 0.5) / (n ** 0.5)
 
 
 def _now() -> datetime:
@@ -146,19 +184,31 @@ def evaluate(session: Session, *, learning_id: str) -> GateDecision:
             f"holdout covers {total_n} cases; {MIN_HOLDOUT_N} are required",
             delta=worst_delta,
         )
-    if worst_delta < MIN_DELTA:
+
+    # The bar is derived from the holdout size, not fixed. A ten-case holdout
+    # cannot resolve a delta finer than ~0.32, so a candidate that "improved"
+    # by 0.05 there has demonstrated nothing — the old fixed 0.02 bar would
+    # have promoted it. The worst-case baseline metric is used so the bar is
+    # conservative: any per-evaluation baseline that is more extreme would give
+    # a tighter (larger) detectable floor, never a looser one.
+    worst_baseline = max(row.baseline_metric for row in rows)
+    bar = max(MIN_DELTA, detectable_delta(total_n, baseline_metric=worst_baseline))
+    if worst_delta < bar:
         return GateDecision(
             False,
             "promote",
             learning_id,
-            f"worst holdout delta {worst_delta:+.3f} is below the {MIN_DELTA:+.3f} bar",
+            f"worst holdout delta {worst_delta:+.3f} is below the {bar:+.3f} bar "
+            f"this holdout of {total_n} cases can resolve (1/√n ≈ "
+            f"{detectable_delta(total_n):.3f})",
             delta=worst_delta,
         )
     return GateDecision(
         True,
         "promote",
         learning_id,
-        f"worst holdout delta {worst_delta:+.3f} across {len(rows)} evaluation(s) clears the bar",
+        f"worst holdout delta {worst_delta:+.3f} across {len(rows)} evaluation(s) "
+        f"exceeds the {bar:+.3f} bar resolvable on {total_n} cases",
         delta=worst_delta,
     )
 
@@ -314,9 +364,20 @@ def rollback_plan(session: Session, *, learning_id: str) -> dict[str, object]:
 
 
 def gate_constants() -> dict[str, float | int]:
-    """The thresholds, for a report that has to state them."""
+    """The thresholds, for a report that has to state them.
+
+    `min_delta` is the *floor*; the bar actually applied scales with the
+    holdout's size via `detectable_delta`, and `min_delta_resolvable_at` shows
+    what each feasible holdout size would produce so an operator can see the
+    consequence of the size they chose.
+    """
     return {
         "min_agreement": MIN_AGREEMENT,
         "min_delta": MIN_DELTA,
         "min_holdout_n": MIN_HOLDOUT_N,
+        "resolve_at": {
+            "min_holdout": detectable_delta(MIN_HOLDOUT_N),
+            "n_100": detectable_delta(100),
+            "n_400": detectable_delta(400),
+        },
     }

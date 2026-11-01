@@ -85,6 +85,13 @@ jobs:
       - name: clean tree (rule 22)
         run: python scripts/check_clean_tree.py
 
+      - name: recall regression gate
+        # A drop below the committed baseline fails the build. A silent recall
+        # regression is the failure the bench exists to catch: the engine finds
+        # fewer real bugs while every other number still looks healthy.
+        # Needs no container runtime and no Postgres.
+        run: python scripts/check_recall.py
+
       - name: tests
         run: python -m pytest tests/ -q
 
@@ -147,3 +154,87 @@ jobs:
 
       - name: installer contract tests (no database)
         run: python -m pytest tests/test_packaging.py tests/test_install_scripts.py -q
+
+  gvisor:
+    # The execution path, on every push. `check` runs the full suite, but this
+    # host-class has no container runtime, so the suite's sandbox tests skip
+    # with a reason. This job installs Docker with the gVisor runsc runtime and
+    # runs them un-skipped — which is the difference between the central claim
+    # being arguable and being continuously verified.
+    #
+    # What is asserted here, in order:
+    #   1. the gVisor kernel is actually live (`runsc --version`, dmesg probe),
+    #      not merely installed — a runtime that registered but cannot start
+    #      would otherwise pass by not failing;
+    #   2. `redfall doctor` reports the sandbox present;
+    #   3. the sandbox tests execute for real (the skip-count is asserted at
+    #      zero rather than assumed);
+    #   4. a full vulnerable target boots and a real PoC reproduces.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: install Docker (runner image ships it)
+        run: docker version
+
+      - name: install gVisor
+        run: |
+          curl -fsSL https://storage.googleapis.com/gvisor/releases/release/latest/runsc \
+            -o /usr/local/bin/runsc
+          curl -fsSL https://storage.googleapis.com/gvisor/releases/release/latest/runsc.sha512 \
+            -o /usr/local/bin/runsc.sha512
+          (cd /usr/local/bin && sha512sum -c runsc.sha512)
+          chmod +x /usr/local/bin/runsc
+          cat <<'JSON' | sudo tee /etc/docker/daemon.json
+          {"runtimes": {"runsc": {"path": "/usr/local/bin/runsc"}}}
+          JSON
+          sudo systemctl restart docker
+
+      - name: assert the gVisor kernel is live, not merely registered
+        run: |
+          /usr/local/bin/runsc --version
+          docker info --format '{{json .Runtimes}}' | grep -q runsc
+          # A real container must actually boot on runsc. If the runtime
+          # registered but the kernel cannot start, this fails here rather than
+          # as a mysterious sandbox failure mid-suite.
+          docker run --rm --runtime=runsc busybox:latest echo gvisor-kernel-live
+
+      - name: install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install -e range
+
+      - name: install the range target's node dependencies
+        run: |
+          cd range/vulnbank
+          npm ci --no-audit --no-fund
+
+      - name: build the sandbox image
+        run: docker build -t redfall-sandbox:latest src/redfall/sandbox/images/redfall-sandbox
+
+      - name: doctor reports the sandbox present
+        run: redfall doctor | grep -A2 "Sandbox runtime"
+
+      - name: the sandbox tests execute un-skipped
+        run: |
+          python -m pytest tests/test_sandbox.py -q 2>&1 | tee /tmp/sandbox.log
+          # A skip here is a silent regression: the runtime exists, so nothing
+          # in this suite is allowed to skip. Assert rather than assume.
+          ! grep -Eq "[0-9]+ skipped" /tmp/sandbox.log
+
+      - name: the execution tests execute un-skipped
+        run: |
+          python -m pytest tests/test_sandbox.py tests/test_harness_chain.py tests/test_pythonbank.py -q 2>&1 | tee /tmp/exec.log
+          ! grep -Eq "[1-9][0-9]* skipped" /tmp/exec.log
+
+      - name: a real PoC reproduces on a real booted target
+        run: python -m pytest tests/test_sandbox.py -q -k "reproduce or live" -v

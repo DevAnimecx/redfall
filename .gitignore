@@ -62,3 +62,9 @@ range/chainbank/chain_replay_result.json
 /scan.json
 /range/report.json
 /range/report_p3.json
+
+# Throwaway SQLite files the bench, recall check and seam tests create when no
+# Postgres is configured. They are regenerated every run and are never source.
+/redfall-*.db
+*.db-wal
+*.db-shm

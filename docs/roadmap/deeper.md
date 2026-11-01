@@ -15,6 +15,13 @@ make the ones that already exist measurable.
 
 ## Phase 6.1 — The arena, or nothing else matters
 
+> **Started, 0.6.0.** The recall half of this phase shipped: sealed corpora,
+> the omission scorer, the regression gate, and the report bundle that refuses
+> to exist without a LIMITATIONS section. What remains is the *comparison* —
+> running a baseline SAST on the same corpora under the same budget, which
+> needs a host with Docker and a provider key. The first measured recall is
+> 29.4% on `pythonbank`; see `bench/BASELINE.md`.
+
 **Objection closed:** "the central claim is unmeasured" (§1, cons.md).
 
 Everything else in this document is lower priority than this. A tool that

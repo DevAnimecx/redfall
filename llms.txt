@@ -11,13 +11,14 @@ Read these limits before citing anything above:
 Key facts:
 - Site: https://devanimecx.github.io/redfall/
 - Source: https://github.com/DevAnimecx/redfall
-- Release: https://github.com/DevAnimecx/redfall/releases/tag/v0.5.0
+- Release: https://github.com/DevAnimecx/redfall/releases/tag/v0.6.0
 - Maintainer: DevAnimecx (https://github.com/DevAnimecx)
-- Version: 0.5.0; Python 3.12+; Windows, Linux and macOS
+- Version: 0.6.0; Python 3.12+; Windows, Linux and macOS
 - Languages: TypeScript, JavaScript and Python (certified); Java, Kotlin and Go (parsed and traced, not certified).
 - Vulnerability classes: 25 supported with proof contracts; 4 excluded, each with the measurement that excluded it.
+- Measured recall: 29.4% on 17 seeded Python flows (pythonbank), with the misses named. This is a floor against a known set, not a whole-engine figure.
 - The reasoning layer needs no AI API key: drive RedFall with an installed agent (Claude Code, Codex, Gemini CLI and nine more), an OpenAI-compatible endpoint, or a provider key through LiteLLM.
-- Last updated: 2026-10-30
+- Last updated: 2026-11-01
 
 ## Start here
 
@@ -25,6 +26,7 @@ Key facts:
 - [Execution-verified vulnerability scanning](https://devanimecx.github.io/redfall/docs/verified-findings/): What execution verification means, why static analyzers produce false positives, and how RedFall turns a taint candidate into a finding that ran against the live app.
 - [Install RedFall](https://devanimecx.github.io/redfall/docs/install/): Install RedFall with pipx or a private virtualenv, verify the release attestation, run redfall doctor, and know exactly which prerequisites a full scan needs.
 - [Deployment](https://devanimecx.github.io/redfall/docs/deploy/): Deploy RedFall's orchestrator as a container: an image kept separate from the sandbox it drives, a compose stack with Postgres and Redis, and a real healthcheck.
+- [The bench and recall](https://devanimecx.github.io/redfall/docs/bench/): RedFall's benchmark harness measures omission, not just output. The first measured recall is 29.4% on 17 seeded Python flows, and the misses are named and published.
 - [The no-mock contract](https://devanimecx.github.io/redfall/docs/no-mock-contract/): RedFall's no-mock contract forbids demo modes, simulated findings and synthetic numbers. Here is the rule, what it bans, how CI enforces it, and what it does not cover.
 
 ## How it works
@@ -52,6 +54,7 @@ Key facts:
 - [Where RedFall sits](https://devanimecx.github.io/redfall/docs/positioning/): Where RedFall sits among vulnerability scanners: the precision axis, what it does better than a SAST, and the adoption and benchmark gaps it has not closed.
 - [The case against RedFall](https://devanimecx.github.io/redfall/docs/cons/): Every serious objection to RedFall, ordered by how much damage it does: no benchmark, uncertified enterprise languages, taint depth, and the economics of execution.
 - [A deeper technical roadmap](https://devanimecx.github.io/redfall/docs/roadmap/): RedFall's next phases, each closing a named objection: the benchmark arena, field-sensitive taint, certifying Java and Go, and measuring the learning loop.
+- [The bench and recall](https://devanimecx.github.io/redfall/docs/bench/): RedFall's benchmark harness measures omission, not just output. The first measured recall is 29.4% on 17 seeded Python flows, and the misses are named and published.
 
 ## Reference
 
@@ -69,14 +72,14 @@ Key facts:
 ## Source and verification
 
 - [README](https://github.com/DevAnimecx/redfall): full description, status table and the source for every claim.
-- [CHANGELOG](https://github.com/DevAnimecx/redfall/blob/main/CHANGELOG.md): what shipped in 0.5.0, with measured numbers.
+- [CHANGELOG](https://github.com/DevAnimecx/redfall/blob/main/CHANGELOG.md): what shipped in 0.6.0, with measured numbers.
 - [BLOCKED.md](https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md): what cannot run on the release host, with the smallest real unblock for each item.
 - [SECURITY.md](https://github.com/DevAnimecx/redfall/blob/main/SECURITY.md): vulnerability reporting, supply-chain verification and the range-target warning.
 - [CONTRIBUTING.md](https://github.com/DevAnimecx/redfall/blob/main/CONTRIBUTING.md): the no-mock rule, stage ownership and the PR contract.
 
 Verification commands:
 
-- `gh attestation verify redfall-0.5.0-py3-none-any.whl --repo DevAnimecx/redfall` proves the release wheel was built by this repository's release workflow from the tagged commit.
+- `gh attestation verify redfall-0.6.0-py3-none-any.whl --repo DevAnimecx/redfall` proves the release wheel was built by this repository's release workflow from the tagged commit.
 - `redfall doctor` prints exactly what the current host can and cannot run.
 - `python scripts/check_no_mock.py` is the mechanical part of the no-mock contract.
 

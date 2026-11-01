@@ -79,7 +79,7 @@ the two orders are deliberately different.
 
 | # | Do this | Effort | What it buys |
 | --- | --- | --- | --- |
-| 1 | **Add a LICENSE** | Minutes | Unblocks legal review and outside contribution |
+| 1 | ~~Add a LICENSE~~ **Done 0.6.0 — Apache-2.0** | Minutes | Unblocked legal review and outside contribution |
 | 2 | **Run the suite with Docker + gVisor in CI** | Days | Turns the central claim from untested locally into continuously verified |
 | 3 | **Ship one GitHub Action** | Days | The difference between a repository and something a team can adopt |
 | 4 | **One external verified finding** in a project RedFall did not write | Weeks to months | The only item that changes how the whole project is judged |

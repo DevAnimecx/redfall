@@ -1685,6 +1685,12 @@ from .cli_mesh import mesh as _mesh_group  # noqa: E402
 
 main.add_command(_mesh_group)
 
+# The arena. Recall, budgets, and a report that refuses to exist without
+# its LIMITATIONS.
+from .cli_bench import bench as _bench_group  # noqa: E402
+
+main.add_command(_bench_group)
+
 
 if __name__ == "__main__":
     main()

@@ -167,9 +167,9 @@ def test_the_full_loop_reaches_promoted_and_then_rolls_back(env):
             "--candidate",
             "0.90",
             "--baseline-n",
-            "25",
+            "200",
             "--candidate-n",
-            "25",
+            "200",
         ).output
     )
     assert ev["gate"]["ok"] is True

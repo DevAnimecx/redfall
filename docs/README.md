@@ -31,6 +31,7 @@ eight top-level Markdown files to open, start here.
 | Document | Answers |
 | --- | --- |
 | [Evidence model](evidence-model.md) | How a candidate becomes a finding, and what E0–E4 mean |
+| [The bench](bench.md) | How the engine's own recall is measured, and the first number |
 | [`SECURITY.md`](../SECURITY.md) | Reporting a vulnerability; the supply-chain story; the range-target warning |
 | [`BLOCKED.md`](../BLOCKED.md) | What cannot run on the build host, with the smallest real unblock for each |
 | [`CHANGELOG.md`](../CHANGELOG.md) | What shipped, with the numbers that were measured |

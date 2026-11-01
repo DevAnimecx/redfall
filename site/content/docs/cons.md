@@ -82,3 +82,7 @@ unbenchmarked concurrency, the unexercised learning loop, tenancy as a filter
 rather than a boundary, the root-equivalent socket mount, and the bus factor —
 is a fixable gap. These four are the ones that decide whether the project is
 worth continuing.
+
+One objection from the full document was closed in 0.6.0: the licence. RedFall
+now ships under Apache-2.0, so public source readability *is* a grant of reuse
+rights, with an explicit patent grant.

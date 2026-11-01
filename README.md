@@ -55,6 +55,9 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | HTTP/OpenAPI gateway | **Built and tested** — `POST /v1/tools/{name}` executes the same 47-tool registry; OpenAPI 3.1 is generated from that registry; bearer tokens, scopes, quotas, audit and signed artifact URLs |
 | A2A v1.0 agent | **Built and tested** — Agent Card, `SendMessage`/`SendStreamingMessage`/`GetTask`/`ListTasks`/`CancelTask`/`SubscribeToTask`, SSE task/status/artifact envelopes, cooperative cancellation and HMAC-signed artifacts; push notifications are explicitly not implemented |
 | Executable adapter contracts | **Built and tested** — `redfall mcp certify` (stdio), `redfall interop certify --protocol http` (10 checks) and `--protocol a2a` (11 checks) launch a fresh server/client against a real socket and a temporary database; certification covers the shipped surfaces only. CI run [39616295334](https://github.com/DevAnimecx/redfall/actions/runs/39616295334): **362 passed, 5 skipped** (live gVisor), all package jobs passed |
+| Measured recall (`redfall bench recall`) | **Measured, and low** — 29.4% on the 17 seeded flows in `pythonbank`: 5 found, 12 missed, 8 invented. The misses are named in [`bench/BASELINE.md`](bench/BASELINE.md). A Python floor against a known set, not a whole-engine figure |
+| Licence | **Apache-2.0** — use, modify and redistribute, including commercially, with an explicit patent grant |
+| Recall regression gate (`scripts/check_recall.py`) | **Built and passing** — recall below the committed baseline fails CI and names the newly-missed flow ids |
 | No-mock enforcement | **Passing** (`NO-MOCK CONTRACT: PASS`, 137 files) |
 | Data layer (Postgres 17 + Redis) | **Built and verified** |
 | Packaging (any platform Python 3.12 runs on) | **Built and verified** — the wheel ships the harness, prompts and Dockerfile; installed into a fresh venv and driven from outside the checkout (`WHEEL VERIFY: PASS`); CI matrix on Ubuntu/Windows/macOS |
@@ -390,7 +393,7 @@ manager you already use:
 ```bash
 pipx install git+https://github.com/DevAnimecx/redfall   # isolated
 uv pip install git+https://github.com/DevAnimecx/redfall # or in a uv venv
-pip install redfall-0.5.0-py3-none-any.whl               # a verified release wheel
+pip install redfall-0.6.0-py3-none-any.whl               # a verified release wheel
 redfall doctor                                           # exactly what this host can and cannot run
 ```
 
@@ -399,7 +402,7 @@ Release artifacts are built by CI from the tagged source, published with
 trusted:
 
 ```bash
-gh attestation verify redfall-0.5.0-py3-none-any.whl --repo DevAnimecx/redfall
+gh attestation verify redfall-0.6.0-py3-none-any.whl --repo DevAnimecx/redfall
 ```
 
 The wheel carries everything the runtime reads — the sandbox harness

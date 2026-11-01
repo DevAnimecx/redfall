@@ -4,6 +4,80 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-11-01
+
+**The project measures itself, and the first number is 29.4%.**
+
+The previous release added four subsystems while the central claim — that
+execution-gated findings are worth their cost — remained unmeasured. This
+release adds almost no features. It adds the instrument that produces the
+number, runs it, and publishes what it found.
+
+### Added
+
+- **A measured recall baseline — 29.4%.** The first time this repository has
+  measured what it *fails to find*. On the 17 seeded flows in the `pythonbank`
+  corpus, the taint stage finds five, misses twelve, and reports eight that
+  match nothing. The five are exactly the categories taint can see: SQL
+  injection, path traversal, SSRF and unsafe deserialization, all at 100%.
+- **The bench** (`src/redfall/bench/`) — a sealed corpus, an omission scorer,
+  and a report bundle. Four corpora ship, generated from the range targets'
+  own manifests so the corpus and the ground truth cannot drift: pythonbank
+  (17 flows), vulnbank (32), chainbank (12), vulnbank-adaptive (7).
+- **`redfall bench recall|validate|report`** — score a corpus, check one is
+  sound, and build a report bundle.
+- **`scripts/check_recall.py`** — a regression gate. Recall below the committed
+  baseline fails CI and names the newly-missed flow ids. A changed corpus
+  fingerprint reports STALE rather than comparing against ground truth that no
+  longer exists.
+- **A gVisor CI job** — installs Docker with the `runsc` runtime, asserts the
+  kernel actually boots a container rather than merely registering, and runs
+  the sandbox tests un-skipped. A skip there fails the job, because the runtime
+  exists so nothing in that suite may skip.
+- **Seam conformance tests** (`tests/test_seams.py`) — every language bundle,
+  reasoning backend, isolation tier and tool is held to its seam's contract,
+  and a cached/pooled ingest is asserted to produce byte-identical results to
+  the plain path.
+- **Apache-2.0.** The licence was the cheapest open objection and is now
+  closed: `LICENSE` at the root, declared in `pyproject.toml`, and carried in
+  the site's `SoftwareApplication` structured data.
+
+### Changed
+
+- **The learning gate is derived, not fixed.** `MIN_DELTA = 0.02` on a
+  ten-case holdout was less than one case — a guess wearing a decimal point.
+  The bar now comes from `detectable_delta(n)`: two standard errors of a
+  binomial proportion, `1/√n` at worst. A ten-case holdout resolves ~0.32 and
+  cannot promote; a 200-case holdout resolves ~0.07. The regression this
+  prevents is stated in a test: the same +0.10 improvement is refused on 25
+  cases and promoted on 200.
+
+### Verified
+
+- `python -m pytest tests/ -q` → **801 passed, 34 skipped, 0 failed**.
+- All four contract checkers pass: no-mock (142 files), orphans (140 modules),
+  version (11 declarations, 5 lockfile roots) and clean-tree.
+- The recall gate was tested against an artificially raised baseline and
+  correctly failed, naming the 12 newly-missed flows.
+- Site: SEO 0 errors across 35 routes, axe clean at three widths, no overflow,
+  33 docs routes × 2 viewports with zero client JS.
+
+### Not verified on this host
+
+- **The arena's comparison half is not built.** The recall scorer measures
+  omission against a known set; there is still no head-to-head against a
+  baseline SAST on the same corpora under the same budget. That needs a host
+  with Docker and a provider key, and it is what turns the recall figure into
+  a competitive one.
+- **One language, one corpus.** `pythonbank` is Python only. The other three
+  corpora exist but have no recall baseline measured, so "recall" here is a
+  Python floor, not a whole-engine figure.
+- **The taint stage only.** A flow missed by the recall command might still be
+  surfaced by a framework pack or the branch engine, neither of which is wired
+  into it.
+- **The gVisor CI job has not run.** It is committed and structurally correct;
+  no push has exercised it yet.
+
 ## [0.5.0] - 2026-10-30
 
 **Platform.** RedFall becomes something a team can run rather than a tool one
@@ -497,6 +571,7 @@ execution, live LLM calls) refuses loudly and is listed in
 - vulnbank scan parity after the return-flow work: 27 routes, 20 taint paths,
   11 call edges, 0 over-claims; self-scan: 51 files, 0 parse errors.
 
+[0.6.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.6.0
 [0.5.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.5.0
 [0.4.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.4.0
 [0.3.0]: https://github.com/DevAnimecx/redfall/releases/tag/v0.3.0

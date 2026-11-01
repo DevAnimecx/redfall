@@ -86,7 +86,7 @@ export const FAQ = [
   },
   {
     q: "Is RedFall free to use?",
-    a: `RedFall ${VERSION} does not declare a license, so public source readability is not a grant of reuse rights. If you need a license for evaluation or redistribution, open an issue. The project is maintained by DevAnimecx and has no corporate support contract.`,
+    a: `RedFall ${VERSION} is Apache-2.0: you may use, modify and redistribute it, including commercially, and it ships an explicit patent grant. There is no corporate support contract; the project is maintained by DevAnimecx. The deployment README states what is production-ready and what is not.`,
     href: "/redfall/about/",
     link: "About the project",
   },
@@ -109,6 +109,12 @@ export const FAQ = [
     link: "The benchmark plan",
   },
   {
+    q: "How many vulnerabilities does RedFall actually find?",
+    a: "Measured recall is 29.4% on the 17 seeded flows in the pythonbank corpus — 5 found, 12 missed. The five are the categories taint can see: SQL injection, path traversal, SSRF and unsafe deserialization, all at 100%. Nine of the twelve misses are not taint flows at all (hardcoded secret, weak hash, missing rate limit); three are taint-shaped and were genuinely missed — command injection, metadata SSRF and open redirect — and those are the first work items. This is a floor against a known set, not a whole-engine figure.",
+    href: "/redfall/docs/bench/",
+    link: "The bench and recall",
+  },
+  {
     q: "Is anyone actually using RedFall?",
     a: "No. At the time of writing the public repository has 1 star, 0 forks and no design partner. Every argument on this page has convinced exactly one person — its author. That does not make the arguments wrong, but it does mean they have not been tested against someone who could disagree, and the positioning document says so in its first section rather than hiding it.",
     href: "/redfall/docs/positioning/",
@@ -127,6 +133,11 @@ export const EVIDENCE = [
   ["range/pythonbank", "real HTTP against Flask / FastAPI targets", "17/17 PoCs"],
   ["range/chainbank", "two-step exploit chains end to end", "6/6 chains reproduce"],
   ["Self-scan", "RedFall's own tree, all five language parsers", "0 parse errors"],
+  [
+    "Measured recall",
+    "found ⊘ seeded flows, pythonbank",
+    "29.4% (5/17); misses named, not hidden",
+  ],
   [
     "Capacity plan, not a claim",
     "the microVM target computed against this host",

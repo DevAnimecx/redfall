@@ -895,12 +895,13 @@ function buildLlms(pages) {
     `- Version: ${VERSION}; Python 3.12+; Windows, Linux and macOS`,
     "- Languages: TypeScript, JavaScript and Python (certified); Java, Kotlin and Go (parsed and traced, not certified).",
     "- Vulnerability classes: 25 supported with proof contracts; 4 excluded, each with the measurement that excluded it.",
+    "- Measured recall: 29.4% on 17 seeded Python flows (pythonbank), with the misses named. This is a floor against a known set, not a whole-engine figure.",
     "- The reasoning layer needs no AI API key: drive RedFall with an installed agent (Claude Code, Codex, Gemini CLI and nine more), an OpenAI-compatible endpoint, or a provider key through LiteLLM.",
     `- Last updated: ${UPDATED}`,
     "",
     "## Start here",
     "",
-    ...["docs/", "docs/verified-findings/", "docs/install/", "docs/deploy/", "docs/no-mock-contract/"].map((p) => {
+    ...["docs/", "docs/verified-findings/", "docs/install/", "docs/deploy/", "docs/bench/", "docs/no-mock-contract/"].map((p) => {
       const page = pages.find((x) => x.path === p);
       return page ? `- [${page.title}](${page.url}): ${page.description}` : null;
     }).filter(Boolean),

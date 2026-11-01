@@ -214,7 +214,7 @@ host-root reach.
 
 ## 12. Packaging, licensing, and bus factor
 
-**The objection.** No declared license, so public readability is not a grant of
+**Resolved in 0.6.0 — see below.** Until then: no declared license, so public readability is not a grant of
 reuse. One maintainer. No corporate support contract. No security review by a
 third party. No SBOM beyond what the release workflow emits.
 
@@ -310,7 +310,7 @@ this is the order in which that attention would be earned.
 | Depth beyond one hop, with a **recall number** attached | §6 |
 | Wire **one identity provider** and run a two-tenant isolation test | §10 |
 | Ship a **GitHub Action** that runs a scan in CI | §13.2 |
-| Add a **LICENSE** | §12, §13.2 — the cheapest item on this list |
+| ~~Add a **LICENSE**~~ **Done, Apache-2.0, 0.6.0** | §12, §13.2 — the cheapest item on this list |
 
 The first two are the ones that matter. Everything above them in this document
 is survivable; those two decide whether any of the rest is worth fixing.

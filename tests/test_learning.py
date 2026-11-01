@@ -325,8 +325,8 @@ def test_a_lesson_that_clears_the_gate_is_promoted(session):
         holdout="arena-v1",
         baseline_metric=0.80,
         candidate_metric=0.90,
-        baseline_n=25,
-        candidate_n=25,
+        baseline_n=200,
+        candidate_n=200,
     )
     decision = promotion.promote(session, learning_id=row.id)
     assert decision.ok is True
@@ -388,10 +388,10 @@ def test_a_promoted_lesson_cannot_enter_shadow_again(session):
         session,
         learning_id=row.id,
         holdout="arena",
-        baseline_metric=0.8,
-        candidate_metric=0.9,
-        baseline_n=20,
-        candidate_n=20,
+        baseline_metric=0.80,
+        candidate_metric=0.90,
+        baseline_n=200,
+        candidate_n=200,
     )
     promotion.promote(session, learning_id=row.id)
     decision = promotion.shadow(session, learning_id=row.id, agreement=0.99)
@@ -420,10 +420,10 @@ def test_a_rejection_keeps_the_reason_and_blocks_promotion(session):
         session,
         learning_id=row.id,
         holdout="arena",
-        baseline_metric=0.8,
+        baseline_metric=0.80,
         candidate_metric=0.95,
-        baseline_n=20,
-        candidate_n=20,
+        baseline_n=200,
+        candidate_n=200,
     )
     promotion.reject(
         session, learning_id=row.id, reason="the holdout leaked into training"
@@ -464,10 +464,10 @@ def test_a_rolled_back_lesson_leaves_force_and_keeps_its_reason(session):
         session,
         learning_id=row.id,
         holdout="arena",
-        baseline_metric=0.8,
-        candidate_metric=0.9,
-        baseline_n=20,
-        candidate_n=20,
+        baseline_metric=0.80,
+        candidate_metric=0.90,
+        baseline_n=200,
+        candidate_n=200,
     )
     promotion.promote(session, learning_id=row.id)
     assert [r.id for r in registry.active_lessons(session, kind="sink")] == [row.id]
@@ -487,8 +487,8 @@ def test_rollback_plan_names_what_it_would_revert_to(session):
         session, kind="sink", evidence_id=_evidence(session), summary="first"
     )
     promotion.record_evaluation(
-        session, learning_id=older.id, holdout="a", baseline_metric=0.8, candidate_metric=0.9,
-        baseline_n=20, candidate_n=20,
+        session, learning_id=older.id, holdout="a", baseline_metric=0.80, candidate_metric=0.90,
+        baseline_n=200, candidate_n=200,
     )
     promotion.promote(session, learning_id=older.id)
 
@@ -513,8 +513,8 @@ def test_every_state_change_is_recorded_in_order(session):
     )
     promotion.shadow(session, learning_id=row.id, agreement=0.9)
     promotion.record_evaluation(
-        session, learning_id=row.id, holdout="a", baseline_metric=0.8, candidate_metric=0.9,
-        baseline_n=20, candidate_n=20,
+        session, learning_id=row.id, holdout="a", baseline_metric=0.80, candidate_metric=0.90,
+        baseline_n=200, candidate_n=200,
     )
     promotion.promote(session, learning_id=row.id)
     promotion.rollback(session, learning_id=row.id, reason="regression")
@@ -532,8 +532,82 @@ def test_the_gate_constants_are_reported_not_hidden():
     from redfall.learning import gate_constants
 
     constants = gate_constants()
-    assert set(constants) == {"min_agreement", "min_delta", "min_holdout_n"}
+    assert set(constants) >= {"min_agreement", "min_delta", "min_holdout_n"}
     assert constants["min_holdout_n"] > 0
+
+
+def test_the_bar_scales_with_the_holdout_not_a_fixed_number():
+    """The gate's job: a small holdout cannot resolve a small delta."""
+    from redfall.learning.promotion import detectable_delta
+
+    tiny = detectable_delta(10)
+    medium = detectable_delta(100)
+    large = detectable_delta(400)
+    assert tiny > medium > large, "a bigger holdout resolves a finer difference"
+    # On ten cases nothing finer than roughly a third is real.
+    assert tiny > 0.3
+    # And the fixed 0.02 floor was below one case on a ten-case holdout.
+    assert detectable_delta(10) > 0.02
+
+
+def test_a_holdout_with_no_cases_resolves_nothing():
+    from redfall.learning.promotion import detectable_delta
+
+    assert detectable_delta(0) == float("inf")
+
+
+def test_a_metric_near_the_edges_resolves_finer():
+    """A precision of 0.95 has a smaller standard error than one at 0.5."""
+    from redfall.learning.promotion import detectable_delta
+
+    middle = detectable_delta(100, baseline_metric=0.5)
+    extreme = detectable_delta(100, baseline_metric=0.98)
+    assert extreme < middle
+
+
+def test_a_small_holdout_cannot_promote_a_small_delta(session):
+    """The regression this change exists to prevent.
+
+    A 25-case holdout with a +0.10 delta used to pass a fixed 0.02 bar. It is
+    one-to-two findings of movement, and the derived gate refuses it.
+    """
+    from redfall.learning import promotion, registry
+
+    row, _ = registry.propose(
+        session, kind="sink", evidence_id=_evidence(session), summary="s"
+    )
+    promotion.record_evaluation(
+        session,
+        learning_id=row.id,
+        holdout="small",
+        baseline_metric=0.80,
+        candidate_metric=0.90,
+        baseline_n=25,
+        candidate_n=25,
+    )
+    decision = promotion.promote(session, learning_id=row.id)
+    assert decision.ok is False
+    assert "can resolve" in decision.reason
+
+
+def test_a_large_holdout_with_the_same_delta_promotes(session):
+    """The same +0.10 improvement is real evidence on 200 cases."""
+    from redfall.learning import promotion, registry
+
+    row, _ = registry.propose(
+        session, kind="sink", evidence_id=_evidence(session), summary="s"
+    )
+    promotion.record_evaluation(
+        session,
+        learning_id=row.id,
+        holdout="large",
+        baseline_metric=0.80,
+        candidate_metric=0.90,
+        baseline_n=200,
+        candidate_n=200,
+    )
+    decision = promotion.promote(session, learning_id=row.id)
+    assert decision.ok is True
 
 
 # -- isolation between tenants ----------------------------------------------

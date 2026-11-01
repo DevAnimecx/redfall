@@ -295,7 +295,7 @@ targeted instrument, and it should be sold as one.
 
 ### 5.6 Single-maintainer and unlicensed
 
-No declared license, no corporate backing, one maintainer. For a tool that
+No corporate backing and one maintainer. (Apache-2.0 was added in 0.6.0, resolving the licence half of this.) For a tool that
 executes untrusted code and touches source, that is a real procurement barrier
 that has nothing to do with technical quality.
 

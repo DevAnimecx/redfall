@@ -4,7 +4,7 @@ SCAN_OUT ?= scan.json
 GATE_OUT ?= range/report.json
 PY ?= python3
 
-.PHONY: help install check check-no-mock check-version check-orphans check-clean-tree test \
+.PHONY: help install check check-no-mock check-version check-orphans check-clean-tree check-recall test \
         range-up range-down range-test range-pocs range-chains range-patches \
         range-python-test range-python-pocs manifests gate scan \
         doctor dashboard web-install web-build up
@@ -18,6 +18,7 @@ help:
 	@echo "  make check-version    scripts/check_version.py (rule 21)"
 	@echo "  make check-orphans    scripts/check_orphans.py (rule 24)"
 	@echo "  make check-clean-tree scripts/check_clean_tree.py (rule 22)"
+	@echo "  make check-recall     scripts/check_recall.py (recall regression gate)"
 	@echo "  make test             pytest suite (780 collected; 746 pass, 34 skip on a host without Docker)"
 	@echo "  make doctor           prerequisite report"
 	@echo
@@ -57,6 +58,9 @@ check-orphans:
 
 check-clean-tree:
 	$(PY) scripts/check_clean_tree.py
+
+check-recall:
+	$(PY) scripts/check_recall.py
 
 test:
 	$(PY) -m pytest tests/ -q
