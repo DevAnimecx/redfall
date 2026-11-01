@@ -249,9 +249,12 @@ jobs:
           # silent regression, and this is what catches it.
           if grep -Eq "^SKIPPED" /tmp/sandbox.log; then
             echo "skips:"; grep -E "^SKIPPED" /tmp/sandbox.log
-            # Every skip must guard gVisor's absence; anything else is a live
-            # test the runtime should have run, which is a silent regression.
-            ! grep -E "^SKIPPED" /tmp/sandbox.log | grep -vq "guards its ABSENCE"
+            # The runtime exists here, so a live test skipping is a silent
+            # regression. Every skip must be an absence-guard.
+            if grep -E "^SKIPPED" /tmp/sandbox.log | grep -vq "guards its ABSENCE"; then
+              echo "FAIL: a live sandbox test skipped on a host with gVisor"
+              exit 1
+            fi
           fi
           grep -E "[0-9]+ passed" /tmp/sandbox.log
 
@@ -260,8 +263,11 @@ jobs:
           python -m pytest tests/test_sandbox.py tests/test_harness_chain.py tests/test_pythonbank.py -q -rs 2>&1 | tee /tmp/exec.log
           # Same contract: every skip must name the absence guard.
           if grep -Eq "^SKIPPED" /tmp/exec.log; then
-            echo "skips:"; grep -E "^SKIPPED" /tmp/exec.log
-            ! grep -E "^SKIPPED" /tmp/exec.log | grep -vq "guards its ABSENCE"
+            if grep -E "^SKIPPED" /tmp/exec.log | grep -vq "guards its ABSENCE"; then
+              echo "FAIL: a live execution test skipped on a host with gVisor"
+              grep -E "^SKIPPED" /tmp/exec.log
+              exit 1
+            fi
           fi
           grep -E "[0-9]+ passed" /tmp/exec.log
 

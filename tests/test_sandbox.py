@@ -30,24 +30,28 @@ def test_describe_reports_the_truth_about_this_host():
 
 
 def test_ensure_runtime_raises_when_gvisor_is_absent():
-    if check_runtime():
-        pytest.skip("gVisor is present here; this test guards its ABSENCE")
+    # check_runtime() returns [] (falsy) when the runtime is READY, a list of
+    # reasons when it is not. This test guards the not-ready branch, so it is
+    # meaningful only where the runtime is missing.
+    if not check_runtime():
+        pytest.skip("gVisor is available here; this test guards its ABSENCE")
     with pytest.raises(SandboxUnavailable) as info:
         ensure_runtime()
     assert info.value.reasons
 
 
 def test_construction_refuses_without_gvisor():
-    if check_runtime():
-        pytest.skip("gVisor is present here; this test guards its ABSENCE")
+    if not check_runtime():
+        pytest.skip("gVisor is available here; this test guards its ABSENCE")
     with pytest.raises(SandboxUnavailable):
         DockerGVisorSandbox()
 
 
 def test_run_refuses_before_executing_anything():
     """A request must never reach the host when the sandbox is unavailable."""
-    if check_runtime():
-        pytest.skip("gVisor is present here; this test guards its ABSENCE")
+    # Same shape: guards the refusal branch, so it runs only without a runtime.
+    if not check_runtime():
+        pytest.skip("gVisor is available here; this test guards its ABSENCE")
     sandbox = DockerGVisorSandbox.__new__(DockerGVisorSandbox)
     sandbox.image = "redfall-sandbox:latest"
     with pytest.raises(SandboxUnavailable):
