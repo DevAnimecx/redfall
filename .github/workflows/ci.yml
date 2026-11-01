@@ -239,17 +239,31 @@ jobs:
       - name: doctor reports the sandbox present
         run: redfall doctor | grep -A2 "Sandbox runtime"
 
-      - name: the sandbox tests execute un-skipped
+      - name: the sandbox tests execute, with only the absence-branch skips
         run: |
-          python -m pytest tests/test_sandbox.py -q 2>&1 | tee /tmp/sandbox.log
-          # A skip here is a silent regression: the runtime exists, so nothing
-          # in this suite is allowed to skip. Assert rather than assume.
-          ! grep -Eq "[0-9]+ skipped" /tmp/sandbox.log
+          python -m pytest tests/test_sandbox.py -q -rs 2>&1 | tee /tmp/sandbox.log
+          # On a host with gVisor, the only legal skip in this suite is the
+          # three tests that guard gVisor's ABSENCE -- they cannot run where
+          # the runtime exists, by construction. The gate accepts exactly that
+          # reason and rejects every other: a skip that names a live test is a
+          # silent regression, and this is what catches it.
+          if grep -Eq "^SKIPPED" /tmp/sandbox.log; then
+            echo "skips:"; grep -E "^SKIPPED" /tmp/sandbox.log
+            # Every skip must guard gVisor's absence; anything else is a live
+            # test the runtime should have run, which is a silent regression.
+            ! grep -E "^SKIPPED" /tmp/sandbox.log | grep -vq "guards its ABSENCE"
+          fi
+          grep -E "[0-9]+ passed" /tmp/sandbox.log
 
-      - name: the execution tests execute un-skipped
+      - name: the execution suites run against the live runtime
         run: |
-          python -m pytest tests/test_sandbox.py tests/test_harness_chain.py tests/test_pythonbank.py -q 2>&1 | tee /tmp/exec.log
-          ! grep -Eq "[1-9][0-9]* skipped" /tmp/exec.log
+          python -m pytest tests/test_sandbox.py tests/test_harness_chain.py tests/test_pythonbank.py -q -rs 2>&1 | tee /tmp/exec.log
+          # Same contract: every skip must name the absence guard.
+          if grep -Eq "^SKIPPED" /tmp/exec.log; then
+            echo "skips:"; grep -E "^SKIPPED" /tmp/exec.log
+            ! grep -E "^SKIPPED" /tmp/exec.log | grep -vq "guards its ABSENCE"
+          fi
+          grep -E "[0-9]+ passed" /tmp/exec.log
 
       - name: a real command executes inside the gVisor kernel
         # The un-skipped suite above includes the tests that boot a container
