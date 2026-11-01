@@ -199,7 +199,7 @@ jobs:
           # The SUMS file names its own asset, so the downloaded file must
           # carry the same name for `sha512sum -c` to find it.
           (cd /tmp && grep " gvisor-x86_64.tar.bz2\$" SHA512SUMS | sha512sum -c -)
-          sudo tar -xjf /tmp/gvisor.tar.bz2 -C /usr/local/bin runsc
+          sudo tar -xjf /tmp/gvisor-x86_64.tar.bz2 -C /usr/local/bin runsc
           sudo chmod +x /usr/local/bin/runsc
           /usr/local/bin/runsc --version
           # Register the runtime with Docker and restart the daemon. The
