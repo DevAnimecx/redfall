@@ -199,7 +199,12 @@ jobs:
           # The SUMS file names its own asset, so the downloaded file must
           # carry the same name for `sha512sum -c` to find it.
           (cd /tmp && grep " gvisor-x86_64.tar.bz2\$" SHA512SUMS | sha512sum -c -)
-          sudo tar -xjf /tmp/gvisor-x86_64.tar.bz2 -C /usr/local/bin runsc
+          # The release tarball carries runsc plus the binaries the
+          # Sentry needs at container start (gvisor_sentry among them).
+          # Extracting only runsc registers a runtime that cannot start
+          # a container — which is precisely what the live-kernel assert
+          # below exists to catch.
+          sudo tar -xjf /tmp/gvisor-x86_64.tar.bz2 -C /usr/local/bin
           sudo chmod +x /usr/local/bin/runsc
           /usr/local/bin/runsc --version
           # Register the runtime with Docker and restart the daemon. The
