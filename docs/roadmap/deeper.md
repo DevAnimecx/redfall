@@ -326,7 +326,7 @@ dependency rather than by return.
 
 | # | Do this | Effort | What it buys |
 | --- | --- | --- | --- |
-| 1 | **Add a LICENSE** | Minutes | Unblocks legal review and outside contribution. The cheapest item on any list in this repository. |
+| 1 | ~~Add a LICENSE~~ **done, 0.6.0** | Minutes | Unblocks legal review and outside contribution. The cheapest item on any list in this repository. |
 | 2 | **Run the suite with Docker + gVisor in CI on every push** | Days | Turns the central claim from "untested locally" into "continuously verified", and retires the largest technical objection |
 | 3 | **Ship one GitHub Action** | Days | The difference between a repository and something a team can adopt |
 | 4 | **One external verified finding** in a project RedFall did not write | Weeks to months, and unpredictable | The only item that changes how the whole project is judged |
@@ -335,10 +335,11 @@ dependency rather than by return.
 | 7 | **A recall number** on a seeded corpus | Weeks | Turns "it misses flows" from a suspicion into a quantity |
 | 8 | Deeper taint, the transparency log, Firecracker, the Rust orchestrator | Months | Worth doing *after* one through seven, and worth much less before them |
 
-**The uncomfortable observation about this table.** Items 1, 2 and 3 are days of
-work between them and none has been done, while four subsystems shipped in the
-0.5.0 line. That is a priority inversion, not a capacity problem, and writing it
-down is the only way it stops being invisible.
+**The uncomfortable observation about this table — kept, because it was true.**
+Items 1, 2 and 3 were days of work between them and none had been done, while
+four subsystems shipped in the 0.5.0 line. That was a priority inversion, not a
+capacity problem. Items 1 and 2 closed in 0.6.0; the observation stays as the
+record of what it took to notice.
 
 ---
 

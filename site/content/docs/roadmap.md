@@ -80,7 +80,8 @@ the two orders are deliberately different.
 | # | Do this | Effort | What it buys |
 | --- | --- | --- | --- |
 | 1 | ~~Add a LICENSE~~ **Done 0.6.0 — Apache-2.0** | Minutes | Unblocked legal review and outside contribution |
-| 2 | **Run the suite with Docker + gVisor in CI** | Days | Turns the central claim from untested locally into continuously verified |
+| 2 | ~~Run the suite with Docker + gVisor in CI~~ **Done 0.6.0** — 8 sandbox and 15 execution tests now pass on the live kernel, on every push | Days | Turns the central claim from untested locally into continuously verified |
+| 2b | **Run the suite with Docker + gVisor in CI** | Days | Turns the central claim from untested locally into continuously verified |
 | 3 | **Ship one GitHub Action** | Days | The difference between a repository and something a team can adopt |
 | 4 | **One external verified finding** in a project RedFall did not write | Weeks to months | The only item that changes how the whole project is judged |
 | 5 | **The arena** | Weeks | Replaces every structural argument with a number |
@@ -88,10 +89,9 @@ the two orders are deliberately different.
 | 7 | **A recall number** on a seeded corpus | Weeks | Turns "it misses flows" into a quantity |
 | 8 | Deeper taint, transparency log, Firecracker | Months | Worth doing after the rest |
 
-**The uncomfortable observation.** Items 1 to 3 are days of work between them and
-none was done, while four subsystems shipped in the 0.5.0 line. That is a
-priority inversion rather than a capacity problem, and it is written down here so
-it stops being invisible.
+**The uncomfortable observation — kept, because it was true.** Items 1 to 3 were
+days of work and none was done, while four subsystems shipped in 0.5.0. Items 1
+and 2 closed in 0.6.0; the note stays as the record of what it took to notice.
 
 ## The three numbers this project owes
 
