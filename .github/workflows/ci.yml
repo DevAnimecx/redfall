@@ -186,16 +186,24 @@ jobs:
         run: docker version
 
       - name: install gVisor
+        # The individual runsc binaries are no longer published on the storage
+        # bucket; the release ships as a tarball on GitHub. The tag is resolved
+        # from the latest release rather than pinned, and the checksum is
+        # verified against the release's own SHA512SUMS so a tampered or
+        # truncated download fails here rather than mid-suite.
         run: |
-          curl -fsSL https://storage.googleapis.com/gvisor/releases/release/latest/runsc \
-            -o /usr/local/bin/runsc
-          curl -fsSL https://storage.googleapis.com/gvisor/releases/release/latest/runsc.sha512 \
-            -o /usr/local/bin/runsc.sha512
-          (cd /usr/local/bin && sha512sum -c runsc.sha512)
-          chmod +x /usr/local/bin/runsc
-          cat <<'JSON' | sudo tee /etc/docker/daemon.json
-          {"runtimes": {"runsc": {"path": "/usr/local/bin/runsc"}}}
-          JSON
+          TAG=$(curl -fsSL https://api.github.com/repos/google/gvisor/releases/latest | python -c "import sys, json; print(json.load(sys.stdin)['tag_name'])")
+          echo "gVisor release: $TAG"
+          curl -fsSL -o /tmp/gvisor.tar.bz2 "https://github.com/google/gvisor/releases/download/${TAG}/gvisor-x86_64.tar.bz2"
+          curl -fsSL -o /tmp/SHA512SUMS "https://github.com/google/gvisor/releases/download/${TAG}/SHA512SUMS"
+          (cd /tmp && grep " gvisor-x86_64.tar.bz2\$" SHA512SUMS | sha512sum -c -)
+          sudo tar -xjf /tmp/gvisor.tar.bz2 -C /usr/local/bin runsc
+          sudo chmod +x /usr/local/bin/runsc
+          /usr/local/bin/runsc --version
+          # Register the runtime with Docker and restart the daemon. The
+          # runner's own storage drivers are unaffected; only the runtime map
+          # changes, so the check job's Postgres service is untouched.
+          printf '{"runtimes": {"runsc": {"path": "/usr/local/bin/runsc"}}}' | sudo tee /etc/docker/daemon.json
           sudo systemctl restart docker
 
       - name: assert the gVisor kernel is live, not merely registered
@@ -236,5 +244,13 @@ jobs:
           python -m pytest tests/test_sandbox.py tests/test_harness_chain.py tests/test_pythonbank.py -q 2>&1 | tee /tmp/exec.log
           ! grep -Eq "[1-9][0-9]* skipped" /tmp/exec.log
 
-      - name: a real PoC reproduces on a real booted target
-        run: python -m pytest tests/test_sandbox.py -q -k "reproduce or live" -v
+      - name: a real command executes inside the gVisor kernel
+        # The un-skipped suite above includes the tests that boot a container
+        # on runsc, verify it is unprivileged, and confirm execution happened
+        # in the Sentry kernel rather than the host. This step is the same
+        # path one command wide, so a failure here is readable on its own.
+        run: |
+          docker run --rm --runtime=runsc \
+            -v "$GITHUB_WORKSPACE:/work:ro" \
+            redfall-sandbox:latest \
+            node -e "console.log('executed on', require('os').platform(), 'inside gVisor')"
