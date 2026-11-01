@@ -96,6 +96,24 @@ export const FAQ = [
     href: "/redfall/compare/static-analysis/",
     link: "Compare the approaches",
   },
+  {
+    q: "What is RedFall bad at?",
+    a: "Four things, in order of how much they matter. There is no published benchmark, so its central claim is a structural argument rather than a measurement. Java, Kotlin and Go are parsed and traced but never executed on the build host, so no category is certified for them — and those are the enterprise languages. Its taint analysis is depth-one interprocedural on TypeScript/Python and intraprocedural on JVM and Go, so it will miss multi-hop and field-sensitive flows, with no recall estimate on any corpus. And the economics of executing every candidate are unmeasured. The full critique is published, not summarised.",
+    href: "/redfall/docs/cons/",
+    link: "Read the case against it",
+  },
+  {
+    q: "Does RedFall have a benchmark against other scanners?",
+    a: "No. This is the largest gap in the project and it is stated first in its positioning document. There is no head-to-head against a SAST, a DAST or another agent, on a pre-registered corpus, with raw logs. A tool whose entire thesis is that claims must be proven ships without a proof of its own central claim. Building that arena is the first phase of the roadmap.",
+    href: "/redfall/docs/roadmap/",
+    link: "The benchmark plan",
+  },
+  {
+    q: "Is anyone actually using RedFall?",
+    a: "No. At the time of writing the public repository has 1 star, 0 forks and no design partner. Every argument on this page has convinced exactly one person — its author. That does not make the arguments wrong, but it does mean they have not been tested against someone who could disagree, and the positioning document says so in its first section rather than hiding it.",
+    href: "/redfall/docs/positioning/",
+    link: "Where RedFall sits",
+  },
 ];
 
 export const EVIDENCE = [
@@ -264,4 +282,4 @@ export const STEPS = [
   },
 ];
 
-export const LAST_UPDATED = "October 21, 2026";
+export const LAST_UPDATED = "November 1, 2026";

@@ -92,7 +92,7 @@ persistence and control layers:
   command and environment digest are reportable. `campaign evidence verify`
   recomputes the chain and names the first broken link.
 - **Graph v1 and protocols** — `graph_snapshots`, `graph_nodes` and
-  `graph_edges` persist provenance-aware source facts; the same 44-tool registry
+  `graph_edges` persist provenance-aware source facts; the same 47-tool registry
   is exposed over MCP stdio, HTTP/OpenAPI and A2A v1.0. The gateway adds bearer
   scopes, quotas, audit and signed artifacts without duplicating tool handlers.
   See [agent interoperability](/docs/interop/).
@@ -117,7 +117,7 @@ The development host used for 0.1.1 has no container runtime and no provider key
 
 ## What is built, and what is not?
 
-The 0.1.1 repository is explicit about the boundary. Built and verified components include ingestion for TypeScript/JavaScript and Python, intra- and interprocedural taint with return flow, the seven adaptive detectors, the branch tree, the chain planner/executor/graph, the fix loop, SARIF export, the gVisor executor and its harness, the store, the campaign kernel and evidence ledger, the graph and resumable runner, the 44-tool MCP/HTTP/A2A surfaces, the CLI, the four range targets and the scorer.
+The 0.1.1 repository is explicit about the boundary. Built and verified components include ingestion for TypeScript/JavaScript and Python, intra- and interprocedural taint with return flow, the seven adaptive detectors, the branch tree, the chain planner/executor/graph, the fix loop, SARIF export, the gVisor executor and its harness, the store, the campaign kernel and evidence ledger, the graph and resumable runner, the 47-tool MCP/HTTP/A2A surfaces, the CLI, the four range targets and the scorer.
 
 The [README status table](https://github.com/DevAnimecx/redfall#status-right-now) is the authoritative summary. The [blocked page](/docs/blocked/) records the infrastructure that is written but unexercised on this host, including the sandbox and live LLM calls. Nothing in this documentation converts an unexercised path into a measured capability.
 

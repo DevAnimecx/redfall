@@ -9,7 +9,7 @@ dashboard look complete.
 Canonical site: <https://devanimecx.github.io/redfall/>
 Repository: <https://github.com/DevAnimecx/redfall>
 Public author identity: `DevAnimecx` (<https://github.com/DevAnimecx>)
-Last technical review: 2026-10-21
+Last technical review: 2026-11-01
 
 ---
 
@@ -18,7 +18,7 @@ Last technical review: 2026-10-21
 | Area | Implementation | Verification |
 | --- | --- | --- |
 | Rendering | The landing page is React + Tailwind, built by Vite and **prerendered to static HTML** by `site/scripts/prerender.mjs`. All documentation, comparison, evidence, about and privacy pages are static HTML generated from Markdown by `site/scripts/build_docs.mjs`, with **zero client JavaScript**. | `npm run build`; `node scripts/docs_check.mjs` asserts `script[src]` is empty on every docs route and that the H1 is readable with JavaScript disabled. |
-| URLs and canonicals | Absolute self-referencing `<link rel="canonical">` on every indexable page. Trailing-slash routes. One HTML page per URL. `hreflang="en"` and `x-default`. A real custom `404.html` with `noindex`. | `site/scripts/seo_check.mjs`: canonical must equal the production URL; 404 must not be in the sitemap; 24 sitemap URLs must match the built pages exactly. |
+| URLs and canonicals | Absolute self-referencing `<link rel="canonical">` on every indexable page. Trailing-slash routes. One HTML page per URL. `hreflang="en"` and `x-default`. A real custom `404.html` with `noindex`. | `site/scripts/seo_check.mjs`: canonical must equal the production URL; 404 must not be in the sitemap; 30 sitemap URLs must match the built pages exactly. |
 | Indexing | `sitemap.xml` with `lastmod`, `changefreq` and `priority`; `robots.txt` that allows the site and the named AI crawlers; no accidental `noindex` on indexable pages; `llms.txt` for answer engines. | `npm run check:seo`; weekly `seo-monitor` workflow against the live site. |
 | Metadata | Unique title and description per page; Open Graph and Twitter cards; per-page 1200×630 PNG cards generated from the page title; `og:image:alt`; author, theme colour and colour scheme. | `seo_check.mjs` enforces length, uniqueness, required tags, image alt text and PNG existence; `scripts/generate_og_assets.py` regenerates the cards. |
 | Structured data | JSON-LD graph: `Organization`, `Person`, `WebSite`, `WebPage`, `SoftwareApplication`, `FAQPage` and `BreadcrumbList` on the landing page; `Organization`, `Person`, `WebSite`, page/article type and `BreadcrumbList` on documentation pages. FAQ schema is generated from the same `site/lib/content.mjs` object as the visible FAQ. | `seo_check.mjs` parses every JSON-LD block and checks required types and FAQ answers; the live monitor checks the deployed graph again. |
@@ -29,22 +29,29 @@ Last technical review: 2026-10-21
 | Security | SHA-256 hash-based CSP delivered as a `<meta http-equiv>` (GitHub Pages cannot set response headers), `object-src 'none'`, `base-uri 'self'`, `form-action` restricted. HSTS comes from the `github.io` parent host. | Browser console is checked by Lighthouse (`errors-in-console`), the docs gate and axe runs. `frame-ancestors`/`X-Frame-Options` are impossible on Pages and are documented as such, not faked. |
 | Supply chain | Release wheel built by CI from the tagged commit, Sigstore attestation, `SHA256SUMS`, weekly `pip-audit`. | `gh attestation verify ...`; `docs/release-verification/`. |
 
-### Current measured results (2026-10-21, local 0.1.1 production build)
+### Current measured results (local 0.5.0 production build)
 
 ```text
-npm run build        landing prerendered; 23 docs pages; 24 sitemap URLs
-npm run check:seo    SEO GATE: PASS — 25 HTML routes, 0 errors
-node scripts/docs_check.mjs
-                     PASS — 23 routes × 2 viewports, axe clean,
+npm run build        landing prerendered; 29 docs pages; 30 sitemap URLs
+npm run check:seo    SEO GATE: PASS — 31 HTML routes, 0 errors
+npm run check:a11y   PASS — axe clean at 390 / 768 / 1280 px
+npm run check:layout PASS — no horizontal overflow at any width
+npm run check:docs   PASS — 29 routes × 2 viewports, axe clean,
                      no horizontal overflow, zero client JS
-Lighthouse desktop   100 performance / 100 accessibility / 100 best-practices / 100 SEO
-Lighthouse mobile    100 performance / 100 accessibility / 100 best-practices / 100 SEO
-Lighthouse docs      100 / 100 / 100 / 100 desktop
+```
+
+The live-deploy and Lighthouse numbers below were measured against the 0.1.1
+build and have **not** been re-run since. They are kept rather than deleted so
+the historical record stays honest, but they describe a build four releases
+back and should not be read as a claim about the current one.
+
+```text
 Live deploy          0.1.1: build + deploy PASS; live monitor PASS (24 pages)
 IndexNow             0.1.1: HTTP 200, 24 URLs
 Live landing (0.1.1) desktop 97–98 performance; mobile 93–99; 100 accessibility/best-practices/SEO in both runs
 Live docs (0.1.0)    100/100/100/100 desktop; 99 performance, 100 elsewhere mobile (not re-run for 0.1.1)
 Live 404             HTTP 404
+Lighthouse (0.1.1)   desktop 100/100/100/100; mobile 100/100/100/100 (local)
 ```
 
 The local and live numbers are kept separate; a local measurement is never
@@ -109,7 +116,7 @@ is a review item in the 90-day calendar.
 
 `sitemap.xml` is generated from the same page manifest as the HTML, so a page
 cannot exist without being in the sitemap (or being deliberately excluded, as the
-404 is). It contains the landing page plus 23 docs/trust URLs.
+404 is). It contains the landing page plus 30 docs/trust URLs.
 
 `robots.txt` allows all crawlers and explicitly names GPTBot, OAI-SearchBot,
 ChatGPT-User, ClaudeBot, Claude-Web, PerplexityBot, Google-Extended,
@@ -159,7 +166,7 @@ Landing graph:
 - `Organization` with the public GitHub profile as `sameAs`
 - `Person` for `DevAnimecx`, linked to `/about/`
 - `WebSite` with the site name and language
-- `SoftwareApplication` for RedFall 0.1.1, with licence, operating systems,
+- `SoftwareApplication` for RedFall 0.5.0, with licence, operating systems,
   application category, release date, code repository and download URL
 - `WebPage` for the landing page
 - `FAQPage` generated from the same FAQ array rendered in the visible cards
@@ -399,7 +406,7 @@ scored 93 and 99, so the live score is not certified at 100.
 `.github/workflows/seo-monitor.yml` runs every Monday at 06:30 UTC and can be
 started manually. It checks:
 
-- HTTP 200 and HTML content type for all 24 sitemap URLs
+- HTTP 200 and HTML content type for all 30 sitemap URLs
 - self-referencing canonical and one H1 per page
 - title and description present
 - no `noindex` in meta robots or `X-Robots-Tag`

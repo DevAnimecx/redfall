@@ -1,7 +1,7 @@
 ---
 title: Agent interoperability
 seoTitle: "RedFall Agent Interoperability: MCP, HTTP/OpenAPI and A2A"
-description: "How RedFall exposes the same 44-tool registry over MCP, HTTP/OpenAPI and A2A v1.0, with bearer scopes, trust labels, audit and signed artifacts."
+description: "How RedFall exposes the same 47-tool registry over MCP, HTTP/OpenAPI and A2A v1.0, with bearer scopes, trust labels, audit and signed artifacts."
 path: docs/interop/
 group: Reference
 kind: cluster

@@ -20,6 +20,16 @@
 
 <https://devanimecx.github.io/redfall/> · [Install](#install) · [How a finding becomes real](#how-a-finding-becomes-real) · [FAQ](#faq) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [BLOCKED.md](BLOCKED.md)
 
+**Start with the documentation map: [`docs/`](docs/README.md)** — what it is, where
+it stands against other tools, what is wrong with it, and where a given question
+is answered. Three documents worth reading before adopting anything:
+
+- [**What RedFall is**](docs/what-is-redfall.md) — the whole system in one page.
+- [**Where it sits**](docs/analysis/positioning.md) — the category, the honest
+  strengths, and the adoption gap stated first.
+- [**The case against it**](docs/analysis/cons.md) — every serious objection,
+  ordered by how much damage it does.
+
 The governing constraint is the no-mock contract (§1, extended by §2): a finding
 exists only if it was executed against a real running target, and every number in
 a report came from a command that actually ran. `scripts/check_no_mock.py`
@@ -41,8 +51,8 @@ enforces the parts of that which are mechanically checkable, and it runs in CI.
 | Campaign kernel + resumable runner (durable state, leases, budgets, retries) | **Built and tested** — state machine, dependency tasks, heartbeat leases, preflight reservations and settlement, retry/blocked semantics, and real graph/scan/reproduce/report handlers; the Postgres-backed suite passed in CI (362 passed, 5 environment skips; run 39616295334) |
 | Evidence ledger (E0–E4, SHA-256 hash chain, report gate) | **Built and tested** — tamper detection, replayability validation and a required E3/E4 gate |
 | Code graph v1 (persisted, provenance-aware) | **Built and tested** — real ingestion into `graph_snapshots`, `graph_nodes` and `graph_edges`; bounded search, traversal, paths, inventory and snapshot diff. Covers the currently ingested TypeScript/JavaScript/Python source; not a completeness or all-language claim |
-| Agent tools / MCP stdio (44 tools) | **Built and tested** — real subprocess JSON-RPC session; campaign/runner, graph, scan, finding, reproduction, evidence and report tools |
-| HTTP/OpenAPI gateway | **Built and tested** — `POST /v1/tools/{name}` executes the same 44-tool registry; OpenAPI 3.1 is generated from that registry; bearer tokens, scopes, quotas, audit and signed artifact URLs |
+| Agent tools / MCP stdio (47 tools) | **Built and tested** — real subprocess JSON-RPC session; campaign/runner, graph, scan, finding, reproduction, evidence and report tools |
+| HTTP/OpenAPI gateway | **Built and tested** — `POST /v1/tools/{name}` executes the same 47-tool registry; OpenAPI 3.1 is generated from that registry; bearer tokens, scopes, quotas, audit and signed artifact URLs |
 | A2A v1.0 agent | **Built and tested** — Agent Card, `SendMessage`/`SendStreamingMessage`/`GetTask`/`ListTasks`/`CancelTask`/`SubscribeToTask`, SSE task/status/artifact envelopes, cooperative cancellation and HMAC-signed artifacts; push notifications are explicitly not implemented |
 | Executable adapter contracts | **Built and tested** — `redfall mcp certify` (stdio), `redfall interop certify --protocol http` (10 checks) and `--protocol a2a` (11 checks) launch a fresh server/client against a real socket and a temporary database; certification covers the shipped surfaces only. CI run [39616295334](https://github.com/DevAnimecx/redfall/actions/runs/39616295334): **362 passed, 5 skipped** (live gVisor), all package jobs passed |
 | No-mock enforcement | **Passing** (`NO-MOCK CONTRACT: PASS`, 137 files) |
@@ -269,7 +279,7 @@ transport-neutral `ToolRegistry`.
   stored-finding reproduction, chain verification and evidence-gated JSON/SARIF
   reports. A report is refused unless the chain verifies and at least one
   E3/E4 record is linked to a finding.
-- **MCP stdio** — 44 tools over newline-delimited JSON-RPC.
+- **MCP stdio** — 47 tools over newline-delimited JSON-RPC.
 - **HTTP/OpenAPI** — one process serves `GET /healthz`, `GET /v1/openapi.json`,
   `GET /v1/tools` and `POST /v1/tools/{name}`. Tool output carries
   `"trust": "untrusted-repository-data"` and an

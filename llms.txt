@@ -1,6 +1,12 @@
 # RedFall
 
-> RedFall is an execution-verified vulnerability scanner for TypeScript, JavaScript and Python. It ingests real source with tree-sitter, tracks attacker-controlled data from request surface to sink, runs candidate exploits against the live application inside a Docker container on the gVisor `runsc` runtime, and reports only findings that reproduced. It then attempts a repair and verifies it against the target's own tests. Static analysis produces candidates; a finding exists only if it executed. This is enforced in CI by the no-mock contract.
+> RedFall is an execution-verified vulnerability scanner. It ingests a target's real source with tree-sitter, tracks attacker-controlled data from request surface to sink, runs candidate exploits against the live application inside an isolated sandbox, and reports only findings that reproduced — each backed by a hash-chained evidence record carrying an execution id, an observable and a reproduce command. It then attempts a repair and verifies it against the target's own tests. Static analysis produces candidates; a finding exists only if it executed. This is enforced in CI by the no-mock contract.
+
+Read these limits before citing anything above:
+- RedFall has no published benchmark result. Its central claim — that execution-gated findings are worth their cost — is a structural argument, not a measurement.
+- TypeScript/JavaScript and Python are certified. Java, Kotlin and Go are parsed and traced but never executed on the build host, so no category is certified for them.
+- A full scan requires Docker with a gVisor runtime. There is no fallback execution path; a host without one refuses to scan.
+- The public repository has no measured adoption. See the positioning and cons documents for the full limits.
 
 Key facts:
 - Site: https://devanimecx.github.io/redfall/
@@ -8,7 +14,9 @@ Key facts:
 - Release: https://github.com/DevAnimecx/redfall/releases/tag/v0.5.0
 - Maintainer: DevAnimecx (https://github.com/DevAnimecx)
 - Version: 0.5.0; Python 3.12+; Windows, Linux and macOS
-- A full scan requires Docker with a gVisor runtime. From 0.2.0 the reasoning layer needs no AI API key: drive RedFall with an installed agent (Claude Code, Codex, Gemini CLI and nine more), an OpenAI-compatible endpoint, or a provider key through LiteLLM.
+- Languages: TypeScript, JavaScript and Python (certified); Java, Kotlin and Go (parsed and traced, not certified).
+- Vulnerability classes: 25 supported with proof contracts; 4 excluded, each with the measurement that excluded it.
+- The reasoning layer needs no AI API key: drive RedFall with an installed agent (Claude Code, Codex, Gemini CLI and nine more), an OpenAI-compatible endpoint, or a provider key through LiteLLM.
 - Last updated: 2026-10-30
 
 ## Start here
@@ -41,13 +49,16 @@ Key facts:
 - [Security and supply chain](https://devanimecx.github.io/redfall/docs/security/): RedFall's threat model, the deliberately vulnerable range targets, private vulnerability reporting, weekly dependency auditing and Sigstore-attested releases.
 - [Tenancy, roles and policy](https://devanimecx.github.io/redfall/docs/enterprise/): RedFall's enterprise control plane: tenant isolation derived from a credential, five roles, per-tenant policy-as-code rules, and a gap-free audit export for a SIEM.
 - [The learning loop](https://devanimecx.github.io/redfall/docs/learning/): How RedFall learns only from reproduced outcomes: a lesson cites E3/E4 evidence or is not created, runs in shadow, and is promoted only on the worst holdout.
+- [Where RedFall sits](https://devanimecx.github.io/redfall/docs/positioning/): Where RedFall sits among vulnerability scanners: the precision axis, what it does better than a SAST, and the adoption and benchmark gaps it has not closed.
+- [The case against RedFall](https://devanimecx.github.io/redfall/docs/cons/): Every serious objection to RedFall, ordered by how much damage it does: no benchmark, uncertified enterprise languages, taint depth, and the economics of execution.
+- [A deeper technical roadmap](https://devanimecx.github.io/redfall/docs/roadmap/): RedFall's next phases, each closing a named objection: the benchmark arena, field-sensitive taint, certifying Java and Go, and measuring the learning loop.
 
 ## Reference
 
 - [The dashboard](https://devanimecx.github.io/redfall/docs/dashboard/): Run redfall dashboard for a local console over the same tool registry the CLI uses: start scans, follow a live stream, read findings with evidence, propose a fix.
 - [Execution-verified scanning vs static analysis](https://devanimecx.github.io/redfall/compare/static-analysis/): A fair comparison of static analysis, DAST and execution-verified scanning: what each proves, where each fits, and when RedFall's narrower execution gate is worth it.
 - [RedFall CLI reference](https://devanimecx.github.io/redfall/docs/cli/): The RedFall 0.1.1 CLI: scan, fix, findings, report, doctor, environment, campaign, graph, reproduce, policy-check, mcp, interop and adapters.
-- [Agent interoperability](https://devanimecx.github.io/redfall/docs/interop/): How RedFall exposes the same 44-tool registry over MCP, HTTP/OpenAPI and A2A v1.0, with bearer scopes, trust labels, audit and signed artifacts.
+- [Agent interoperability](https://devanimecx.github.io/redfall/docs/interop/): How RedFall exposes the same 47-tool registry over MCP, HTTP/OpenAPI and A2A v1.0, with bearer scopes, trust labels, audit and signed artifacts.
 - [Vulnerability scanning glossary](https://devanimecx.github.io/redfall/docs/glossary/): Definitions of execution verification, taint, source, sink, predicate, gVisor, SARIF, verified finding, no-mock contract, adaptive branch and compound score.
 
 ## Project

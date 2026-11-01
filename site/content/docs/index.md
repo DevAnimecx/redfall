@@ -6,14 +6,16 @@ path: docs/
 group: Start here
 kind: hub
 order: 0
-updated: 2026-10-21
+updated: 2026-11-01
 keywords: RedFall documentation, execution-verified vulnerability scanner, vulnerability scanning guide
 sources: https://github.com/DevAnimecx/redfall, https://github.com/DevAnimecx/redfall/blob/main/BLOCKED.md
 ---
 
-RedFall is a vulnerability scanner that proves findings by executing them. It reads real TypeScript, JavaScript and Python source, tracks attacker-controlled data from a request surface to a sink, builds a candidate proof of concept, and runs it against the live application inside a Docker container on the gVisor `runsc` runtime. A candidate is reported only if it reproduces. Static analysis produces candidates; it never produces a finding on its own.
+RedFall is a vulnerability scanner that proves findings by executing them. It reads real source — TypeScript, JavaScript and Python are certified; Java, Kotlin and Go are parsed and traced but not certified — tracks attacker-controlled data from a request surface to a sink, builds a candidate proof of concept, and runs it against the live application inside an isolated sandbox. A candidate is reported only if it reproduces, and every reproduced finding carries a hash-chained evidence record. Static analysis produces candidates; it never produces a finding on its own.
 
-This documentation covers the mechanism, the evidence, the operating instructions and the limits. It is written for engineers who need to decide whether a finding is real before they spend a day triaging it, and for reviewers who want to check the claims against the source. The 0.1.1 release also exposes the same 44-tool registry to agents over MCP, HTTP/OpenAPI and A2A v1.0; the [interoperability page](/docs/interop/) documents those transports and their boundaries.
+**Two limits worth knowing before you read further.** RedFall has no published benchmark result, so its central claim is a structural argument rather than a measurement; and this host has no container runtime, so the tests that would demonstrate the execution boundary are skipped with a reason instead of passing. Both are documented on the pages below rather than left for you to discover.
+
+This documentation covers the mechanism, the evidence, the operating instructions and the limits. It is written for engineers who need to decide whether a finding is real before they spend a day triaging it, and for reviewers who want to check the claims against the source. The 0.1.1 release also exposes the same 47-tool registry to agents over MCP, HTTP/OpenAPI and A2A v1.0; the [interoperability page](/docs/interop/) documents those transports and their boundaries.
 
 [[DOCS_INDEX]]
 

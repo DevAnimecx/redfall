@@ -215,7 +215,7 @@ redfall adapters certifications
 ```
 
 MCP is newline-delimited JSON-RPC over stdio. The HTTP/OpenAPI and A2A surfaces
-share one listener and one 44-tool registry; see the
+share one listener and one 47-tool registry; see the
 [interoperability page](/docs/interop/) for endpoints, scopes, trust labels and
 limitations. `certify` starts a fresh server and client and records what actually
 passed; it does not certify arbitrary third-party agents.
