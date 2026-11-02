@@ -92,7 +92,7 @@ def bench_recall(corpus_dir: Path, target_dir: Path | None, out_path: Path | Non
     init_engine(url)
 
     tree = target_dir or corpus.source_dir
-    findings = _taint_findings_for(tree, corpus)
+    findings = _all_findings_for(tree, corpus)
     result = recall_from_taint(findings, corpus.expected)
 
     _emit(
@@ -104,6 +104,41 @@ def bench_recall(corpus_dir: Path, target_dir: Path | None, out_path: Path | Non
         },
         out_path,
     )
+
+
+def _all_findings_for(tree: Path, corpus) -> list[dict[str, object]]:
+    """Everything the engine reports about a tree: taint plus detectors.
+
+    Recall is a property of the *engine*, not of one analysis stage. Reporting
+    only the taint stage's output measured the wrong thing — it counted nine
+    classes as misses that no flow analysis could ever reach, which reads as an
+    engine failure when it is a missing detector. Both stages run and their
+    findings merge.
+    """
+    from .detect import detect_file
+
+    rows = _taint_findings_for(tree, corpus)
+    seen = {(str(r["category"]), str(r["file"]), int(r["line"])) for r in rows}
+
+    for path in sorted(tree.rglob("*")):
+        if not path.is_file() or path.suffix not in {".py", ".ts", ".tsx", ".js", ".jsx", ".java", ".kt", ".go"}:
+            continue
+        # The corpus anchors are repository-relative to the target root, so the
+        # path is taken relative to `tree`, not its parent. Getting this wrong
+        # is silent: every detector finding carries a prefix the scorer cannot
+        # match, so found flows read as invented ones.
+        rel = str(path.relative_to(tree)).replace("\\", "/")
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for hit in detect_file(rel, text):
+            key = (hit.category, hit.file, hit.line)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(hit.to_row())
+    return rows
 
 
 def _taint_findings_for(tree: Path, corpus) -> list[dict[str, object]]:
@@ -169,6 +204,8 @@ def _category_for_sink(sink: str) -> str:
     recognise is returned lowercased and will match nothing, which the scorer
     counts against the invented rate rather than silently as a hit.
     """
+    from .ingestion.symbols_py import METADATA_HOSTS
+
     lowered = (sink or "").strip().lower()
     if not lowered:
         return "unknown"
@@ -191,8 +228,13 @@ def _category_for_sink(sink: str) -> str:
     if name in {"open", "readfile", "readtext", "readbytes", "sendfile", "send_file"}:
         return "path_traversal"
     if name in {"get", "post", "put", "delete", "request", "urlopen", "fetch", "urlretrieve"}:
+        # An SSRF whose argument reaches the metadata service is a distinct
+        # class in the corpus, so the destination is checked before the generic
+        # label is applied.
+        if any(host in lowered for host in METADATA_HOSTS):
+            return "ssrf_metadata"
         return "ssrf"
-    if name in {"redirect", "location"}:
+    if name in {"redirect", "location", "redirectresponse", "seeother", "found"}:
         return "open_redirect"
     if name in {"eval", "exec"}:
         # `eval` is a sink the corpus has no category for today; naming it

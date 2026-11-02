@@ -45,39 +45,26 @@ TOLERANCE = 1e-9
 
 
 def _measure(corpus_name: str, tree: Path) -> dict:
+    """Measure the engine exactly as `redfall bench recall` does.
+
+    This function used to rebuild the finding list itself, taint stage only.
+    When the CLI grew the detector stage the two silently diverged: the gate
+    measured 6.2% while the command measured 18.8% on the same corpus, and the
+    gate reported a regression that had not happened. Delegating to the one
+    implementation is what stops that class of drift — a guard that measures
+    something different from the thing it guards is worse than no guard.
+    """
     from redfall.bench.corpus import load_corpus
     from redfall.bench.recall import recall_from_taint
+    from redfall.cli_bench import _all_findings_for
     from redfall.store import db
-    from redfall.store.models import FileRow, Scan, TaintPath
-    from redfall.ingestion.ingest import ingest
     import os
 
-    db.init_engine(os.getenv("REDFALL_TEST_DATABASE_URL") or "sqlite:///redfall-recall.db")
-
+    db.init_engine(
+        os.getenv("REDFALL_TEST_DATABASE_URL") or "sqlite:///redfall-recall.db"
+    )
     corpus = load_corpus(CORPORA / corpus_name)
-    scan_id = f"recall-{corpus_name}"
-    with db.session_scope() as session:
-        if session.get(Scan, scan_id) is None:
-            session.add(Scan(id=scan_id, repo=str(tree)))
-            session.flush()
-        ingest(scan_id, tree, session=session)
-        path_by_file_id = {
-            row.id: row.path
-            for row in session.query(FileRow).filter(FileRow.scan_id == scan_id)
-        }
-        # Import the same category mapper the CLI uses, so the two cannot map
-        # a sink differently and disagree about recall.
-        from redfall.cli_bench import _category_for_sink
-
-        findings = [
-            {
-                "category": _category_for_sink(stored.sink),
-                "file": path_by_file_id.get(stored.file_id, ""),
-                "line": int(stored.line or 0),
-                "symbol": stored.symbol or "",
-            }
-            for stored in session.query(TaintPath).filter(TaintPath.scan_id == scan_id)
-        ]
+    findings = _all_findings_for(tree, corpus)
     result = recall_from_taint(findings, corpus.expected)
     return {"corpus": corpus, "result": result, "findings": findings}
 

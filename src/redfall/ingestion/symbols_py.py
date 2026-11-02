@@ -67,6 +67,22 @@ PATHLIB_IO = {"read_text", "write_text", "read_bytes", "write_bytes", "iterdir",
 HTTP_CALLS = {"get", "post", "put", "delete", "patch", "request", "urlopen"}
 HTTP_MODULES = {"requests", "httpx", "aiohttp", "urllib"}
 
+# Redirect responses. The destination argument is the dangerous one, and these
+# were absent from the table entirely — which is why a seeded open redirect
+# produced zero sinks and zero taint paths rather than a misclassification.
+REDIRECT_FUNCS = {"redirect", "RedirectResponse", "SeeOther", "seeother", "found"}
+
+# Hosts whose reachability is metadata exfiltration rather than a generic SSRF:
+# the cloud instance metadata service. Kept distinct from `ssrf` so a finding
+# names what it actually is.
+METADATA_HOSTS = (
+    "169.254.169.254",
+    "metadata.google.internal",
+    "metadata.goog",
+    "100.100.100.200",
+    "fd00:ec2::254",
+)
+
 
 def _text(parsed: ParsedFile, node: Node | None) -> str:
     if node is None:
@@ -169,6 +185,11 @@ def classify_call(resolved: str) -> tuple[str, str] | None:
         return "fs", resolved
     if last in HTTP_CALLS and root in HTTP_MODULES:
         return "fetch", resolved
+    if last in REDIRECT_FUNCS:
+        # A redirect whose destination is attacker-controlled is an open
+        # redirect. Reporting it as a `redirect` sink lets the taint engine
+        # trace the destination exactly as it traces any other argument.
+        return "redirect", resolved
     return None
 
 
