@@ -247,16 +247,17 @@ project has optimised for a standard no one has yet asked it to meet.
 This is stated first because a positioning document that describes a market
 position without mentioning adoption is describing an aspiration.
 
-### 5.1 No published benchmark result
+### 5.1 No head-to-head benchmark result
 
-**This is the biggest gap, and it is not close.** Every competitive claim in
-this document is a structural argument, not a measurement. The arena
-(`bench/`) does not exist. There is no head-to-head against Semgrep, CodeQL, a
-DAST, or another agent, on a pre-registered corpus with raw logs.
+**This is the biggest remaining gap.** As of 0.6.0 the project measures *itself*
+— recall is 29.4% on 17 seeded Python flows, with the misses named — and a
+recall regression fails CI. What does not exist is the comparison: no
+head-to-head against Semgrep, CodeQL, a DAST or another agent, on a
+pre-registered corpus, at equal budget, with raw logs.
 
-A tool whose entire thesis is "claims must be proven" ships without a proof of
-its central claim. That is the sharpest criticism available against this
-project, and it is correct.
+So the sharpest criticism has narrowed but not closed. The project can now say
+what it misses, which it could not before. It still cannot say whether it misses
+*less* than the alternative, and that is the claim a buyer actually needs.
 
 ### 5.2 The certified-language surface is two languages
 
@@ -266,15 +267,19 @@ no Spring or Gin application has ever been executed by this code.
 
 The enterprise demand the roadmap targets (Java/Kotlin first) is exactly the
 part that is unverified. That is a real ordering problem, not a documentation
-problem.
+problem. The recall baseline makes it sharper rather than softer: the one
+measured number is Python, and no equivalent exists for the other four.
 
-### 5.3 Nothing runs end to end on the build host
+### 5.3 The build host still cannot run a full scan
 
-No Docker, no gVisor, no KVM, no JVM, no Go. Every execution-adjacent claim in
-the README is backed by CI or by a range run on another host, never by a live
-demonstration here. The project is honest about this everywhere, which is good,
-and it still means a reader cannot reproduce the headline claim from the repo
-alone without bringing their own hardware.
+No Docker, no gVisor, no KVM, no JVM, no Go **on the machine this is developed
+on.** A reader who clones the repository cannot reproduce the headline claim
+without bringing their own hardware.
+
+What changed in 0.6.0 is that CI now does bring the hardware: a gVisor job
+installs the runtime, asserts the kernel actually boots a container, and runs
+the sandbox tests un-skipped on every push. The central claim is continuously
+verified somewhere real — just not on the developer's laptop.
 
 ### 5.4 The economic case is unproven
 
@@ -293,11 +298,13 @@ economic argument is a hypothesis with a plausible shape.
 "enumerate every weakness in this codebase", RedFall is the wrong tool. It is a
 targeted instrument, and it should be sold as one.
 
-### 5.6 Single-maintainer and unlicensed
+### 5.6 Single-maintainer
 
-No corporate backing and one maintainer. (Apache-2.0 was added in 0.6.0, resolving the licence half of this.) For a tool that
-executes untrusted code and touches source, that is a real procurement barrier
-that has nothing to do with technical quality.
+Apache-2.0 landed in 0.6.0, so the licence half of this objection is closed. The
+rest stands: no corporate backing, one maintainer, no third-party security
+review. For a tool that executes untrusted code and reads a customer's source,
+that is a real procurement barrier independent of technical quality, and it is
+the one objection on this list that code cannot fix.
 
 ## 6. What RedFall deliberately does not do
 
@@ -332,7 +339,10 @@ execution and a hash chain, and where the tooling refuses to let you fake it.
 ## 8. The honest one-line summary
 
 > RedFall is a verification-first security engine with unusually rigorous
-> evidence discipline and no published benchmark. Its structural differentiators
-> are real and demonstrable in the repository. Its central claim — that
-> execution-gated findings are worth the cost — is asserted, not measured, and
-> the next thing this project owes anyone reading it is that measurement.
+> evidence discipline and one measured number — 29.4% recall on 17 seeded Python
+> flows, with the misses named and a regression gate behind them. Its structural
+> differentiators are real and demonstrable in the repository. Its central
+> claim — that execution-gated findings are worth the cost — is now partly
+> measured, and the part still missing is the comparison: whether it misses
+> *less* than the alternative, at equal budget. That is what the project owes
+> next.

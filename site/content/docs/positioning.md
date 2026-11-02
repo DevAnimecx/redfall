@@ -19,9 +19,11 @@ a different axis — *how many vulnerabilities can this find?* — and RedFall
 answers *how do you know the ones it reports are real?*
 
 > **Read this before the rest.** The public repository has **no measured
-> adoption** and **no published benchmark**. Every competitive argument here is
-> structural, not measured. The full analysis, with that admission stated first,
-> is in the [repository document](https://github.com/DevAnimecx/redfall/blob/main/docs/analysis/positioning.md).
+> adoption**, and its one measured number is recall — 29.4% on 17 seeded Python
+> flows, misses named. There is still **no head-to-head against another tool**,
+> so where this page compares, it compares structurally rather than by result.
+> The full analysis, with that admission stated first, is in the
+> [repository document](https://github.com/DevAnimecx/redfall/blob/main/docs/analysis/positioning.md).
 
 ## The precision axis
 
@@ -55,18 +57,22 @@ things".
 
 ## What it is worse at
 
-- **No benchmark.** The claim is unproven. This is the biggest gap by a wide
-  margin.
+- **No head-to-head benchmark.** The project now measures its own recall
+  (29.4% on 17 seeded Python flows, misses named, regression-gated). What it
+  cannot yet say is whether it misses *less* than the alternative at equal
+  budget — the claim a buyer actually needs.
 - **Two certified languages.** Java, Kotlin and Go are parsed but never
   executed, and those are the enterprise ones the roadmap prioritised.
 - **25 classes** against a mature SAST's several hundred rules.
-- **Nothing runs on this host.** No Docker, no gVisor, no KVM, no JVM, no Go.
+- **The development host runs nothing.** No Docker, no gVisor, no KVM, no JVM,
+  no Go. CI does: a gVisor job boots the real kernel and runs the sandbox tests
+  un-skipped on every push.
 
 ## The honest summary
 
 > RedFall is a verification-first engine with unusually rigorous evidence
-> discipline and no published benchmark. Its structural differentiators are real
-> and demonstrable in the repository. Its central claim is asserted, not
-> measured.
+> discipline and one measured number. Its structural differentiators are real
+> and demonstrable in the repository. The measured part is recall; the missing
+> part is the comparison.
 
 For the full critique, read [the case against RedFall](/docs/cons/).
