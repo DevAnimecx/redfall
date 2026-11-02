@@ -32,8 +32,13 @@ request value reaching a dangerous call:
 | Path traversal | 1.0 | 1 |
 | SSRF | 1.0 | 1 |
 | Unsafe deserialization | 1.0 | 1 |
+| Command injection | 1.0 | 1 |
 
-The twelve missed split into two groups, and the split matters more than the
+`cmd_injection` is in this table as of the 2026-11-02 correction: the engine
+found it and the scorer did not credit it. The single most useful thing this
+baseline did was get its own arithmetic wrong in a way that was visible.
+
+The eleven missed split into two groups, and the split matters more than the
 total:
 
 **Expected misses — these are not taint flows and no amount of taint depth
@@ -48,15 +53,26 @@ would find them.** They need different detectors the engine does not have:
   check, each a local property rather than a flow
 - `idor` — an authorisation *absence* on a reachable route
 
-**Real misses — these are taint-shaped and the engine should find them:**
+**Taint-shaped, and diagnosis separated the two:**
 
-- `cmd_injection` (1 in corpus, 0 found) — a request value reaching a command
-- `ssrf_metadata` (1, 0) — the SSRF variant against a metadata endpoint
-- `open_redirect` (1, 0) — a request value reaching a redirect target
+- **`open_redirect`** — a **genuine engine gap**. `classify_call` in
+  `symbols_py.py` has no rule for the Flask response-construction family
+  (`redirect`, `abort`, `url_for`), so `redirect.py` yields **0 sinks and 0
+  taint paths**. One table entry fixes it.
+- **`ssrf_metadata`** — **found but mislabelled**. The engine reports
+  `requests.get` at `proxy.py:18`; it cannot distinguish an SSRF against the
+  link-local range from a general one. Half real gap (nothing inspects the
+  argument for a metadata-range literal), half corpus modelling.
 
-Three flows of a shape the engine claims to handle were not found. That is a
-defect, not a scope boundary, and it is now a number someone can improve
-against.
+> `cmd_injection` appeared in this list until 2026-11-02 and should not have.
+> The engine had always found it — `tools.py:24` — and the **scorer** dropped
+> it because its category map tested for the substring `"exec"`, which matches
+> `cursor.execute` but not `subprocess.run`. The bug was in the instrument, not
+> the engine, and it cost the baseline 5.9 points. See
+> [`docs/roadmap/0.7.0.md`](../docs/roadmap/0.7.0.md) §1.1.
+
+One flow of a shape the engine claims to handle was not found. That is a
+defect, not a scope boundary, and it is a number someone can improve against.
 
 The invented rate (0.615) is a separate finding: of the 13 taint paths the
 engine reported, 8 matched no seeded flow. Some are legitimate flows the

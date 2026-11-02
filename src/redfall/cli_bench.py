@@ -156,24 +156,49 @@ def _taint_findings_for(tree: Path, corpus) -> list[dict[str, object]]:
 def _category_for_sink(sink: str) -> str:
     """The corpus category a taint sink corresponds to.
 
-    The engine's taint stage reports the *sink call*, not a vulnerability
-    class; the mapping is by the call's name and shape, matching how the range
-    matcher canonicalises. A sink this does not recognise is reported under a
-    name the scorer will not match, which counts against the invented rate
-    rather than silently counting as a hit.
+    The engine's taint stage reports the *sink call* — ``subprocess.run``,
+    ``os.system``, ``cursor.execute`` — not a vulnerability class, so the
+    scorer has to map one to the other. Getting this wrong does not just
+    mis-report a number: it *under*-credits the engine for bugs it found, and
+    an earlier version of this function did exactly that. It tested for the
+    substring ``"exec"``, which matches ``cursor.execute`` but not
+    ``subprocess.run`` — so a real command-injection finding scored as a miss.
+
+    The table below is matched on the *function name*, not a substring, so
+    ``subprocess.run`` cannot fall through the way it did. A sink this does not
+    recognise is returned lowercased and will match nothing, which the scorer
+    counts against the invented rate rather than silently as a hit.
     """
     lowered = (sink or "").strip().lower()
-    if any(token in lowered for token in ("query", "execute", "cursor", "db.")):
-        return "sqli"
-    if any(token in lowered for token in ("exec", "system", "popen", "spawn", "command")):
+    if not lowered:
+        return "unknown"
+    # Normalise `obj.method` to the method name; the receiver adds no signal
+    # the corpus cares about, and keeping it is what hid the bug above.
+    name = lowered.rsplit(".", 1)[-1]
+
+    if name in {"run", "call", "check_output", "check_call", "popen"} and "subprocess" in lowered:
         return "cmd_injection"
-    if any(token in lowered for token in ("open", "readfile", "writefile", "readtext")):
-        return "path_traversal"
-    if any(token in lowered for token in ("request", "fetch", "urlopen", "get(", "post(")):
-        return "ssrf"
-    if any(token in lowered for token in ("load", "loads", "pickle", "yaml", "deserial")):
+    if name in {"system", "popen", "spawn", "spawnl", "spawnv", "execl", "execv"}:
+        return "cmd_injection"
+    if name in {"execute", "executemany", "executescript", "query", "raw", "extra"}:
+        return "sqli"
+    if name in {"loads", "load", "read", "deserialize"} and any(
+        token in lowered for token in ("pickle", "yaml", "marshal", "dill", "shelve")
+    ):
         return "unsafe_deserialization"
-    return lowered or "unknown"
+    if name in {"loads", "deserialize", "fromjson"}:
+        return "unsafe_deserialization"
+    if name in {"open", "readfile", "readtext", "readbytes", "sendfile", "send_file"}:
+        return "path_traversal"
+    if name in {"get", "post", "put", "delete", "request", "urlopen", "fetch", "urlretrieve"}:
+        return "ssrf"
+    if name in {"redirect", "location"}:
+        return "open_redirect"
+    if name in {"eval", "exec"}:
+        # `eval` is a sink the corpus has no category for today; naming it
+        # `cmd_injection` would over-credit, so it stays unrecognised.
+        return "eval"
+    return name or "unknown"
 
 
 @bench.command("report")

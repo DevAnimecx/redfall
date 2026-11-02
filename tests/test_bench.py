@@ -351,6 +351,75 @@ def test_the_bundle_limitations_file_carries_the_text(tmp_path):
     assert "only two of five languages" in text
 
 
+# -- the scorer's category map (the bug that cost 5.9 points) ---------------
+
+def test_every_sink_the_engine_emits_maps_to_a_category_or_unknown():
+    """The property whose absence let `subprocess.run` slip through.
+
+    The original map tested for the substring `"exec"`, which matches
+    `cursor.execute` but not `subprocess.run` — so a command-injection finding
+    the engine had actually produced scored as a miss, and the published recall
+    was 5.9 points too low. A mapping function with gaps is a measurement bug
+    that looks exactly like an engine bug, and this is the test that tells them
+    apart.
+    """
+    from redfall.cli_bench import _category_for_sink
+
+    # The intersection of sink names the engine can emit and the categories the
+    # corpora seed. If a name here maps to itself (unnormalised), the scorer
+    # will never match it and the flow will read as a miss.
+    known = {
+        "subprocess.run": "cmd_injection",
+        "subprocess.Popen": "cmd_injection",
+        "os.system": "cmd_injection",
+        "os.popen": "cmd_injection",
+        "cursor.execute": "sqli",
+        "conn.execute": "sqli",
+        "pickle.loads": "unsafe_deserialization",
+        "yaml.load": "unsafe_deserialization",
+        "open": "path_traversal",
+        "flask.send_file": "path_traversal",
+        "requests.get": "ssrf",
+        "urllib.request.urlopen": "ssrf",
+        "flask.redirect": "open_redirect",
+    }
+    for sink, expected in known.items():
+        got = _category_for_sink(sink)
+        assert got == expected, f"{sink} mapped to {got!r}, expected {expected!r}"
+
+
+def test_no_sink_name_maps_to_itself_unrecognised():
+    """A sink that maps to its own lowercased name will never match a corpus
+    category, silently turning a found flow into a reported miss."""
+    from redfall.cli_bench import _category_for_sink
+
+    for sink in (
+        "subprocess.run",
+        "subprocess.check_output",
+        "os.system",
+        "cursor.execute",
+        "requests.post",
+        "flask.redirect",
+    ):
+        assert _category_for_sink(sink) != sink.lower(), (
+            f"{sink} fell through the map unnormalised — the scorer will miss it"
+        )
+
+
+def test_the_map_is_not_substring_fragile():
+    """The exact defect: `'exec' in 'subprocess.run'` is False.
+
+    A name-based map is correct where a substring map is fragile, so this pins
+    the two names the substring rule disagreed about.
+    """
+    from redfall.cli_bench import _category_for_sink
+
+    assert _category_for_sink("cursor.execute") == "sqli"
+    assert _category_for_sink("subprocess.run") == "cmd_injection"
+    # And neither collapses into the other's bucket.
+    assert _category_for_sink("subprocess.run") != "sqli"
+
+
 # -- the shipped corpora ----------------------------------------------------
 
 @pytest.mark.parametrize("name", ["pythonbank", "vulnbank", "chainbank", "vulnbank-adaptive"])
