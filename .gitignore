@@ -68,3 +68,8 @@ range/chainbank/chain_replay_result.json
 /redfall-*.db
 *.db-wal
 *.db-shm
+
+# Third-party challenge apps fetched by sandbox/fetch_challenges.sh. They are
+# large, move independently of this repository, and are reproduced from a
+# pinned commit rather than committed here.
+/sandbox/challenges/

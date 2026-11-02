@@ -38,6 +38,10 @@ SKIP_DIRS = {
     ".ruff_cache",
     ".venv",
     "coverage",
+    # Third-party applications fetched for testing. Their package.json carries
+    # their own version, which is not ours to change and must not be checked
+    # against this repository's.
+    "challenges",
 }
 
 

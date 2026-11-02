@@ -236,10 +236,13 @@ def _category_for_sink(sink: str) -> str:
         return "ssrf"
     if name in {"redirect", "location", "redirectresponse", "seeother", "found"}:
         return "open_redirect"
-    if name in {"eval", "exec"}:
-        # `eval` is a sink the corpus has no category for today; naming it
-        # `cmd_injection` would over-credit, so it stays unrecognised.
-        return "eval"
+    if name in {"eval", "exec", "compile"}:
+        # Both the sink *kind* the taint engine emits (`exec`) and the call
+        # names that produce it. Mapping the bare kind through the fallback
+        # returned the string "eval", which matched no corpus category — so a
+        # command injection the engine had found scored as a miss. The same
+        # failure as `subprocess.run`, in a second place.
+        return "cmd_injection"
     return name or "unknown"
 
 
@@ -323,3 +326,34 @@ def _expected_for(record: RunRecord):
         f"cannot resolve corpus {record.corpus_name!r} for a recorded run; "
         "pass from the repository root or name the corpus by path"
     )
+
+
+@bench.command("sandbox")
+@click.option("--target", default="", help="Score one challenge app; default is every fetched one.")
+@click.option("--out", "out_path", type=click.Path(path_type=Path), default=None)
+def bench_sandbox(target: str, out_path: Path | None) -> None:
+    """Score RedFall against real third-party vulnerable applications.
+
+    These apps were written and seeded by other people. That makes this the one
+    measurement in the project that can falsify the tuned numbers — a corpus
+    this project wrote measures agreement, not capability.
+
+    Fetch them first: `sh sandbox/fetch_challenges.sh`.
+    """
+    from .sandbox_run import run_all, scan_target
+
+    if target:
+        result = scan_target(target)
+        if not result.fetched:
+            raise click.ClickException(
+                f"{target} is not fetched; run `sh sandbox/fetch_challenges.sh`"
+            )
+        _emit(result.to_wire(), out_path)
+        return
+
+    report = run_all()
+    if not report["fetched"]:
+        raise click.ClickException(
+            "no challenge apps are fetched; run `sh sandbox/fetch_challenges.sh`"
+        )
+    _emit(report, out_path)

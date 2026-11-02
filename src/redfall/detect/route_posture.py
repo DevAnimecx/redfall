@@ -88,6 +88,13 @@ _RECORD_FETCH = re.compile(
             (?:(?!;)[\s\S]){0,200}?\bid\b
       | \b(?:findById|findOne|findByPk|getById|find_by_id)\s*\(
       | \.get\s*\([^)]*\bid\b
+        # A data-access call named for what it fetches by: `getByUserId`,
+        # `findByOwner`, `loadByAccount`. A conventionally-structured app puts
+        # the record lookup in a DAO, so the handler body contains a method
+        # call and no SQL at all — requiring a SQL keyword missed every IDOR in
+        # a layered codebase, which is most of them.
+      | \b[a-z_]\w*(?:DAO|Repository|Repo|Store|Service)?\.\w*
+            (?:By|For|With)\w*(?:Id|ID|Owner|Account|User)\w*\s*\(
     )
     """
 )
@@ -198,6 +205,46 @@ _TRACEBACK_RETURN = re.compile(
 
 def _line_of(text: str, index: int) -> int:
     return text.count("\n", 0, index) + 1
+
+
+# An identifier destructured out of the request — `const { userId } = req.params`
+# in Express, or a `params.get("id")` read. This is the shape a handler takes
+# when the route declaration lives in another file.
+_PARAMS_DESTRUCTURE = re.compile(
+    r"""(?xi)
+    (?:
+        \{\s*(\w*id\w*)\s*[,}][^}]*\}\s*=\s*\w*(?:req|request)\.(?:params|query|body)
+      | \w*(?:req|request)\.(?:params|query)\.(\w*id\w*)
+      | \w*(?:req|request)\.(?:params|query)\[["'](\w*id\w*)["']\]
+    )
+    """
+)
+
+
+def _function_spans(text: str) -> list[tuple[str, int, int]]:
+    """Top-level functions as ``(name, start, end)``.
+
+    Covers the declaration forms the languages this project reads use. Used by
+    the handler-only rules, which have no route decorator to anchor to.
+    """
+    starts = [
+        ((m.group(1) or m.group(2) or ""), m.start())
+        for m in re.finditer(
+            r"(?m)^\s*(?:async\s+)?(?:def|function|export\s+(?:async\s+)?function|"
+            r"const|let|var|static|public|private)\s+(\w+)\s*[=(]"
+            # A handler assigned to an instance or prototype:
+            # `this.displayAllocations = (req, res) => {`. Express code uses
+            # this shape constantly and it matches none of the declaration
+            # keywords above.
+            r"|^\s*this\.(\w+)\s*=\s*(?:async\s*)?\(",
+            text,
+        )
+    ]
+    spans: list[tuple[str, int, int]] = []
+    for index, (name, start) in enumerate(starts):
+        end = starts[index + 1][1] if index + 1 < len(starts) else len(text)
+        spans.append((name, start, end))
+    return spans
 
 
 @dataclass(frozen=True)
@@ -317,6 +364,91 @@ def detect_route_posture(path: str, text: str) -> Iterator[Finding]:
                     symbol=route.handler,
                     detail=f"{route.path} reads a record by {ident} with no ownership check",
                 )
+
+        # --- unrestricted_file_type ---
+        if _CALLER_FILENAME.search(body) and _FILE_SAVE.search(body):
+            if not _TYPE_CHECK.search(body):
+                yield Finding(
+                    category="unrestricted_file_type",
+                    file=path,
+                    line=_line_of(text, route.body_start),
+                    symbol=route.handler,
+                    detail="a caller-named upload is stored with no type or extension check",
+                )
+
+        # --- verbose_error ---
+        trace = _TRACEBACK_RETURN.search(body)
+        if trace:
+            yield Finding(
+                category="verbose_error",
+                file=path,
+                line=_line_of(text, route.body_start + trace.start()),
+                symbol=route.handler,
+                detail="an exception detail is returned to the caller",
+            )
+
+        # --- ssrf, and its metadata variant ---
+        # A fetch whose target comes from the request, with no host or address
+        # restriction, reaches the cloud metadata service by construction —
+        # 169.254.169.254 is simply one more URL the caller may name. The
+        # corpus models these as two classes because the *impact* differs
+        # (instance credentials rather than a proxied response), but they are
+        # one defect in the code, at one line, and both are reported from here.
+        if _UNRESTRICTED_FETCH.search(body) and _REQUEST_DERIVED_URL.search(body):
+            if not _HOST_RESTRICTION.search(body):
+                anchor = _UNRESTRICTED_FETCH.search(body)
+                line = _line_of(text, route.body_start + anchor.start())
+                yield Finding(
+                    category="ssrf",
+                    file=path,
+                    line=line,
+                    symbol=route.handler,
+                    detail="a request-named URL is fetched with no host restriction",
+                )
+                yield Finding(
+                    category="ssrf_metadata",
+                    file=path,
+                    line=line,
+                    symbol=route.handler,
+                    detail=(
+                        "the same unrestricted fetch reaches the link-local metadata "
+                        "range, so instance credentials are readable"
+                    ),
+                )
+
+    # --- idor, handler-only shape ---
+    # Express separates the route from its handler: `app.get("/x/:id", h)` lives
+    # in a router file while `h` sits in a controller and never sees a route
+    # decorator. A detector that only recognised the co-located shape missed
+    # every IDOR in a conventionally-structured Express app, which is most of
+    # them — including NodeGoat's, the best-known vulnerable Node application
+    # there is.
+    for name, start, end in _function_spans(text):
+        body = text[start:end]
+        destructured = _PARAMS_DESTRUCTURE.search(body)
+        if not destructured:
+            continue
+        # The function must be a request handler: its parameters include a
+        # request-shaped name. Without this, every DAO method that takes an
+        # identifier would be reported as an IDOR.
+        head = text[start : start + 160]
+        if not re.search(r"(?i)\b(req|request)\b\s*[,)]", head):
+            continue
+        if not _RECORD_FETCH.search(body):
+            continue
+        if _OWNERSHIP_CHECK.search(body):
+            continue
+        ident = next((g for g in destructured.groups() if g), "the identifier")
+        yield Finding(
+            category="idor",
+            file=path,
+            line=_line_of(text, start),
+            symbol=name,
+            detail=(
+                f"{ident} comes from the request and reaches a record lookup "
+                "with no ownership check"
+            ),
+        )
 
         # --- unrestricted_file_type ---
         if _CALLER_FILENAME.search(body) and _FILE_SAVE.search(body):

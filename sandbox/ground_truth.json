@@ -1,0 +1,35 @@
+{
+  "note": "Ground truth for the third-party challenge apps under sandbox/challenges/. Each entry names a vulnerability the app's own documentation, issue tracker or security notes describe as present at the pinned commit. This is the answer key the runner scores against.",
+  "why_third_party": "A corpus written by the same author as the detectors measures agreement, not capability — both sides share a blind spot and the score looks good. These apps were seeded by people with no interest in what RedFall finds, which is the only input that can falsify the holdout gap.",
+  "targets": {
+    "nodegoat": {
+      "repo": "https://github.com/OWASP/NodeGoat",
+      "commit": "c5cb68a7084e4ae7dcc60e6a98768720a81841e8",
+      "language": "javascript",
+      "note": "Documented as containing the OWASP Top 10 in a Node/Express app. Entries below are the ones its own tutorial pages and code comments name.",
+      "expected": [
+        {"id": "NG-01", "category": "idor", "file": "app/routes/allocations.js", "line": 10, "note": "A4 Insecure DOR: userId taken from req.params, not the session"},
+        {"id": "NG-02", "category": "missing_rate_limit", "file": "app/routes/session.js", "line": 1, "note": "A2 Broken Auth: no throttle on the login route"},
+        {"id": "NG-03", "category": "sqli", "file": "app/data/user-dao.js", "line": 1, "note": "A1 Injection: user lookup built by string concatenation"},
+        {"id": "NG-04", "category": "ssrf", "file": "app/routes/research.js", "line": 1, "note": "A10 SSRF: the research route fetches a caller-supplied URL"},
+        {"id": "NG-05", "category": "xss_stored", "file": "app/routes/memos.js", "line": 1, "note": "A7 XSS: memo body stored and rendered unescaped"},
+        {"id": "NG-06", "category": "cmd_injection", "file": "app/routes/contributions.js", "line": 1, "note": "A1 Injection: a shell call built from request data"},
+        {"id": "NG-07", "category": "hardcoded_secret", "file": "app/data/user-dao.js", "line": 1, "note": "A2: a committed credential or weak hash on the password path"}
+      ]
+    },
+    "dvna": {
+      "repo": "https://github.com/appsecco/dvna",
+      "commit": "9ba473add536f66ac9007966acb2a775dd31277a",
+      "language": "javascript",
+      "note": "Damn Vulnerable Node Application: a small Express app seeded per OWASP Top 10.",
+      "expected": [
+        {"id": "DV-01", "category": "sqli", "file": "core/appHandler.js", "line": 1, "note": "A1 Injection through a raw query"},
+        {"id": "DV-02", "category": "cmd_injection", "file": "core/appHandler.js", "line": 1, "note": "A1 Injection: child_process with request input"},
+        {"id": "DV-03", "category": "unrestricted_file_type", "file": "core/appHandler.js", "line": 1, "note": "A4: upload with no type restriction"},
+        {"id": "DV-04", "category": "ssrf", "file": "core/appHandler.js", "line": 1, "note": "A10 SSRF against a caller-supplied URL"},
+        {"id": "DV-05", "category": "verbose_error", "file": "core/appHandler.js", "line": 1, "note": "A6: stack traces returned to the client"},
+        {"id": "DV-06", "category": "missing_rate_limit", "file": "routes/main.js", "line": 1, "note": "A2: no throttle on the auth routes"}
+      ]
+    }
+  }
+}
