@@ -32,7 +32,7 @@ reproduces a run.
 
 ## The measured result
 
-**Mean recall: 31% — 4 of 13 documented vulnerabilities.**
+**Mean recall: 38.1% — 5 of 13 documented vulnerabilities.**
 
 | App | Found | Recall | Findings reported |
 | --- | --- | --- | --- |
@@ -45,7 +45,7 @@ Read against the other two numbers this project publishes:
 | --- | --- | --- |
 | `pythonbank` (tuned) | 100% | Agreement with detectors written against it |
 | `vulnbank` (holdout) | 21.9% | A different codebase, same author |
-| **Real apps** | **31%** | Code nobody here touched |
+| **Real apps** | **38.1%** | Code nobody here touched |
 
 **The tuned 100% is not the claim.** The two numbers that mean anything are the
 holdout and this one, and both say the same thing: the engine finds roughly a
@@ -78,6 +78,41 @@ The second is the third instance of the same defect class in this project's
 history, after `subprocess.run` and the taint-only recall gate. A scorer that
 silently drops findings looks exactly like an engine that never found them, and
 the only defence is feeding it output someone has checked by hand.
+
+## The generalisation fix: infer sinks from what a project declares
+
+The single largest cause of the gap was a **fixed receiver table**. The engine
+recognised `axios`, `got`, `http`, `superagent` and a handful more, and was
+blind to every client nobody enumerated. NodeGoat fetches with `needle`; run it
+before this change and the engine classifies **zero sinks** and reports nothing
+— which is indistinguishable from a clean application, and is the most
+dangerous way for a measurement to fail.
+
+Adding `needle` to the set fixes one app and teaches nothing. The next app uses
+`ky`, or `undici`, or `node-fetch`, and the engine is blind again.
+
+**A project already says what its libraries do.** It has to, in a manifest that
+names every dependency for the code to run at all. `src/redfall/ingestion/
+library_sinks.py` reads those manifests and classifies each library by its
+declared identity: a curated seed first, then whole-word name morphology, then
+declared metadata. Unknown stays unknown, and unknown means not-a-sink — a
+false sink produces a taint path to something that cannot be exploited, which
+is the finding this project most wants to avoid.
+
+The effect on NodeGoat's SSRF, end to end:
+
+```
+before:  sinks classified: []
+after:   needle.get  ->  fetch
+         taint path:  req.query -> url (line 15) -> needle.get (line 16)
+```
+
+**A second bug surfaced while wiring it.** `symbols.py` and `taint.py` had each
+grown their own sink classifier, and only one of them learned about declared
+libraries — so the first reported `needle.get` as a sink while the second,
+which actually decides whether a taint path exists, still returned nothing.
+Two tables that disagree produce a scanner that reports no sinks. Both now
+consult one registry, and a test asserts they agree.
 
 ## What the misses say
 

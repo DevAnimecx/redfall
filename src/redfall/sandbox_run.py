@@ -163,6 +163,18 @@ def scan_target(name: str) -> TargetResult:
         result.fetched = False
         return result
 
+    # The tree's own library vocabulary, before any file is walked — the same
+    # step `ingest()` performs. Without it the sink classifiers fall back to
+    # their built-in tables, and an app that fetches with `needle` reports no
+    # sinks at all: a scanner that sees nothing looks exactly like a clean
+    # application, which is the most dangerous way for a measurement to fail.
+    from .ingestion import symbols as symbols_mod
+    from .ingestion.library_sinks import library_sinks
+
+    symbols_mod.use_library_kinds(
+        {lib: inf.kind for lib, inf in library_sinks(root).items()}
+    )
+
     for path in source_files(root):
         rel = str(path.relative_to(root)).replace("\\", "/")
         try:
@@ -181,6 +193,8 @@ def scan_target(name: str) -> TargetResult:
                 continue
             seen.add(key)
             result.findings.append(row)
+
+    symbols_mod.clear_library_kinds()
 
     for expectation in expected_for(name):
         if any(expectation.matches(finding) for finding in result.findings):

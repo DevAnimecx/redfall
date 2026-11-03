@@ -22,6 +22,8 @@ from .git_repo import GitInfo, inspect as inspect_git
 from .inter import CallEdge, InterFile, analyse_inter
 from .inter_ts import analyse_inter_ts
 from .languages import support_for
+from .library_sinks import library_sinks
+from . import symbols as symbols_mod
 from .symbols import FileSymbols
 from .taint import Taint
 
@@ -78,6 +80,10 @@ class IngestResult:
     mount_prefixes: dict[str, str] = field(default_factory=dict)
     # every cross-function call the Python pass could resolve without guessing
     call_edges: list[CallEdge] = field(default_factory=list)
+    #: Libraries this tree declares that classify as sinks, with the signal
+    #: that classified each. Recorded so a finding can be traced to the
+    #: library inference that made its sink visible.
+    libraries: dict[str, dict] = field(default_factory=dict)
 
     @property
     def routes(self) -> list[tuple[str, object]]:
@@ -268,6 +274,16 @@ def ingest(
     result = IngestResult(scan_id=scan_id, target=root, git=inspect_git(root))
     result.dependencies, result.package_json = read_dependencies(root)
 
+    # Give the language engines this tree's own library vocabulary before any
+    # file is walked, and take it away when the scan ends. The classifiers
+    # consult the *project's declared dependencies* when a call's receiver is
+    # not in their built-in table, so an HTTP client nobody enumerated —
+    # `needle`, in NodeGoat's case — is still recognised as a sink rather than
+    # leaving the engine reporting zero sinks and looking like a clean app.
+    declared = library_sinks(root)
+    symbols_mod.use_library_kinds({name: inf.kind for name, inf in declared.items()})
+    result.libraries = {name: inf.to_wire() for name, inf in declared.items()}
+
     # TypeScript and Python files kept for the interprocedural passes: they
     # need the parsed tree and the symbols of every file at once, not one file
     # in isolation.
@@ -363,6 +379,7 @@ def ingest(
         from .persist import persist
 
         persist(result, session)
+    symbols_mod.clear_library_kinds()
     return result
 
 

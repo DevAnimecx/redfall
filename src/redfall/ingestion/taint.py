@@ -254,6 +254,22 @@ def _sink_label(parsed: ParsedFile, node: Node) -> tuple[str, str] | None:
     else:
         obj, prop, label = "", _text(parsed, fn), _text(parsed, fn)
 
+    # A call on a library this project declares is classified by *what that
+    # library is*, before the built-in name tables are consulted.
+    #
+    # This module and `symbols.py` each grew their own sink classifier, and
+    # only one of them learned about project-declared libraries. So `symbols`
+    # reported `needle.get` as a fetch sink while this function — the one that
+    # actually decides whether a taint path exists — still returned None, and
+    # the finding never appeared. Two tables that disagree produce a scanner
+    # that reports no sinks, which is indistinguishable from a clean app.
+    if obj:
+        from .symbols import library_kind
+
+        declared = library_kind(obj)
+        if declared:
+            return label, declared
+
     if prop not in DANGEROUS_SINK_CALLS:
         return None
     if prop == "query" and obj not in ("pool", "client", "db", "pg", "connection", "knex"):

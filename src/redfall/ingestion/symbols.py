@@ -17,6 +17,44 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+# ---------------------------------------------------------------------------
+# The tree's own library vocabulary.
+#
+# A fixed receiver table is why this engine does not generalise: it recognises
+# the HTTP clients somebody enumerated and is blind to every other one. The
+# map below is filled once per scan from the *project's declared dependencies*
+# — a manifest that must name every library for the code to run at all, and
+# whose names and metadata say what each library does.
+#
+# It is a module-level registry because the `LanguageSupport` contract calls
+# `symbols(parsed)` with no tree context, and widening that signature would
+# change every language engine to serve one. `ingest()` sets it before walking
+# a tree and clears it after, so one scan's vocabulary cannot leak into the
+# next.
+#
+# Empty means "no extra libraries known", which is the previous behaviour: a
+# host that never calls `use_library_kinds` sees exactly the built-in table.
+_LIBRARY_KINDS: dict[str, str] = {}
+
+
+def use_library_kinds(kinds: dict[str, str]) -> None:
+    """Set the extra sink vocabulary for the tree about to be walked."""
+    global _LIBRARY_KINDS
+    _LIBRARY_KINDS = dict(kinds)
+
+
+def clear_library_kinds() -> None:
+    """Drop the extra vocabulary so it cannot leak between scans."""
+    global _LIBRARY_KINDS
+    _LIBRARY_KINDS = {}
+
+
+def library_kind(receiver: str) -> str | None:
+    """The sink kind of a project-declared library, or None if not one."""
+    if not receiver:
+        return None
+    return _LIBRARY_KINDS.get(receiver.strip().lower())
+
 from tree_sitter import Node
 
 from .tree import ParsedFile, end_line_of, line_of
@@ -434,7 +472,9 @@ def extract_symbols(parsed: ParsedFile) -> FileSymbols:
         receiver, prop = _member_parts(parsed, fn_node)
 
         # Database calls
-        if prop == "query" and receiver in DB_RECEIVERS:
+        if prop == "query" and (
+            receiver in DB_RECEIVERS or library_kind(receiver) == "db"
+        ):
             args = node.child_by_field_name("arguments")
             arg_list = [c for c in (args.children if args else []) if c.type not in ("(", ")", ",")]
             sql_text = _text(parsed, arg_list[0]) if arg_list else ""
@@ -450,7 +490,9 @@ def extract_symbols(parsed: ParsedFile) -> FileSymbols:
             continue
 
         # Command execution
-        if prop in EXEC_NAMES or (not receiver and prop in EXEC_NAMES):
+        if prop in EXEC_NAMES or (
+            receiver and library_kind(receiver) == "exec" and prop
+        ) or (not receiver and prop in EXEC_NAMES):
             args = node.child_by_field_name("arguments")
             arg_list = [c for c in (args.children if args else []) if c.type not in ("(", ")", ",")]
             result.calls.append(
@@ -465,7 +507,7 @@ def extract_symbols(parsed: ParsedFile) -> FileSymbols:
             continue
 
         # Filesystem operations
-        if receiver in FS_RECEIVERS and prop:
+        if (receiver in FS_RECEIVERS or library_kind(receiver) == "fs") and prop:
             result.calls.append(
                 CallSymbol(
                     kind="fs",
@@ -478,7 +520,15 @@ def extract_symbols(parsed: ParsedFile) -> FileSymbols:
             continue
 
         # Outbound HTTP
-        if prop == "fetch" or (receiver in FETCH_RECEIVERS and prop in ("get", "post", "put", "delete", "request")):
+        # The receiver is checked against the built-in table and, failing that,
+        # against the libraries this project's manifest declares. Without the
+        # second test the engine is blind to every HTTP client nobody
+        # enumerated: NodeGoat fetches with `needle`, which produced *zero*
+        # classified sinks and therefore no taint path at all.
+        if prop == "fetch" or (
+            (receiver in FETCH_RECEIVERS or library_kind(receiver) == "fetch")
+            and prop in ("get", "post", "put", "delete", "request")
+        ):
             args = node.child_by_field_name("arguments")
             arg_list = [c for c in (args.children if args else []) if c.type not in ("(", ")", ",")]
             result.calls.append(
